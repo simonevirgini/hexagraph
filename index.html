@@ -160,10 +160,12 @@
       <option value="none">no</option>
       <option value="mh">specchio ↔</option>
       <option value="mv">specchio ↕</option>
+      <option value="cross">croce ↔+↕</option>
       <option value="r2">ruota ×2</option>
       <option value="r3">ruota ×3</option>
       <option value="r6">ruota ×6</option>
     </select>
+    <button class="btn ic on" id="symAxes" title="mostra/nascondi le celle-guida degli assi di simmetria">⌖</button>
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- trasformazioni: gruppo selezionato, o pennello -->
@@ -502,8 +504,8 @@ function render(hoverC,hoverR){
   if(previewing) return;
   const acc=(getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#7cc4ff').trim();
   const acc2=(getComputedStyle(document.documentElement).getPropertyValue('--accent2')||'#2b7fff').trim();
-  // assi della simmetria attiva: le celle che coincidono con la propria immagine, in blu tenue
-  if(symMode!=='none'){ ctx.save(); ctx.globalAlpha=0.45; ctx.strokeStyle=acc2; ctx.lineJoin='round';
+  // assi della simmetria attiva (disattivabili col bottone ⌖): celle-guida in blu tenue
+  if(symMode!=='none' && showAxes){ ctx.save(); ctx.globalAlpha=0.45; ctx.strokeStyle=acc2; ctx.lineJoin='round';
     for(const [c,r] of symAxisCells()){ const [cx,cy]=cellCenter(c,r);
       ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R); ctx.lineWidth=2.5/R; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); }
     ctx.restore(); }
@@ -608,7 +610,8 @@ function snapshot(){ const s=docState(); if(undoStack.length && undoStack[undoSt
 function brushCell(){ const c={t:brush.tile,rot:brush.rot,flip:brush.flip,inv:brush.inv,sw:brush.sw}; if(brush.col)c.col=brush.col; return c; }
 /* ---- SIMMETRIE: il timbro si ripete attorno al CENTRO della tela (niente assi disegnati) ----
    Ritorna le copie {c,r,rot,flip} con l'orientazione giusta per ognuna (specchi riflettono la tessera, rotazioni la ruotano). */
-let symMode='none';   // 'none' | 'mh' specchio ↔ | 'mv' specchio ↕ | 'r2' | 'r3' | 'r6'
+let symMode='none';   // 'none' | 'mh' ↔ | 'mv' ↕ | 'cross' ↔+↕ | 'r2' | 'r3' | 'r6'
+let showAxes=localStorage.getItem('hexagraph.showaxes')!=='0';   // celle-guida degli assi on/off
 function symTargets(c,r){
   const out=[{c,r,rot:brush.rot,flip:brush.flip}];
   if(symMode==='none') return out;
@@ -617,12 +620,16 @@ function symTargets(c,r){
   const seen=new Set([key(c,r)]);
   const add=(nc,nr,rot,flip)=>{ if(nc<0||nc>=cols||nr<0||nr>=rows) return; const k=key(nc,nr);
     if(seen.has(k)) return; seen.add(k); out.push({c:nc,r:nr,rot:((rot%6)+6)%6,flip}); };
-  if(symMode==='mh'){                      // specchio orizzontale: colonna riflessa attorno a cc (stessa parità → stessa riga)
-    add(2*cc-c, r, -brush.rot, !brush.flip);
-  } else if(symMode==='mv'){               // specchio verticale = specchio ↔ + rotazione 180° attorno al centro
-    const p=toCube(2*cc-c, r).map((v,i)=>v-C[i]);
+  const mirrorH=()=>add(2*cc-c, r, -brush.rot, !brush.flip);   // specchio ↔: colonna riflessa attorno a cc (stessa parità → stessa riga)
+  const mirrorV=()=>{ const p=toCube(2*cc-c, r).map((v,i)=>v-C[i]);   // specchio ↕ = ↔ + rotazione 180°
+    const [nc,nr]=fromCube(-p[0]+C[0], -p[2]+C[2]); add(nc, nr, 3-brush.rot, !brush.flip); };
+  if(symMode==='mh'){ mirrorH(); }
+  else if(symMode==='mv'){ mirrorV(); }
+  else if(symMode==='cross'){              // croce: ↔ + ↕ + il loro composto (rotazione 180°) = 4 copie
+    mirrorH(); mirrorV();
+    const p=toCube(c,r).map((v,i)=>v-C[i]);
     const [nc,nr]=fromCube(-p[0]+C[0], -p[2]+C[2]);
-    add(nc, nr, 3-brush.rot, !brush.flip);
+    add(nc, nr, brush.rot+3, brush.flip);
   } else {                                 // rotazionale ×N attorno al centro
     const N=+symMode.slice(1), step=6/N;
     let p=toCube(c,r).map((v,i)=>v-C[i]);
@@ -643,13 +650,23 @@ function symAxisCells(){
   const out=[];
   if(symMode!=='none'){
     const cc=Math.round((cols-1)/2), rc=Math.round((rows-1)/2), C=toCube(cc,rc);
-    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
-      let m;
-      if(symMode==='mh') m=[2*cc-c, r];
-      else if(symMode==='mv'){ const p=toCube(2*cc-c,r).map((v,i)=>v-C[i]); m=fromCube(-p[0]+C[0],-p[2]+C[2]); }
-      else { const step=6/(+symMode.slice(1)); let p=toCube(c,r).map((v,i)=>v-C[i]);
-        for(let s=0;s<step;s++) p=[-p[2],-p[0],-p[1]]; m=fromCube(p[0]+C[0],p[2]+C[2]); }
-      if(m[0]===c&&m[1]===r) out.push([c,r]);
+    if(symMode==='mh'||symMode==='mv'||symMode==='cross'){
+      // specchi: le celle che coincidono con la propria immagine
+      for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
+        let fixed=false;
+        if(symMode!=='mv'){ fixed=fixed||(2*cc-c===c && true); }   // asse ↔: colonna centrale
+        if(symMode!=='mh'){ const p=toCube(2*cc-c,r).map((v,i)=>v-C[i]); const m=fromCube(-p[0]+C[0],-p[2]+C[2]);
+          fixed=fixed||(m[0]===c&&m[1]===r); }                     // asse ↕
+        if(fixed) out.push([c,r]);
+      }
+    } else {
+      // rotazionali: il centro + N raggi guida nelle direzioni esagonali (per VEDERE la simmetria)
+      out.push([cc,rc]);
+      const DIRS=[[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]];
+      const N=+symMode.slice(1), step=6/N;
+      for(let k=0;k<N;k++){ const d=DIRS[(k*step)%6];
+        for(let t=1;;t++){ const [nc,nr]=fromCube(C[0]+d[0]*t, C[2]+d[2]*t);
+          if(nc<0||nc>=cols||nr<0||nr>=rows) break; out.push([nc,nr]); } }
     }
   }
   axisCache={key:ck,cells:out};
@@ -1066,7 +1083,7 @@ let favTiles=[], recTiles=[];
 try{ favTiles=JSON.parse(localStorage.getItem('hexagraph.favs')||'[]'); }catch(e){}
 try{ recTiles=JSON.parse(localStorage.getItem('hexagraph.rectiles')||'[]'); }catch(e){}
 function noteRecentTile(id){ if(recTiles[0]===id) return;
-  recTiles=[id,...recTiles.filter(x=>x!==id)].slice(0,8); localStorage.setItem('hexagraph.rectiles',JSON.stringify(recTiles)); buildQuickTiles(); }
+  recTiles=[id,...recTiles.filter(x=>x!==id)].slice(0,6); localStorage.setItem('hexagraph.rectiles',JSON.stringify(recTiles)); buildQuickTiles(); }
 function toggleFav(id){ favTiles=favTiles.includes(id)?favTiles.filter(x=>x!==id):[...favTiles,id];
   localStorage.setItem('hexagraph.favs',JSON.stringify(favTiles)); buildQuickTiles(); }
 /* stesso comportamento delle tessere di libreria: clic seleziona (e deposita in modalità seleziona),
@@ -1242,6 +1259,9 @@ function setTool(t){ tool=t; lassoPts.length=0;
   $('bucket').classList.toggle('on',t==='bucket');
   updateCursor(); render(); }
 $('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); render(); };
+$('symAxes').onclick=()=>{ showAxes=!showAxes; $('symAxes').classList.toggle('on',showAxes);
+  localStorage.setItem('hexagraph.showaxes',showAxes?'1':'0'); render(); };
+$('symAxes').classList.toggle('on',showAxes);
 $('toolSelect').onclick=()=>setTool('select');
 $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
 $('toolDraw').onclick=()=>setTool(tool==='draw'?'select':'draw');
@@ -1660,7 +1680,9 @@ $('exportSvg').onclick=()=>{
   let bg=''; if(bgImage){ const url=bgToDataURL(); const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
     bg=`<image href="${url}" x="${((W-iw*s)/2).toFixed(1)}" y="${((H-ih*s)/2).toFixed(1)}" width="${(iw*s).toFixed(1)}" height="${(ih*s).toFixed(1)}" opacity="${bgOpacity}"/>`; }
   const body=`<defs>${defs}</defs><g transform="translate(${cw/2},${ch/2}) rotate(${boardRot}) translate(${-W/2},${-H/2})">${bg}${layersSvg}</g>`;
-  download('hexglyph.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${cw}" height="${ch}" viewBox="0 0 ${cw} ${ch}">${body}</svg>`));
+  // dimensioni FISICHE in mm (lato lungo = 280mm): senza, Illustrator legge i px della tavola e l'artboard viene enorme
+  const mmScale=280/Math.max(cw,ch), wmm=(cw*mmScale).toFixed(1), hmm=(ch*mmScale).toFixed(1);
+  download('hexglyph.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${wmm}mm" height="${hmm}mm" viewBox="0 0 ${cw} ${ch}">${body}</svg>`));
 };
 function bgToDataURL(){ const tc=document.createElement('canvas'); tc.width=bgImage.naturalWidth||bgImage.width; tc.height=bgImage.naturalHeight||bgImage.height; tc.getContext('2d').drawImage(bgImage,0,0); try{return tc.toDataURL('image/jpeg',0.85);}catch(e){return '';} }
 
