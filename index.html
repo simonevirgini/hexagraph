@@ -61,6 +61,9 @@
   .fthumb{position:relative;flex:0 0 auto;border:1px solid var(--line);border-radius:3px;cursor:pointer;background:#fff;padding:0;overflow:hidden}
   .fthumb.act{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   .fthumb .fn{position:absolute;left:2px;top:1px;font-size:9px;color:#333;background:rgba(255,255,255,.75);padding:0 3px;border-radius:2px;pointer-events:none}
+  .fthumb .fx{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;font-size:11px;color:#333;background:rgba(255,255,255,.9);border:1px solid #aaa;border-radius:50%;cursor:pointer;opacity:0;transition:opacity .1s}
+  .fthumb:hover .fx{opacity:1}
+  .fthumb .fx:hover{color:#fff;background:#ff5a3c;border-color:#ff5a3c}
   .fthumb canvas{display:block}
   #onPast,#onNext{width:26px;height:26px;padding:2px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer;flex:0 0 auto}
   h1{font-size:15px; margin:0; letter-spacing:.3px}
@@ -287,7 +290,7 @@
           <kbd>r</kbd>/<kbd>f</kbd> ruota/specchia il GRUPPO intero (rigido) · <kbd>⇧R</kbd>/<kbd>⇧F</kbd> ruota/specchia ogni SINGOLA tessera · <kbd>i</kbd> inverti · doppio clic su una tessera nella TELA = seleziona tutte le identiche (⇧ aggiunge) · clic su uno swatch = colora la selezione · doppio clic su una tessera in LIBRERIA = sostituisce le tessere selezionate<br>
           <kbd>⇧C</kbd> copia · <kbd>v</kbd> incolla · <kbd>⇧E</kbd> cancella · <kbd>⇧D</kbd> svuota · <kbd>⇧Q</kbd> riempi · <kbd>⇧B</kbd> sfondo · <kbd>⇧G</kbd> forgia (1 cella) · <kbd>⇧H⇧J⇧K⇧L</kbd> sposta
         </div>
-        <div class="legend" style="margin-top:6px"><b>Mouse</b>: click = timbra · trascina = dipingi · destro = cancella · <kbd>⇧</kbd>+trascina = seleziona · <a href="mobile.html" style="color:var(--accent);text-decoration:none">📱 mobile</a></div>
+        <div class="legend" style="margin-top:6px"><b>Mouse</b>: click = timbra · trascina = dipingi · destro = cancella · <kbd>⇧</kbd>+trascina = seleziona</div>
       </details>
     </div>
   </aside>
@@ -308,6 +311,7 @@
   <input type="color" id="onNext" value="#2b7fff" title="colore onion skin del frame SUCCESSIVO">
   <div class="sep"></div>
   <span id="frLabel">1/1</span>
+  <button class="btn" style="flex:0 0 auto" id="frGif" title="esporta una GIF animata in loop (fps correnti, lato lungo max 800px)">GIF</button>
   <button class="btn" style="flex:0 0 auto" id="frVideo" title="esporta un video .webm (2 giri di loop, fps correnti)">WEBM</button>
   <button class="btn" style="flex:0 0 auto" id="frExport" title="scarica tutti i frame come sequenza PNG">PNG ×n</button>
 </div>
@@ -824,10 +828,14 @@ function arrowDir(sx,sy){ const a=boardRot*Math.PI/180, c=Math.round(Math.cos(a)
   return [c*sx+s*sy, -s*sx+c*sy]; }
 
 /* ---- vista: zoom + pan (stile grafino/Blender) ---- */
-/* pan e zoom vivono nella trasformazione di disegno: ogni cambio = ridisegno (canvas piccolo, costa poco) */
-function applyPan(){ render(); }
+/* pan e zoom vivono nella trasformazione di disegno: ogni cambio = ridisegno.
+   Gli eventi rotella/trascinamento arrivano a raffica → i render sono coalescati in un frame (rAF). */
+let rafPending=false;
+function scheduleRender(){ if(rafPending) return; rafPending=true;
+  requestAnimationFrame(()=>{ rafPending=false; render(); }); }
+function applyPan(){ scheduleRender(); }
 function updateZoomLabel(){ const p=document.getElementById('zPct'); if(p) p.textContent=Math.round(view.zoom*100)+'%'; }
-function applyView(){ updateZoomLabel(); render(); }
+function applyView(){ updateZoomLabel(); scheduleRender(); }
 /* imposta lo zoom mantenendo fisso il punto (sx,sy) relativo allo stage (zoom centrato sul puntatore) */
 function setZoomAt(sx,sy,nz){ nz=Math.min(8,Math.max(0.12,nz));
   view.x=sx-(sx-view.x)*(nz/view.zoom); view.y=sy-(sy-view.y)*(nz/view.zoom); view.zoom=nz; applyView(); }
@@ -1432,6 +1440,8 @@ function buildTimeline(){
     const d=document.createElement('div'); d.className='fthumb'+(i===anim.cur?' act':''); d.dataset.i=i;
     const cv=thumbCanvas(); drawFrameOn(cv, i===anim.cur?layers:fd); d.appendChild(cv);
     const n=document.createElement('span'); n.className='fn'; n.textContent=i+1; d.appendChild(n);
+    if(anim.frames.length>1){ const x=document.createElement('span'); x.className='fx'; x.textContent='×'; x.title='elimina questo frame';
+      x.onclick=ev=>{ ev.stopPropagation(); deleteFrame(i); }; d.appendChild(x); }
     d.onclick=()=>{ stopPlay(); if(i!==anim.cur) animGoto(i); };
     d.draggable=true;
     d.ondragstart=e=>{ dragFrame=i; e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; };   // setData: serve a Firefox/Safari per avviare il drag
@@ -1469,7 +1479,14 @@ $('animBtn').onclick=()=>{
 };
 $('frAdd').onclick=()=>{ stopPlay(); animCommit(); anim.frames.splice(anim.cur+1,0,JSON.parse(JSON.stringify(anim.frames[anim.cur]))); buildTimeline(); animShow(anim.cur+1); };
 $('frNew').onclick=()=>{ stopPlay(); animCommit(); anim.frames.splice(anim.cur+1,0,layersData().map(L=>({...L,cells:[]}))); buildTimeline(); animShow(anim.cur+1); };
-$('frDel').onclick=()=>{ stopPlay(); if(anim.frames.length<=1)return; anim.frames.splice(anim.cur,1); buildTimeline(); animShow(Math.min(anim.cur,anim.frames.length-1)); };
+/* elimina un frame qualsiasi (× sulla miniatura o ✕ per il corrente) */
+function deleteFrame(i){
+  if(anim.frames.length<=1) return; stopPlay();
+  if(i===anim.cur){ anim.frames.splice(i,1); buildTimeline(); animShow(Math.min(i,anim.frames.length-1)); return; }
+  animCommit(); anim.frames.splice(i,1); if(i<anim.cur) anim.cur--;
+  updateOnionLayers(); buildTimeline(); render();
+}
+$('frDel').onclick=()=>deleteFrame(anim.cur);
 $('frOnion').onclick=()=>{ anim.onion=!anim.onion; $('frOnion').classList.toggle('on',anim.onion); render(); };
 const saveOnion=()=>localStorage.setItem('hexagraph.onion',JSON.stringify({past:anim.pastCol,next:anim.nextCol}));
 $('onPast').value=anim.pastCol; $('onNext').value=anim.nextCol;
@@ -1486,6 +1503,89 @@ $('frExport').onclick=()=>{
   for(let i=0;i<anim.frames.length;i++){ animShow(i); drawExport(); download('hexglyph_f'+String(i+1).padStart(2,'0')+'.png', board.toDataURL('image/png')); }
   animShow(keep);
 };
+/* ---- encoder GIF89a minimale, zero dipendenze ----
+   Palette: colori quantizzati a 4 bit/canale, i 256 bucket più frequenti (l'arte a tessere ne usa pochi).
+   LZW standard con reset del dizionario a 4096 codici. Loop infinito via estensione NETSCAPE. */
+function gifPalette(imgs){
+  const count=new Map();
+  for(const im of imgs){ const d=im.data;
+    for(let i=0;i<d.length;i+=4){ const k=((d[i]>>4)<<8)|((d[i+1]>>4)<<4)|(d[i+2]>>4); count.set(k,(count.get(k)||0)+1); } }
+  const chosen=[...count.entries()].sort((a,b)=>b[1]-a[1]).slice(0,256).map(([k])=>k);
+  const pal=new Uint8Array(768);
+  chosen.forEach((k,i)=>{ pal[i*3]=((k>>8)&15)*17; pal[i*3+1]=((k>>4)&15)*17; pal[i*3+2]=(k&15)*17; });
+  const lut=new Map(chosen.map((k,i)=>[k,i]));
+  const index=(r,g,b)=>{ const k=((r>>4)<<8)|((g>>4)<<4)|(b>>4);
+    if(lut.has(k)) return lut.get(k);
+    let best=0,bd=1e9; const kr=(k>>8)&15,kg=(k>>4)&15,kb=k&15;
+    for(let i=0;i<chosen.length;i++){ const c=chosen[i]; const dr=kr-((c>>8)&15),dg=kg-((c>>4)&15),db=kb-(c&15);
+      const d2=dr*dr+dg*dg+db*db; if(d2<bd){bd=d2;best=i;} }
+    lut.set(k,best); return best; };
+  return {pal,index};
+}
+function lzwEncode(minCode,px){
+  const clear=1<<minCode, eoi=clear+1, bytes=[];
+  let codeSize=minCode+1, dict=new Map(), next=eoi+1, acc=0, nbits=0;
+  const emit=c=>{ acc|=c<<nbits; nbits+=codeSize; while(nbits>=8){ bytes.push(acc&255); acc>>=8; nbits-=8; } };
+  emit(clear);
+  let prefix=px[0];
+  for(let i=1;i<px.length;i++){
+    const k=prefix*256+px[i];
+    if(dict.has(k)){ prefix=dict.get(k); continue; }
+    emit(prefix);
+    dict.set(k,next);
+    if(next===(1<<codeSize) && codeSize<12) codeSize++;
+    next++;
+    if(next>=4096){ emit(clear); dict.clear(); next=eoi+1; codeSize=minCode+1; }
+    prefix=px[i];
+  }
+  emit(prefix); emit(eoi);
+  if(nbits>0) bytes.push(acc&255);
+  return bytes;
+}
+function makeGIF(imgs,w,h,delayCs){
+  const {pal,index}=gifPalette(imgs);
+  const out=[];
+  const str=s=>{ for(let i=0;i<s.length;i++) out.push(s.charCodeAt(i)); };
+  const u16=v=>{ out.push(v&255,(v>>8)&255); };
+  str('GIF89a'); u16(w); u16(h); out.push(0xF7,0,0);            // GCT 256 colori
+  for(let i=0;i<768;i++) out.push(pal[i]);
+  out.push(0x21,0xFF,0x0B); str('NETSCAPE2.0'); out.push(3,1,0,0,0);   // loop infinito
+  for(const im of imgs){
+    out.push(0x21,0xF9,4,0); u16(delayCs); out.push(0,0);       // GCE: ritardo, nessuna trasparenza
+    out.push(0x2C); u16(0); u16(0); u16(w); u16(h); out.push(0);
+    const d=im.data, px=new Uint8Array(w*h);
+    for(let p=0,j=0;p<px.length;p++,j+=4) px[p]=index(d[j],d[j+1],d[j+2]);
+    out.push(8);
+    const data=lzwEncode(8,px);
+    for(let o=0;o<data.length;o+=255){ const n=Math.min(255,data.length-o); out.push(n); for(let q=0;q<n;q++) out.push(data[o+q]); }
+    out.push(0);
+  }
+  out.push(0x3B);
+  return new Uint8Array(out);
+}
+$('frGif').onclick=async()=>{
+  if(anim.frames.length<2) return alert('Servono almeno 2 frame.');
+  stopPlay(); animCommit(); const keep=anim.cur;
+  const fps=Math.max(1,Math.min(30,+$('frFps').value||6));
+  const delayCs=Math.max(2,Math.round(100/fps));
+  const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  const scale=Math.min(1,800/Math.max(cw,ch));
+  const gw=Math.round(cw*scale), gh=Math.round(ch*scale);
+  const cv=document.createElement('canvas'); cv.width=gw; cv.height=gh; const g=cv.getContext('2d');
+  const imgs=[];
+  for(let i=0;i<anim.frames.length;i++){
+    layers=layersFrom(anim.frames[i]); setActive(Math.min(active,layers.length-1));
+    drawExport();
+    g.fillStyle=pageDark?'#000':'#fff'; g.fillRect(0,0,gw,gh);   // la GIF non ha alpha: carta sotto
+    g.drawImage(board,0,0,gw,gh);
+    imgs.push(g.getImageData(0,0,gw,gh));
+    await new Promise(r=>setTimeout(r,0));
+  }
+  const bytes=makeGIF(imgs,gw,gh,delayCs);
+  download('hexglyph.gif', URL.createObjectURL(new Blob([bytes],{type:'image/gif'})));
+  animShow(keep);
+};
+
 /* export VIDEO: registra il canvas (a dimensione export, costante) frame per frame via MediaRecorder.
    Fallback: senza track.requestFrame (Safari) cattura automatica a fps; senza webm prova mp4;
    se il file esce vuoto (bug visto il 6 lug: 110 byte) lo dice invece di scaricare spazzatura. */
@@ -1667,10 +1767,19 @@ $('exportSvg').onclick=()=>{
         defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${stampsSVGList(cell.iso,'#fff')}</g></mask>`;
         cellG=`<g mask="url(#${mid})">${cellG}</g>`;
       }
-      if(cell.xor&&cell.xor.length){   // escludi: contenuto − forme, più forme − silhouette del contenuto
+      if(cell.xor&&cell.xor.length){   // escludi: contenuto − forme, più forme − silhouette ESATTA del contenuto (inv/sub/iso inclusi)
         const m1='m'+(mN++), m2='m'+(mN++);
         defs+=`<mask id="${m1}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${stampsSVGList(cell.xor,'#000')}</g></mask>`;
-        defs+=`<mask id="${m2}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${cellFiguresSVG(cell,'#000')}</g></mask>`;
+        let sil;
+        if(cell.inv){   // contenuto = esagono meno figure meno sottrazioni
+          sil=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#000"/></g>`+stampsSVGList(cellStamps(cell),'#fff')+(cell.sub&&cell.sub.length?stampsSVGList(cell.sub,'#fff'):'');
+        } else {        // contenuto = figure meno sottrazioni, eventualmente ∩ iso
+          sil=stampsSVGList(cellStamps(cell),'#000')+(cell.sub&&cell.sub.length?stampsSVGList(cell.sub,'#fff'):'');
+          if(cell.iso&&cell.iso.length){ const mi='m'+(mN++);
+            defs+=`<mask id="${mi}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${stampsSVGList(cell.iso,'#fff')}</g></mask>`;
+            sil=`<g mask="url(#${mi})">${sil}</g>`; }
+        }
+        defs+=`<mask id="${m2}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${sil}</g></mask>`;
         cellG=`<g mask="url(#${m1})">${cellG}</g><g transform="${tr}" mask="url(#${m2})">${stampsSVGList(cell.xor,col)}</g>`;
       }
       g+=cellG;
