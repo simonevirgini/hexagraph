@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hexagraph</title>
+<style>
+  /* Ahamono — il mono di casa (stesso di grafino e dei cartellini) */
+  @font-face{font-family:'Ahamono';src:url('Ahamono.otf') format('opentype');font-weight:400;font-display:swap}
+  :root{
+    --bg:#0f0f12; --panel:#16161b; --panel2:#1f1f26; --line:#30303b;
+    --text:#eceadf; --muted:#918f9c; --accent:#ff48b0; --accent2:#2b7fff; --onink:#fff;   /* rosa fluo riso + blu riso */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font:13px/1.45 'Ahamono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  /* barra superiore: comandi + slot rapidi */
+  #topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border-bottom:1px solid var(--line);background:var(--panel);min-height:46px}
+  #topbar .brand{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;margin-right:2px}
+  #topbar .brand::before{content:'⬡ ';color:var(--accent)}
+  #topbar .tgroup{display:flex;gap:4px;align-items:center}
+  #topbar .sep{width:1px;align-self:stretch;background:var(--line);margin:2px 2px}
+  .btn.ic{flex:0 0 auto;width:34px;height:32px;padding:0;font-size:15px;display:flex;align-items:center;justify-content:center}
+  .btn.ic svg{width:18px;height:18px;display:block}
+  #cellCol{width:34px;height:28px;padding:2px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer;flex:0 0 auto}
+  #symSel{height:32px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:4px;font:inherit;font-size:12px;padding:0 4px;cursor:pointer}
+  #symSel.on{border-color:var(--accent);color:var(--accent)}
+  .swgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+  .sw{aspect-ratio:1;border:1px solid var(--line);border-radius:3px;cursor:pointer;padding:0}
+  .sw.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .sw.auto{display:grid;place-items:center;font-size:11px;font-weight:700}
+  #topbar .slots{display:flex;gap:3px;margin-left:8px;grid-template-columns:none}
+  #topbar .slot{width:42px;height:42px;aspect-ratio:auto}
+  #topbar .slot .n{font-size:9px}
+  #topbar .slot .slotx{position:absolute;right:1px;top:0;width:13px;height:13px;line-height:11px;text-align:center;font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:50%;cursor:pointer;opacity:0;transition:opacity .1s;z-index:2}
+  #topbar .slot:hover .slotx{opacity:1}
+  #topbar .slot .slotx:hover{color:#ff7a7a;border-color:#ff7a7a}
+  .brushprev{flex:0 0 auto;width:42px;height:42px;border:1px solid var(--line);border-radius:4px;background:var(--panel2);overflow:hidden;display:grid;place-items:center;margin-left:auto}
+  .brushprev svg{width:100%;height:100%;display:block;transform:rotate(var(--boardRot,0deg))}
+  /* zona centrale: barre laterali + canvas */
+  #main{flex:1;display:flex;min-height:0}
+  .bar{width:300px;min-width:300px;background:var(--panel);overflow-y:auto;position:relative;flex:0 0 auto}
+  #leftbar{border-right:1px solid var(--line)}
+  #rightbar{border-left:1px solid var(--line)}
+  .bar .barbody{padding:12px 12px 24px;display:flex;flex-direction:column;gap:14px}
+  .bar.collapsed{width:26px;min-width:26px;overflow:hidden}
+  .bar.collapsed .barbody{display:none}
+  .collapse{position:absolute;top:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:3px;width:20px;height:26px;cursor:pointer;z-index:3;font-size:12px;line-height:1}
+  #leftbar .collapse{right:6px}
+  #rightbar .collapse{left:6px}
+  .bar.collapsed .collapse{left:50%;transform:translateX(-50%);right:auto}
+  body.preview #topbar, body.preview #leftbar, body.preview #rightbar, body.preview #timeline{display:none}
+  #timeline{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid var(--line);background:var(--panel)}
+  #timeline[hidden]{display:none}
+  #frLabel{font-size:12px;min-width:48px;text-align:center;color:var(--muted)}
+  #frames{display:flex;gap:5px;overflow-x:auto;flex:1;padding:2px;min-height:52px;align-items:center}
+  .fthumb{position:relative;flex:0 0 auto;border:1px solid var(--line);border-radius:3px;cursor:pointer;background:#fff;padding:0;overflow:hidden}
+  .fthumb.act{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .fthumb .fn{position:absolute;left:2px;top:1px;font-size:9px;color:#333;background:rgba(255,255,255,.75);padding:0 3px;border-radius:2px;pointer-events:none}
+  .fthumb canvas{display:block}
+  #onPast,#onNext{width:26px;height:26px;padding:2px;border:1px solid var(--line);border-radius:3px;background:var(--panel2);cursor:pointer;flex:0 0 auto}
+  h1{font-size:15px; margin:0; letter-spacing:.3px}
+  h1 small{display:block;font-weight:400;color:var(--muted);font-size:11px;letter-spacing:0;margin-top:2px}
+  .group{display:flex;flex-direction:column;gap:8px}
+  .glabel{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  /* sezioni: header con maniglia (trascina per spostare) + clic per collassare */
+  .sechdr{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .sechdr .glabel{flex:1}
+  .shandle{cursor:grab;color:var(--muted);font-size:12px;letter-spacing:-2px}
+  .shandle:active{cursor:grabbing}
+  .scaret{color:var(--muted);font-size:10px}
+  .group.closed>*:not(.sechdr){display:none}
+  .group.dragover{outline:1px dashed var(--accent);outline-offset:3px;border-radius:4px}
+  .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+  .palzoom{float:right;display:inline-flex;gap:3px;margin-left:6px}
+  .pz{width:19px;height:19px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:3px;cursor:pointer;font-size:12px;line-height:1;padding:0}
+  .pz:hover{border-color:var(--accent)}
+  .grouphdr{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;border-top:1px solid var(--line);padding-top:5px;display:flex;justify-content:space-between;cursor:pointer;user-select:none}
+  .grouphdr:hover{color:var(--text)}
+  .tile{aspect-ratio:1;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:0;cursor:pointer;display:grid;place-items:center;overflow:hidden}
+  .tile svg{width:100%;height:100%;display:block;transform:rotate(var(--boardRot,0deg))}
+  .tile.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  /* hilite (blu) = la tessera/slot corrispondente alla cella selezionata sulla tela · cur = slot uguale al pennello */
+  .tile.hilite{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
+  .slot.hilite{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
+  .slot.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .slots{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+  .slot{aspect-ratio:1;background:var(--panel2);border:1px solid var(--line);border-radius:3px;display:grid;place-items:center;position:relative;overflow:hidden;cursor:pointer}
+  .slot svg{width:100%;height:100%;transform:rotate(var(--boardRot,0deg))}
+  .slot .n{position:absolute;left:1px;top:0;font-size:8px;color:var(--muted)}
+  .slot.act{border-color:var(--accent)}
+  .row{display:flex;gap:7px;align-items:center}
+  label.field{display:flex;flex-direction:column;gap:4px;flex:1;font-size:11px;color:var(--muted)}
+  input[type=range]{width:100%}
+  input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:3px;padding:5px 6px}
+  button.btn{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:7px 6px;cursor:pointer;font-size:12px}
+  button.btn:hover{border-color:var(--accent)}
+  button.btn.on{background:var(--accent);color:var(--onink);border-color:var(--accent);font-weight:600}
+  button.btn.primary{background:var(--accent);color:var(--onink);border-color:var(--accent);font-weight:600}
+  .toggle{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .legend{font-size:11px;color:var(--muted);line-height:1.7}
+  .legend b{color:var(--text)}
+  kbd{display:inline-block;min-width:14px;text-align:center;background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;font:11px 'Ahamono',ui-monospace,monospace;color:var(--text)}
+  details summary{cursor:pointer;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;outline:none}
+  #stage{flex:1;position:relative;overflow:hidden}
+  #board{display:block;position:absolute;left:0;top:0;transform-origin:0 0;touch-action:none;cursor:crosshair}
+  /* comandi vista (zoom + mano) fluttuanti in basso a destra della tavola */
+  #viewbar{position:absolute;right:12px;bottom:12px;display:flex;gap:4px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:5px;z-index:4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .vbtn{min-width:30px;height:30px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:4px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0}
+  .vbtn:hover{border-color:var(--accent)}
+  .vbtn.on{background:var(--accent);color:var(--onink);border-color:var(--accent)}
+  #zPct{padding:0 8px;font:12px 'Ahamono',ui-monospace,monospace;min-width:48px}
+  body.preview #viewbar{display:none}
+  #status{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 11px;font:12px 'Ahamono',ui-monospace,monospace;color:var(--muted);pointer-events:none}
+  body.preview #status{display:none}
+  body.anim #status{bottom:78px}   /* sopra la timeline quando è aperta */
+  #status b{color:var(--accent)}
+  .layerRow{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:5px 6px;margin-bottom:5px}
+  .layerRow .lhandle{cursor:grab;color:var(--muted);font-size:13px;line-height:1;flex:0 0 auto;width:11px;text-align:center;user-select:none;letter-spacing:-2px}
+  .layerRow .lhandle:active{cursor:grabbing}
+  .layerRow.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .layerRow.dragover{border-style:dashed;border-color:var(--accent)}
+  .layerRow .lvis,.layerRow .ldel{cursor:pointer;font-size:12px;color:var(--muted);width:15px;text-align:center;flex:0 0 auto}
+  .layerRow .ldel:hover{color:#ff7a7a}
+  .layerRow input[type=color]{width:22px;height:22px;padding:0;border:1px solid var(--line);border-radius:3px;flex:0 0 auto;background:none}
+  .layerRow .lmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .layerRow .lname{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .layerRow .lctl{display:flex;gap:5px;align-items:center}
+  .layerRow select{flex:0 0 auto;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:3px;font-size:10px;padding:1px 2px}
+  .layerRow .lop{flex:1;min-width:24px}
+</style>
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">Hexagraph</div>
+  <div class="tgroup"><!-- selezione -->
+    <button class="btn ic on" id="toolSelect" title="Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg></button>
+    <button class="btn ic" id="toolLasso" title="Lazo a esagoni: ogni clic aggiunge un punto e si evidenziano gli esagoni del percorso · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
+  </div>
+  <div class="sep"></div>
+  <div class="tgroup"><!-- disegno -->
+    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella">✎</button>
+    <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
+  </div>
+  <div class="sep"></div>
+  <div class="tgroup"><!-- fusioni (stile pathfinder): come il timbro/il gruppo trascinato si fonde con ciò che trova -->
+    <button class="btn ic" id="merge" title="Unisci (u): la forma si SOMMA a quella presente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg></button>
+    <button class="btn ic" id="sub" title="Sottrai (x): la forma SCAVA quella presente"><svg viewBox="0 0 24 24" aria-hidden="true"><mask id="ic_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#ic_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg></button>
+    <button class="btn ic" id="iso" title="Interseca: resta SOLO dove le forme si sovrappongono"><svg viewBox="0 0 24 24" aria-hidden="true"><clipPath id="ic_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#ic_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg></button>
+    <button class="btn ic" id="xor" title="Escludi: restano solo le parti che NON si sovrappongono"><svg viewBox="0 0 24 24" aria-hidden="true"><clipPath id="ic_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="ic_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#ic_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#ic_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg></button>
+  </div>
+  <div class="sep"></div>
+  <div class="tgroup" title="Simmetria: ogni timbro si ripete specchiato/ruotato attorno al centro della tela — nessun asse disegnato, la simmetria la vedi dalle tessere (e dal ghost del pennello)">
+    <span style="color:var(--muted);font-size:11px;padding:0 2px">sym</span>
+    <select id="symSel">
+      <option value="none">no</option>
+      <option value="mh">specchio ↔</option>
+      <option value="mv">specchio ↕</option>
+      <option value="r2">ruota ×2</option>
+      <option value="r3">ruota ×3</option>
+      <option value="r6">ruota ×6</option>
+    </select>
+  </div>
+  <div class="sep"></div>
+  <div class="tgroup"><!-- trasformazioni: gruppo selezionato, o pennello -->
+    <button class="btn ic" id="rotL" title="ruota -60° (gruppo selezionato o pennello)">↺</button>
+    <button class="btn ic" id="rotR" title="ruota +60° (r) — con ⇧R ruotano le SINGOLE tessere selezionate">↻</button>
+    <button class="btn ic" id="flip" title="specchia (f) — con ⇧F si specchiano le SINGOLE tessere selezionate">⇋</button>
+    <button class="btn ic" id="inv" title="inverti colore (i)">◑</button>
+  </div>
+  <div class="sep"></div>
+  <div class="tgroup">
+    <button class="btn ic" id="undo" title="annulla (z)">↩</button>
+    <button class="btn ic" id="redo" title="ripeti (⇧z)">↪</button>
+  </div>
+  <div class="brushprev" id="brushPrev" title="Tessera attiva con orientazione corrente — r ruota · f specchia · i inverti"></div>
+  <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · 0-9 piazza"></div>
+</header>
+
+<div id="main">
+  <aside id="leftbar" class="bar">
+    <button class="collapse" data-bar="leftbar" title="comprimi libreria">‹</button>
+    <div class="barbody">
+      <div class="group" data-sec="tiles">
+        <div class="glabel">Tessere <span id="tcount" style="color:var(--muted)"></span> <span style="color:var(--muted)">— <kbd>,</kbd>/<kbd>.</kbd></span><span class="palzoom"><button class="pz" id="palMinus" title="tessere più piccole">−</button><button class="pz" id="palPlus" title="tessere più grandi">+</button></span></div>
+        <div class="palette" id="palfav"></div>
+        <div class="palette" id="palette"></div>
+        <div class="legend"><kbd>⌥</kbd>+clic su una tessera = aggiungi/togli dalle <b>Preferite</b>; le <b>Recenti</b> si aggiornano da sole.</div>
+      </div>
+      <div class="group" data-sec="conn">
+        <div class="glabel">Tratto</div>
+        <label class="field">Spessore linea <span id="swVal">0.34</span>
+          <input type="range" id="connSW" min="0.10" max="0.70" step="0.02" value="0.34">
+        </label>
+        <div class="legend">Vale per i <b>prossimi</b> timbri (ogni linea ricorda il suo). <kbd>[</kbd>/<kbd>]</kbd> regolano la cella sotto il cursore.</div>
+      </div>
+      <div class="group" data-sec="forge">
+        <div class="glabel">Forgia</div>
+        <button class="btn" id="forgeCell">⬡ Forgia la cella selezionata <kbd>⇧G</kbd></button>
+        <div class="legend">Componi una figura in una cella (timbra, poi <b>⊕ unisci</b> e <b>⊖ sottrai</b>), <b>selezionala</b> (strumento ⬚) e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
+      </div>
+    </div>
+  </aside>
+
+  <main id="stage"><canvas id="board"></canvas>
+    <div id="viewbar">
+      <button class="vbtn" id="zOut" title="Zoom − (−)">−</button>
+      <button class="vbtn" id="zPct" title="Adatta la vista alla tavola">100%</button>
+      <button class="vbtn" id="zIn" title="Zoom + (+)">+</button>
+    </div>
+  </main>
+
+  <aside id="rightbar" class="bar">
+    <button class="collapse" data-bar="rightbar" title="comprimi pannello">›</button>
+    <div class="barbody">
+      <div class="group" data-sec="layers">
+        <div class="glabel">Livelli <span style="color:var(--muted)">— trascina per riordinare</span></div>
+        <div id="layers"></div>
+        <button class="btn" id="addLayer">+ Nuovo livello</button>
+      </div>
+
+      <div class="group" data-sec="color">
+        <div class="glabel">Colore</div>
+        <div class="swgrid" id="swatches"></div>
+        <div class="row" style="align-items:center">
+          <input type="color" id="cellCol" title="colore personalizzato">
+          <span class="legend" style="flex:1">personalizzato (finisce nei recenti)</span>
+        </div>
+        <div class="legend">Vale per i prossimi timbri. <b>A</b> = colore del livello attivo.</div>
+      </div>
+
+      <div class="group" data-sec="anim">
+        <div class="glabel">Timeline</div>
+        <button class="btn" id="animBtn">▶ Timeline</button>
+        <div class="legend">Frame in basso: clic = vai · trascina = riordina · ⧉ duplica · + vuoto · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> scorrono · fps modificabile durante il play · ◎ onion skin (coi suoi due colori: frame prima / frame dopo) · export WEBM (video) o sequenza PNG.</div>
+      </div>
+
+      <div class="group" data-sec="bgimg">
+        <div class="glabel">Sfondo immagine</div>
+        <div class="row"><button class="btn" id="bgLoad">Carica JPG/PNG</button><button class="btn" id="bgClear">Rimuovi</button></div>
+        <label class="field">Opacità sfondo <span id="bgOpVal">100%</span>
+          <input type="range" id="bgOpacity" min="0" max="100" value="100">
+        </label>
+        <input type="file" id="bgFile" accept="image/*" style="display:none">
+      </div>
+
+      <div class="group" data-sec="canvas">
+        <div class="glabel">Canvas</div>
+        <div class="row">
+          <label class="field">Colonne<input type="number" id="cols" min="2" max="80" value="21"></label>
+          <label class="field">Righe<input type="number" id="rows" min="2" max="80" value="21"></label>
+        </div>
+        <div class="row">
+          <button class="btn" id="gridRotL" title="ruota tutta la tela di -90°">⟲ ruota tela</button>
+          <button class="btn" id="gridRotR" title="ruota tutta la tela di +90°">ruota tela ⟳</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="grid" title="mostra/nascondi le linee della griglia (h)">▦ griglia sì/no</button>
+        </div>
+        <label class="toggle"><input type="checkbox" id="pageDark"> sfondo pagina nero</label>
+        <label class="toggle"><input type="checkbox" id="outBlack" checked> fuori dalla griglia nero</label>
+        <div class="legend" style="margin-top:2px">Muoviti: rotella scorre · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
+      </div>
+
+      <div class="group" data-sec="saveexp">
+        <div class="glabel">Salva / Carica &amp; Export</div>
+        <div class="row"><button class="btn" id="clear">Svuota</button></div>
+        <div class="row"><button class="btn" id="exportPng">Export Png</button><button class="btn" id="exportSvg">Export Svg</button></div>
+        <div class="row"><button class="btn" id="save">Salva</button><button class="btn" id="load">Carica</button></div>
+        <input type="file" id="loadFile" accept="application/json" style="display:none">
+      </div>
+
+      <details class="group" data-sec="keys">
+        <summary>Comandi tastiera (copiati da glyphdrawing.club)</summary>
+        <div class="legend" style="margin-top:8px">
+          <b>Disegno</b><br>
+          <kbd>←↑↓→</kbd> / <kbd>w</kbd><kbd>a</kbd><kbd>s</kbd><kbd>d</kbd> muovi cursore (←/→ a zig-zag: due passi = stessa altezza) · <kbd>q</kbd>/<kbd>↵</kbd> timbra · <kbd>e</kbd> cella vuota · <kbd>⌫</kbd> indietro<br>
+          <kbd>0</kbd>–<kbd>9</kbd> piazza slot · <kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti — <b>sul pennello</b> (guarda l'anteprima in alto a destra), o <b>sulla selezione</b> se c'è · <kbd>u</kbd> unisci · <kbd>x</kbd> sottrai · <kbd>g</kbd> secchiello · <kbd>b</kbd> sfondo · <kbd>h</kbd> griglia · <kbd>z</kbd> annulla · <kbd>p</kbd> (tieni) anteprima · <kbd>+</kbd>/<kbd>−</kbd> zoom · <kbd>,</kbd>/<kbd>.</kbd> tessera<br><br>
+          <b>Selezione</b> (freccia: clic/trascina · lazo: clic sui vertici — si evidenziano gli ESAGONI del percorso — e richiudi cliccando il primo esagono, con doppio clic o <kbd>↵</kbd>; il bordo fa parte della selezione · <kbd>⇧</kbd>+trascina da qualsiasi strumento · <kbd>⇧A</kbd> tutto · <kbd>Esc</kbd> annulla)<br>
+          <b>Trascina una cella selezionata per SPOSTARE il gruppo</b> (con <kbd>alt</kbd> = COPIA): al rilascio sostituisce, o fonde secondo la modalità attiva (⊕ somma · ⊖ scava · ∩ interseca · ⊻ esclude) · <kbd>⌘D</kbd> deseleziona · <kbd>canc</kbd> svuota la selezione<br>
+          <kbd>r</kbd>/<kbd>f</kbd> ruota/specchia il GRUPPO intero (rigido) · <kbd>⇧R</kbd>/<kbd>⇧F</kbd> ruota/specchia ogni SINGOLA tessera · <kbd>i</kbd> inverti · doppio clic su una tessera nella TELA = seleziona tutte le identiche (⇧ aggiunge) · clic su uno swatch = colora la selezione · doppio clic su una tessera in LIBRERIA = sostituisce le tessere selezionate<br>
+          <kbd>⇧C</kbd> copia · <kbd>v</kbd> incolla · <kbd>⇧E</kbd> cancella · <kbd>⇧D</kbd> svuota · <kbd>⇧Q</kbd> riempi · <kbd>⇧B</kbd> sfondo · <kbd>⇧G</kbd> forgia (1 cella) · <kbd>⇧H⇧J⇧K⇧L</kbd> sposta
+        </div>
+        <div class="legend" style="margin-top:6px"><b>Mouse</b>: click = timbra · trascina = dipingi · destro = cancella · <kbd>⇧</kbd>+trascina = seleziona · <a href="mobile.html" style="color:var(--accent);text-decoration:none">📱 mobile</a></div>
+      </details>
+    </div>
+  </aside>
+</div>
+<!-- timeline animazione (toggle dal bottone "anima" in topbar) -->
+<div id="timeline" hidden>
+  <div id="frames" title="clic = vai al frame · trascina = riordina"></div>
+  <div class="sep"></div>
+  <button class="btn ic" id="frAdd" title="duplica il frame corrente">⧉</button>
+  <button class="btn ic" id="frNew" title="nuovo frame vuoto">+</button>
+  <button class="btn ic" id="frDel" title="elimina il frame corrente">✕</button>
+  <div class="sep"></div>
+  <button class="btn ic" id="frPlay" title="play / stop — ⇧&lt; ⇧&gt; scorrono i frame">▶︎</button>
+  <span style="color:var(--muted);font-size:11px">fps</span>
+  <input type="number" id="frFps" min="1" max="30" value="6" style="width:56px;flex:0 0 auto" title="fotogrammi al secondo (modificabile anche durante il play)">
+  <button class="btn ic on" id="frOnion" title="onion skin: frame precedente e successivo in trasparenza, ognuno col suo colore">◎</button>
+  <input type="color" id="onPast" value="#ff5a3c" title="colore onion skin del frame PRECEDENTE">
+  <input type="color" id="onNext" value="#2b7fff" title="colore onion skin del frame SUCCESSIVO">
+  <div class="sep"></div>
+  <span id="frLabel">1/1</span>
+  <button class="btn" style="flex:0 0 auto" id="frVideo" title="esporta un video .webm (2 giri di loop, fps correnti)">WEBM</button>
+  <button class="btn" style="flex:0 0 auto" id="frExport" title="scarica tutti i frame come sequenza PNG">PNG ×n</button>
+</div>
+<div id="status">cur <b id="curText">0,0</b> · rot <b id="rotText">0°</b> · <span id="flipText">dritto</span> <span id="invText"></span></div>
+
+<script src="tiles.js?v=3"></script>
+<script>
+"use strict";
+const TAU=Math.PI*2;
+
+/* ---- esagono FLAT-TOP, centro origine, raggio R = meta' larghezza ---- */
+function corner(i,R){ const a=(60*i)*Math.PI/180; return [R*Math.cos(a), R*Math.sin(a)]; }
+function hexPoints(R){ const p=[]; for(let i=0;i<6;i++) p.push(corner(i,R)); return p; }
+const HEX_UNIT_D=(()=>{ const p=hexPoints(1); return 'M'+p.map(q=>q[0].toFixed(4)+','+q[1].toFixed(4)).join('L')+'Z'; })();
+const HEX_UNIT_PATH=new Path2D(HEX_UNIT_D);
+
+/* ---- tessere = piu' riempimenti (parts) col proprio fill-rule ---- */
+const TILES=(window.TILE_DATA||[]).map(t=>({
+  id:t.id, grp:t.id.slice(0,2), cat:t.cat||'Altro', name:t.name,
+  parts:(t.parts||[]).map(p=>({d:p.d, eo:p.eo, sw:p.sw, path:new Path2D(p.d)}))
+}));
+const tileIndex=Object.fromEntries(TILES.map((t,i)=>[t.id,i]));
+function tileById(id){ const i=tileIndex[id]; return i==null?null:TILES[i]; }
+
+/* ---- stato ---- */
+const board=document.getElementById('board');
+const stageEl=document.getElementById('stage');
+const ctx=board.getContext('2d');
+/* ---- livelli: ogni livello ha un colore unico, blend, opacità ---- */
+const BLENDS=['source-over','multiply','screen','darken','lighten'];
+const BLEND_LABELS={'source-over':'Normale','multiply':'Multiply','screen':'Screen','darken':'Scurisci','lighten':'Schiarisci'};
+const LAYER_COLORS=['#111111','#ff4d8d','#2b6cff','#19c37d','#ffb020','#9b5cff','#00b3b3','#ff5a3c'];
+let layers=[]; let active=0;
+let cells;                         // riferimento alla Map del livello attivo
+function newLayer(){ return {name:'Livello '+(layers.length+1), color:LAYER_COLORS[layers.length%LAYER_COLORS.length], cells:new Map(), blend:'multiply', opacity:1, visible:true}; }
+function setActive(i){ active=Math.max(0,Math.min(layers.length-1,i)); cells=layers[active].cells; }
+let bgImage=null, bgOpacity=1;
+/* canvas offscreen per compositare i livelli */
+const lc=document.createElement('canvas'); const lctx=lc.getContext('2d');
+let cols=21, rows=21, R=36;   // 21×21: dispari, così gli assi di simmetria cadono sulle celle
+let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=true;
+let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'bucket'
+let stampMode=null;                // null (sostituisci) | 'merge' ⊕ | 'sub' ⊖ | 'iso' ∩ | 'xor' ⊻ — vale per timbro E rilascio del trascinamento
+/* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
+   trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
+const brush={ tile:TILES[0]?TILES[0].id:null, rot:0, flip:false, inv:false, sw:0.34, col:null };   // sw = spessore tratto per-timbro · col = colore cella (null = colore del livello)
+const cursor={c:0,r:0};
+const view={zoom:1,x:0,y:0};   // vista: zoom + traslazione (px) applicati via CSS transform sulla tavola
+let selection=null;                // Set di chiavi "c,r" (null = nessuna selezione)
+let clipboard=null;                // {w,h, data:[{dc,dr,cell}]}
+const slots=new Array(10).fill(null);
+let assignMode=false;
+const undoStack=[], redoStack=[];
+const key=(c,r)=>c+','+r;
+
+/* ---- layout flat-top (colonne sfalsate in verticale) ---- */
+const colW=()=>1.5*R, rowH=()=>Math.sqrt(3)*R, margin=()=>R+4;
+function cellCenter(c,r){
+  const x=c*colW()+margin();
+  const y=r*rowH()+(c%2?rowH()/2:0)+margin();
+  return [x,y];
+}
+function boardSize(){ return [Math.ceil((cols-1)*colW()+2*R+8), Math.ceil(rows*rowH()+rowH()/2+8)]; }
+
+/* ---- disegno cella ---- */
+function cellStamps(cell){ return [{t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw}].concat(cell.extra||[]); }
+/* disegna un singolo timbro {t,rot,flip,sw} nel contesto corrente (colori già impostati).
+   Tessere base: parts. Tessere FORGIATE: stamps (adds+subs interni) → composte isolate su un
+   canvas scratch e riversate, così le loro sottrazioni non scavano il resto della cella. */
+let scratchC=null, scratchG=null;
+function drawStamp(g,st){
+  const tile=tileById(st.t); if(!tile) return false;
+  g.save(); g.rotate(st.rot*60*Math.PI/180); if(st.flip) g.scale(-1,1);
+  if(tile.stamps){
+    const cw=g.canvas.width, ch=g.canvas.height;
+    if(!scratchC){ scratchC=document.createElement('canvas'); scratchG=scratchC.getContext('2d'); }
+    if(scratchC.width!==cw||scratchC.height!==ch){ scratchC.width=cw; scratchC.height=ch; }
+    const sg=scratchG; sg.setTransform(1,0,0,1,0,0); sg.clearRect(0,0,cw,ch);
+    sg.setTransform(g.getTransform());
+    sg.fillStyle=g.fillStyle; sg.strokeStyle=g.strokeStyle; sg.lineCap='round'; sg.lineJoin='round';
+    for(const s of tile.stamps){ if(s.op!=='sub') drawStamp(sg,s); }
+    sg.globalCompositeOperation='destination-out';
+    for(const s of tile.stamps){ if(s.op==='sub') drawStamp(sg,s); }
+    sg.globalCompositeOperation='source-over';
+    g.save(); g.setTransform(1,0,0,1,0,0); g.drawImage(scratchC,0,0); g.restore();
+  } else {
+    for(const p of tile.parts){
+      if(p.sw){ g.lineWidth=st.sw??connSW; g.stroke(p.path); }
+      else g.fill(p.path, p.eo?'evenodd':'nonzero');
+    }
+  }
+  g.restore();
+  return true;
+}
+/* disegna le FIGURE di una cella nel colore del livello (negativo trasparente).
+   inv = colora il complemento (esagono pieno meno le figure). g = contesto (anche offscreen). */
+function drawCellFigures(g, cell, color){
+  g.save(); g.scale(R,R); g.clip(HEX_UNIT_PATH);
+  if(cell.inv){ g.fillStyle=color; g.fill(HEX_UNIT_PATH); g.globalCompositeOperation='destination-out'; }
+  g.fillStyle=color; g.strokeStyle=color; g.lineCap='round'; g.lineJoin='round';
+  for(const st of cellStamps(cell)) drawStamp(g,st);
+  // sottrazioni: le forme in cell.sub vengono scavate (destination-out) da quanto disegnato
+  if(cell.sub && cell.sub.length){
+    g.globalCompositeOperation='destination-out'; g.fillStyle='#000'; g.strokeStyle='#000';
+    for(const st of cell.sub) drawStamp(g,st);
+  }
+  // intersezioni: resta solo dove le forme iso si sovrappongono al contenuto (destination-in,
+  // sicuro perché il clip esagonale limita l'operazione alla cella)
+  if(cell.iso && cell.iso.length){
+    g.globalCompositeOperation='destination-in'; g.fillStyle='#000'; g.strokeStyle='#000';
+    for(const st of cell.iso) drawStamp(g,st);
+  }
+  // esclusioni: xor — la sovrapposizione si svuota, il resto della forma si aggiunge
+  if(cell.xor && cell.xor.length){
+    g.globalCompositeOperation='xor'; g.fillStyle=color; g.strokeStyle=color;
+    for(const st of cell.xor) drawStamp(g,st);
+  }
+  g.restore();
+}
+/* offscreen dei livelli: stessa dimensione e stessa trasformazione del canvas principale */
+function setupOff(){
+  if(lc.width!==board.width||lc.height!==board.height){ lc.width=board.width; lc.height=board.height; }
+  lctx.setTransform(1,0,0,1,0,0); lctx.clearRect(0,0,lc.width,lc.height);
+  lctx.setTransform(ctx.getTransform());
+}
+/* compone i livelli visibili sul canvas principale, con blend e opacità.
+   Ls/alpha servono all'onion skin (livelli di un altro frame, smorzati). */
+function compositeLayers(Ls,alpha){
+  Ls=Ls||layers; alpha=alpha==null?1:alpha;
+  for(const L of Ls){ if(!L.visible || L.cells.size===0) continue;
+    setupOff();
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const cell=L.cells.get(key(c,r)); if(!cell)continue;
+      const [cx,cy]=cellCenter(c,r); lctx.save(); lctx.translate(cx,cy); drawCellFigures(lctx,cell,cell.col||L.color); lctx.restore(); }
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(lc,0,0); ctx.restore();
+  }
+}
+function drawBgImage(W,H){ if(!bgImage)return; ctx.save(); ctx.globalAlpha=bgOpacity;
+  const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
+  ctx.drawImage(bgImage,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s); ctx.restore(); }
+/* export: canvas grande quanto la TAVOLA a risoluzione piena, sfondo trasparente (con eventuale immagine) */
+function setupExportBoard(){
+  const [W,H]=boardSize(); const dpr=window.devicePixelRatio||1;
+  const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  board.width=Math.round(cw*dpr); board.height=Math.round(ch*dpr);
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,board.width,board.height);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.translate(cw/2,ch/2); ctx.rotate(boardRot*Math.PI/180); ctx.translate(-W/2,-H/2);
+  return [W,H];
+}
+function drawExport(){
+  const [W,H]=setupExportBoard();
+  drawBgImage(W,H);
+  compositeLayers();
+}
+function inSel(c,r){ return !!(selection && selection.has(key(c,r))); }
+
+/* canvas = viewport dello stage; la trasformazione incorpora pan (view.x/y), zoom e rotazione griglia.
+   baseColor = colore dell'area della tavola (il resto del canvas resta trasparente sullo sfondo UI) */
+function setupBoard(baseColor){
+  const [W,H]=boardSize(); const dpr=window.devicePixelRatio||1;
+  const vw=Math.max(1,stageEl.clientWidth), vh=Math.max(1,stageEl.clientHeight);
+  if(board.width!==Math.round(vw*dpr)||board.height!==Math.round(vh*dpr)){
+    board.width=Math.round(vw*dpr); board.height=Math.round(vh*dpr);
+    board.style.width=vw+'px'; board.style.height=vh+'px';
+  }
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,board.width,board.height);
+  const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.translate(view.x,view.y); ctx.scale(view.zoom,view.zoom);
+  ctx.translate(cw/2,ch/2); ctx.rotate(boardRot*Math.PI/180); ctx.translate(-W/2,-H/2);
+  if(baseColor){ ctx.fillStyle=baseColor; ctx.fillRect(0,0,W,H); }
+  return [W,H];
+}
+/* path-unione di tutti gli esagoni della griglia (per clip carta/immagine) */
+function gridClipPath(){ const p=new Path2D();
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r);
+    p.addPath(HEX_UNIT_PATH, new DOMMatrix().translateSelf(cx,cy).scaleSelf(R)); }
+  return p; }
+function render(hoverC,hoverR){
+  const paper=pageDark?'#000':'#fff';
+  const [W,H]=setupBoard(outsideBlack?'#000':paper);   // fuori dalla griglia
+  // carta + immagine SOLO dentro gli esagoni (clip alla honeycomb)
+  ctx.save(); ctx.clip(gridClipPath()); ctx.fillStyle=paper; ctx.fillRect(0,0,W,H); drawBgImage(W,H); ctx.restore();
+  // linee griglia (sotto i livelli)
+  if(showGrid && !previewing){ ctx.save(); ctx.strokeStyle=pageDark?'rgba(255,255,255,.16)':'rgba(0,0,0,.16)';
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r); ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R); ctx.lineWidth=1/R; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); } ctx.restore(); }
+  // onion skin: frame precedente e successivo come silhouette colorate, sotto quello corrente
+  if(anim.on && anim.onion && !previewing){
+    if(anim.prevLayers) drawOnion(anim.prevLayers, anim.pastCol, 0.3);
+    if(anim.nextLayers) drawOnion(anim.nextLayers, anim.nextCol, 0.3);
+  }
+  // livelli compositati (blend + opacità) — il save/restore interno ripristina la trasformazione
+  compositeLayers();
+  if(previewing) return;
+  const acc=(getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#7cc4ff').trim();
+  const acc2=(getComputedStyle(document.documentElement).getPropertyValue('--accent2')||'#2b7fff').trim();
+  // assi della simmetria attiva: le celle che coincidono con la propria immagine, in blu tenue
+  if(symMode!=='none'){ ctx.save(); ctx.globalAlpha=0.45; ctx.strokeStyle=acc2; ctx.lineJoin='round';
+    for(const [c,r] of symAxisCells()){ const [cx,cy]=cellCenter(c,r);
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R); ctx.lineWidth=2.5/R; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); }
+    ctx.restore(); }
+  function outline(c,r,w){ const [cx,cy]=cellCenter(c,r); ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R);
+    ctx.strokeStyle=acc; ctx.lineWidth=w/R; ctx.lineJoin='round'; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); }
+  // anteprima del tassello al cursore — SEMPRE, anche sopra una cella già piena (così vedi cosa stai per mettere)
+  if(brush.tile && tool==='draw'){
+    for(const t of symTargets(cursor.c,cursor.r)){   // ghost anche sulle copie simmetriche: la simmetria si vede da qui
+      const occupied=!!cells.get(key(t.c,t.r));
+      const [cx,cy]=cellCenter(t.c,t.r);
+      ctx.save(); ctx.translate(cx,cy);
+      if(occupied){   // velo di carta per far risaltare l'anteprima sopra la tessera esistente
+        ctx.save(); ctx.scale(R,R); ctx.globalAlpha=0.7; ctx.fillStyle=pageDark?'#000':'#fff'; ctx.fill(HEX_UNIT_PATH); ctx.restore();
+      }
+      ctx.globalAlpha=occupied?0.9:0.5;
+      const g=brushCell(); g.rot=t.rot; g.flip=t.flip;
+      drawCellFigures(ctx, g, brush.col||layers[active].color);
+      ctx.restore();
+    }
+  }
+  // selezione: contorno spesso (niente velo grigio sulle tessere)
+  if(selection){ for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(inSel(c,r)) outline(c,r,3); } }
+  // lazo in costruzione: NIENTE linea — si evidenziano gli ESAGONI del percorso (+ interno in anteprima);
+  // il primo esagono è marcato spesso: ricliccarlo chiude la selezione
+  if(lassoPts.length){
+    ctx.save(); ctx.globalAlpha=0.5;
+    const s=lassoPathCells(false);
+    const poly=(tool==='lasso'&&hoverPt)?lassoPts.concat([hoverPt]):lassoPts;
+    if(poly.length>=3){
+      for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [px,py]=cellCenter(c,r); if(pointInPoly(px,py,poly)) s.add(key(c,r)); }
+    }
+    for(const k of s){ const [c,r]=k.split(',').map(Number); outline(c,r,2); }
+    ctx.restore();
+    const first=cellAt(...lassoPts[0]); if(first) outline(first[0],first[1],4.5);
+  }
+  // ghost del trascinamento selezione: SCATTA di esagono in esagono (si vede dove cadranno le tessere)
+  if(dragMove){
+    const target=cellAt(...dragMove.curPt);
+    const dests=[];
+    ctx.save(); ctx.globalAlpha=0.55;
+    if(target){
+      const a=toCube(dragMove.anchor[0],dragMove.anchor[1]), t=toCube(target[0],target[1]);
+      const dx=t[0]-a[0], dz=t[2]-a[2];
+      for(const [c,r] of selCells()){ const p=toCube(c,r); const [nc,nr]=fromCube(p[0]+dx,p[2]+dz);
+        if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+        dests.push([nc,nr]);
+        const cell=cells.get(key(c,r)); if(!cell) continue;
+        const [px,py]=cellCenter(nc,nr);
+        ctx.save(); ctx.translate(px,py); drawCellFigures(ctx,cell,cell.col||layers[active].color); ctx.restore();
+      }
+    } else {   // fuori griglia: ghost libero come feedback
+      const dx=dragMove.curPt[0]-dragMove.startPt[0], dy=dragMove.curPt[1]-dragMove.startPt[1];
+      for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(!cell) continue;
+        const [px,py]=cellCenter(c,r); ctx.save(); ctx.translate(px+dx,py+dy); drawCellFigures(ctx,cell,cell.col||layers[active].color); ctx.restore(); }
+    }
+    ctx.restore();
+    for(const [nc,nr] of dests) outline(nc,nr,2);
+  }
+  // hover: contorno sottile
+  if(hoverC!=null && !(hoverC===cursor.c&&hoverR===cursor.r)) outline(hoverC,hoverR,2);
+  // cursore: contorno molto spesso
+  outline(cursor.c,cursor.r,4.5);
+  // miniatura del frame corrente aggiornata con calma mentre si disegna
+  if(anim.on){ clearTimeout(thumbT); thumbT=setTimeout(()=>{ if(anim.on&&!previewing) updateThumb(anim.cur); },350); }
+  updateHilites();   // libreria/slot in risalto se la selezione è una tessera semplice (guardia interna anti-lavoro-doppio)
+}
+
+/* ---- hit-test ---- */
+function cellAt(mx,my){
+  let best=null,bd=1e9;
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
+    const [cx,cy]=cellCenter(c,r); const d=(cx-mx)**2+(cy-my)**2;
+    if(d<bd){bd=d;best=[c,r];}
+  }
+  return (best&&bd<(R*1.05)**2)?best:null;
+}
+
+/* ---- azioni base ---- */
+/* stato completo del documento per undo/redo (tutti i livelli + canvas + rotazione, escluso lo sfondo immagine) */
+function docState(){ return JSON.stringify({cols,rows,boardRot,active,
+  frame:(anim.on&&anim.frames.length)?anim.cur:null,   // lo snapshot sa a QUALE frame appartiene
+  layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]}))}); }
+function restoreState(s){ const o=JSON.parse(s);
+  cols=o.cols; rows=o.rows; boardRot=o.boardRot;
+  // undo attraverso la timeline: se lo snapshot è di un altro frame, prima ci si sposta lì
+  if(o.frame!=null && anim.on && anim.frames.length){
+    if(o.frame!==anim.cur && o.frame<anim.frames.length){ animCommit(); anim.cur=o.frame; }
+  }
+  layers=o.layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:new Map(L.cells)}));
+  setActive(Math.min(o.active,layers.length-1));
+  if(o.frame!=null && anim.on && anim.frames.length){
+    anim.frames[anim.cur]=layersData();   // il frame riflette lo stato ripristinato
+    updateOnionLayers(); updFrLabel(); updateTimelineAct(); updateThumb(anim.cur);
+  }
+  $('cols').value=cols; $('rows').value=rows;
+  cursor.c=Math.min(cursor.c,cols-1); cursor.r=Math.min(cursor.r,rows-1);
+  document.documentElement.style.setProperty('--boardRot',boardRot+'deg');
+  buildLayers();
+}
+function snapshot(){ const s=docState(); if(undoStack.length && undoStack[undoStack.length-1]===s) return;   // niente doppioni no-op
+  undoStack.push(s); if(undoStack.length>80)undoStack.shift(); redoStack.length=0; refreshUndo(); }
+function brushCell(){ const c={t:brush.tile,rot:brush.rot,flip:brush.flip,inv:brush.inv,sw:brush.sw}; if(brush.col)c.col=brush.col; return c; }
+/* ---- SIMMETRIE: il timbro si ripete attorno al CENTRO della tela (niente assi disegnati) ----
+   Ritorna le copie {c,r,rot,flip} con l'orientazione giusta per ognuna (specchi riflettono la tessera, rotazioni la ruotano). */
+let symMode='none';   // 'none' | 'mh' specchio ↔ | 'mv' specchio ↕ | 'r2' | 'r3' | 'r6'
+function symTargets(c,r){
+  const out=[{c,r,rot:brush.rot,flip:brush.flip}];
+  if(symMode==='none') return out;
+  const cc=Math.round((cols-1)/2), rc=Math.round((rows-1)/2);
+  const C=toCube(cc,rc);
+  const seen=new Set([key(c,r)]);
+  const add=(nc,nr,rot,flip)=>{ if(nc<0||nc>=cols||nr<0||nr>=rows) return; const k=key(nc,nr);
+    if(seen.has(k)) return; seen.add(k); out.push({c:nc,r:nr,rot:((rot%6)+6)%6,flip}); };
+  if(symMode==='mh'){                      // specchio orizzontale: colonna riflessa attorno a cc (stessa parità → stessa riga)
+    add(2*cc-c, r, -brush.rot, !brush.flip);
+  } else if(symMode==='mv'){               // specchio verticale = specchio ↔ + rotazione 180° attorno al centro
+    const p=toCube(2*cc-c, r).map((v,i)=>v-C[i]);
+    const [nc,nr]=fromCube(-p[0]+C[0], -p[2]+C[2]);
+    add(nc, nr, 3-brush.rot, !brush.flip);
+  } else {                                 // rotazionale ×N attorno al centro
+    const N=+symMode.slice(1), step=6/N;
+    let p=toCube(c,r).map((v,i)=>v-C[i]);
+    for(let k=1;k<N;k++){
+      for(let s=0;s<step;s++) p=[-p[2],-p[0],-p[1]];
+      const [nc,nr]=fromCube(p[0]+C[0], p[2]+C[2]);
+      add(nc, nr, brush.rot+step*k, brush.flip);
+    }
+  }
+  return out;
+}
+/* celle-ASSE della simmetria attiva: quelle che coincidono con la propria immagine
+   (colonna centrale per ↔, riga centrale per ↕, la cella centrale per le rotazioni) */
+let axisCache={key:'',cells:[]};
+function symAxisCells(){
+  const ck=symMode+'/'+cols+'/'+rows;
+  if(axisCache.key===ck) return axisCache.cells;
+  const out=[];
+  if(symMode!=='none'){
+    const cc=Math.round((cols-1)/2), rc=Math.round((rows-1)/2), C=toCube(cc,rc);
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
+      let m;
+      if(symMode==='mh') m=[2*cc-c, r];
+      else if(symMode==='mv'){ const p=toCube(2*cc-c,r).map((v,i)=>v-C[i]); m=fromCube(-p[0]+C[0],-p[2]+C[2]); }
+      else { const step=6/(+symMode.slice(1)); let p=toCube(c,r).map((v,i)=>v-C[i]);
+        for(let s=0;s<step;s++) p=[-p[2],-p[0],-p[1]]; m=fromCube(p[0]+C[0],p[2]+C[2]); }
+      if(m[0]===c&&m[1]===r) out.push([c,r]);
+    }
+  }
+  axisCache={key:ck,cells:out};
+  return out;
+}
+function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie simmetriche)
+  const rot=ov?ov.rot:brush.rot, flip=ov?ov.flip:brush.flip;
+  const ex=cells.get(key(c,r));
+  const s={t:brush.tile,rot,flip,sw:brush.sw};
+  if(ex && ex.t!=null && stampMode==='merge'){
+    const sig=v=>v.t+'/'+v.rot+'/'+v.flip;
+    if(!cellStamps(ex).map(sig).includes(sig(s))){ ex.extra=(ex.extra||[]); ex.extra.push(s); }
+    return;
+  }
+  if(stampMode==='sub'){ if(ex){ ex.sub=(ex.sub||[]); ex.sub.push(s); } return; }   // su cella vuota non fa nulla
+  if(stampMode==='iso'){ if(ex){ ex.iso=(ex.iso||[]); ex.iso.push(s); } return; }   // intersezione con vuoto = vuoto
+  if(stampMode==='xor' && ex && ex.t!=null){ ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale
+  const nc=brushCell(); nc.rot=rot; nc.flip=flip; cells.set(key(c,r),nc);
+}
+function bgCell(c,r){ cells.set(key(c,r),{t:null,rot:0,flip:false,inv:brush.inv}); }
+function erase(c,r){ cells.delete(key(c,r)); }
+/* ---- secchiello (flood fill) ---- */
+/* vicini esagonali flat-top con colonne sfalsate (colonne dispari più in basso) */
+function hexNeighbors(c,r){ return (c%2===0)
+  ? [[c,r-1],[c,r+1],[c-1,r-1],[c-1,r],[c+1,r-1],[c+1,r]]
+  : [[c,r-1],[c,r+1],[c-1,r],[c-1,r+1],[c+1,r],[c+1,r+1]]; }
+/* ---- coordinate cubiche (layout odd-q) per spostare/ruotare gruppi di celle come un blocco rigido ---- */
+const oddq=c=>((c%2)+2)%2;
+function toCube(c,r){ const x=c, z=r-(c-oddq(c))/2; return [x,-x-z,z]; }
+function fromCube(x,z){ return [x, z+(x-oddq(x))/2]; }
+function cubeRound(x,y,z){ let rx=Math.round(x),ry=Math.round(y),rz=Math.round(z);
+  const dx=Math.abs(rx-x),dy=Math.abs(ry-y),dz=Math.abs(rz-z);
+  if(dx>dy&&dx>dz) rx=-ry-rz; else if(dy>dz) ry=-rx-rz; else rz=-rx-ry;
+  return [rx,ry,rz]; }
+/* ruota la SELEZIONE come gruppo rigido attorno al suo centro (d=±1 → ±60°): posizioni in cubiche + orientazione tessere */
+function groupRotate(d){
+  const cs=selCells(); if(!cs.length) return;
+  snapshot();
+  const cubes=cs.map(([c,r])=>toCube(c,r));
+  let sx=0,sy=0,sz=0; cubes.forEach(([x,y,z])=>{sx+=x;sy+=y;sz+=z;});
+  const ctr=cubeRound(sx/cs.length,sy/cs.length,sz/cs.length);
+  const steps=((d%6)+6)%6;
+  const moved=[], newSel=new Set();
+  cs.forEach(([c,r],i)=>{
+    let p=[cubes[i][0]-ctr[0],cubes[i][1]-ctr[1],cubes[i][2]-ctr[2]];
+    for(let s=0;s<steps;s++) p=[-p[2],-p[0],-p[1]];   // 60° in senso orario
+    const [nc,nr]=fromCube(p[0]+ctr[0],p[2]+ctr[2]);
+    moved.push([nc,nr,cells.get(key(c,r))]);
+  });
+  for(const [c,r] of cs) cells.delete(key(c,r));
+  const rotStamp=s=>{ s.rot=((s.rot+d)%6+6)%6; };
+  for(const [nc,nr,cell] of moved){
+    if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+    newSel.add(key(nc,nr));
+    if(!cell) continue;
+    rotStamp(cell); (cell.extra||[]).forEach(rotStamp); (cell.sub||[]).forEach(rotStamp); (cell.iso||[]).forEach(rotStamp); (cell.xor||[]).forEach(rotStamp);
+    cells.set(key(nc,nr),cell);
+  }
+  selection=newSel.size?newSel:null; render();
+}
+/* specchia la SELEZIONE come gruppo attorno alla sua colonna centrale (orizzontale) */
+function groupMirror(){
+  const cs=selCells(); if(!cs.length) return;
+  snapshot();
+  const cc=Math.round(cs.reduce((a,[c])=>a+c,0)/cs.length);
+  const moved=[], newSel=new Set();
+  for(const [c,r] of cs) moved.push([2*cc-c, r, cells.get(key(c,r))]);   // stessa parità → stessa riga visiva
+  for(const [c,r] of cs) cells.delete(key(c,r));
+  const flipStamp=s=>{ s.flip=!s.flip; s.rot=((-s.rot)%6+6)%6; };
+  for(const [nc,nr,cell] of moved){
+    if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+    newSel.add(key(nc,nr));
+    if(!cell) continue;
+    flipStamp(cell); (cell.extra||[]).forEach(flipStamp); (cell.sub||[]).forEach(flipStamp); (cell.iso||[]).forEach(flipStamp); (cell.xor||[]).forEach(flipStamp);
+    cells.set(key(nc,nr),cell);
+  }
+  selection=newSel.size?newSel:null; render();
+}
+/* sposta la SELEZIONE di un delta cubico, fondendo nelle destinazioni secondo stampMode.
+   copy=true (Alt premuto): le origini restano, a destinazione va una copia */
+function dropSelection(anchor,target,copy){
+  const a=toCube(anchor[0],anchor[1]), t=toCube(target[0],target[1]);
+  const dx=t[0]-a[0], dz=t[2]-a[2];
+  if(!dx&&!dz) return;
+  snapshot();
+  const moved=[], newSel=new Set();
+  for(const [c,r] of selCells()){ const p=toCube(c,r); const [nc,nr]=fromCube(p[0]+dx,p[2]+dz);
+    const cell=cells.get(key(c,r));
+    moved.push([nc,nr, (copy&&cell)?JSON.parse(JSON.stringify(cell)):cell]); }
+  if(!copy) for(const [c,r] of selCells()) cells.delete(key(c,r));
+  for(const [nc,nr,cell] of moved){
+    if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+    newSel.add(key(nc,nr));
+    if(cell) mergeCellInto(nc,nr,cell);
+  }
+  selection=newSel.size?newSel:null; render();
+}
+/* fonde una cella trascinata nella destinazione: normale = sostituisce, ⊕ somma, ⊖ scava, ∩ interseca, ⊻ esclude */
+function mergeCellInto(c,r,src){
+  const k=key(c,r), dst=cells.get(k);
+  if(!stampMode || !dst){ cells.set(k,src); return; }
+  const full=TILES.find(t=>t.name==='pieno')||TILES[0];
+  const srcStamps=(src.inv&&src.t==null) ? [{t:full.id,rot:0,flip:false,sw:src.sw??connSW}]
+                                         : cellStamps(src).filter(s=>s.t!=null);
+  if(!srcStamps.length) return;
+  if(stampMode==='merge'){ dst.extra=(dst.extra||[]).concat(srcStamps); if(src.sub&&src.sub.length) dst.sub=(dst.sub||[]).concat(src.sub); }
+  else if(stampMode==='sub'){ dst.sub=(dst.sub||[]).concat(srcStamps); }
+  else if(stampMode==='iso'){ dst.iso=(dst.iso||[]).concat(srcStamps); }
+  else if(stampMode==='xor'){ dst.xor=(dst.xor||[]).concat(srcStamps); }
+}
+/* firma di una cella: due celle propagano solo se identiche in tessera,
+   orientazione, specchiatura, inversione E tessere sommate (extra). Vuoto = 'empty'. */
+function cellSig(cell){ return cell ? JSON.stringify([cell.t,cell.rot,!!cell.flip,!!cell.inv,cell.sw??null,cell.col??null,cell.extra||null,cell.sub||null,cell.iso||null,cell.xor||null]) : 'empty'; }
+function bucketFill(sc,sr){
+  const target=cellSig(cells.get(key(sc,sr)));
+  if(target===cellSig(brushCell())) return;   // niente da cambiare
+  // se si parte da una cella SELEZIONATA, il riempimento resta dentro la selezione
+  const limit=(selection && selection.size && selection.has(key(sc,sr))) ? selection : null;
+  snapshot();
+  const seen=new Set(), stack=[[sc,sr]];
+  while(stack.length){
+    const [c,r]=stack.pop();
+    if(c<0||c>=cols||r<0||r>=rows) continue;
+    const k=key(c,r);
+    if(seen.has(k)) continue;
+    if(limit && !limit.has(k)) continue;
+    if(cellSig(cells.get(k))!==target) continue;
+    seen.add(k);
+    cells.set(k,brushCell());
+    for(const n of hexNeighbors(c,r)) stack.push(n);
+  }
+  render();
+}
+function advance(){ cursor.c++; if(cursor.c>=cols){cursor.c=0;cursor.r=Math.min(rows-1,cursor.r+1);} }
+function retreat(){ cursor.c--; if(cursor.c<0){cursor.c=cols-1;cursor.r=Math.max(0,cursor.r-1);} }
+/* ←/→ su esagoni flat-top: non esiste il "dritto di lato", i vicini sono a ±30°.
+   Soluzione: zig-zag deterministico (alterna su/giù) così due passi tornano alla stessa altezza
+   e il movimento netto è orizzontale — niente più sorprese. ↑/↓ restano puri. */
+let zigBias=1;
+function moveCursor(dc,dr){
+  if(dc!==0 && dr===0){
+    const dir=Math.sign(dc);
+    const c=cursor.c, nc=Math.max(0,Math.min(cols-1,c+dir));
+    if(nc===c) return;
+    const up=cursor.r+((c%2)?0:-1), down=cursor.r+((c%2)?1:0);
+    let nr=(zigBias>0)?down:up;
+    if(nr<0) nr=down; else if(nr>rows-1) nr=up;   // ai bordi usa l'altra diagonale
+    cursor.c=nc; cursor.r=Math.max(0,Math.min(rows-1,nr)); zigBias=-zigBias;
+    return;
+  }
+  cursor.c=Math.max(0,Math.min(cols-1,cursor.c+dc)); cursor.r=Math.max(0,Math.min(rows-1,cursor.r+dr));
+}
+/* converte una direzione "schermo" (sx,sy) nello spostamento di griglia (dc,dr) tenendo conto di boardRot */
+function arrowDir(sx,sy){ const a=boardRot*Math.PI/180, c=Math.round(Math.cos(a)), s=Math.round(Math.sin(a));
+  return [c*sx+s*sy, -s*sx+c*sy]; }
+
+/* ---- vista: zoom + pan (stile grafino/Blender) ---- */
+/* pan e zoom vivono nella trasformazione di disegno: ogni cambio = ridisegno (canvas piccolo, costa poco) */
+function applyPan(){ render(); }
+function updateZoomLabel(){ const p=document.getElementById('zPct'); if(p) p.textContent=Math.round(view.zoom*100)+'%'; }
+function applyView(){ updateZoomLabel(); render(); }
+/* imposta lo zoom mantenendo fisso il punto (sx,sy) relativo allo stage (zoom centrato sul puntatore) */
+function setZoomAt(sx,sy,nz){ nz=Math.min(8,Math.max(0.12,nz));
+  view.x=sx-(sx-view.x)*(nz/view.zoom); view.y=sy-(sy-view.y)*(nz/view.zoom); view.zoom=nz; applyView(); }
+/* zoom per fattore, centrato sul centro dello stage (usato da pulsanti e tasti +/-) */
+function zoomByCenter(f){ const r=stageEl.getBoundingClientRect(); setZoomAt(r.width/2,r.height/2,view.zoom*f); }
+/* adatta la tavola alla vista e la centra */
+function fitView(){ const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  const r=stageEl.getBoundingClientRect(); const pad=40;
+  view.zoom=Math.max(0.12,Math.min(8,Math.min((r.width-pad)/cw,(r.height-pad)/ch)));
+  view.x=(r.width-cw*view.zoom)/2; view.y=(r.height-ch*view.zoom)/2; applyView(); }
+function updateCursor(){ board.style.cursor = tool==='bucket'?'cell' : tool==='select'?'pointer' : 'crosshair'; }
+
+/* ---- input mouse ---- */
+let painting=false, selecting=false, mode='stamp', lastKey=null, selStartPt=null, baseSel=null, selAnchorKey=null;
+const lassoPts=[]; let hoverPt=null;
+/* selezione rettangolare in coordinate contenuto: celle col centro dentro il rettangolo (+ la cella d'ancora) */
+function rectSelect(p1,p2){
+  const s=new Set(baseSel||[]);
+  const x0=Math.min(p1[0],p2[0]),x1=Math.max(p1[0],p2[0]),y0=Math.min(p1[1],p2[1]),y1=Math.max(p1[1],p2[1]);
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r);
+    if(cx>=x0&&cx<=x1&&cy>=y0&&cy<=y1) s.add(key(c,r)); }
+  if(selAnchorKey) s.add(selAnchorKey);
+  return s.size?s:null;
+}
+function pointInPoly(x,y,pts){ let inside=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const [xi,yi]=pts[i],[xj,yj]=pts[j];
+    if((yi>y)!==(yj>y) && x<(xj-xi)*(y-yi)/(yj-yi)+xi) inside=!inside; }
+  return inside; }
+/* celle attraversate dal percorso del lazo (segmenti campionati ogni ~R/3); closed aggiunge il segmento di chiusura */
+function lassoPathCells(closed){
+  const s=new Set();
+  const pts=(!closed && tool==='lasso' && hoverPt) ? lassoPts.concat([hoverPt]) : lassoPts.slice();
+  if(closed && lassoPts.length>1) pts.push(lassoPts[0]);
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    const d=Math.hypot(x2-x1,y2-y1), n=Math.max(1,Math.ceil(d/(R*0.35)));
+    for(let j=0;j<=n;j++){ const h=cellAt(x1+(x2-x1)*j/n, y1+(y2-y1)*j/n); if(h) s.add(key(h[0],h[1])); }
+  }
+  for(const p of lassoPts){ const h=cellAt(...p); if(h) s.add(key(h[0],h[1])); }
+  return s;
+}
+function closeLasso(){
+  if(lassoPts.length>=2){
+    const s=lassoPathCells(true);                       // il bordo (gli esagoni del percorso) fa parte della selezione
+    if(lassoPts.length>=3){                              // + l'interno del poligono
+      for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r); if(pointInPoly(cx,cy,lassoPts)) s.add(key(c,r)); }
+    }
+    selection=s.size?s:null;
+  }
+  lassoPts.length=0; render();
+}
+const localXY=e=>{ const b=board.getBoundingClientRect();
+  let x=(e.clientX-b.left-view.x)/view.zoom, y=(e.clientY-b.top-view.y)/view.zoom;   // inverte pan+zoom (il canvas è il viewport)
+  const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  x-=cw/2; y-=ch/2;
+  const a=-boardRot*Math.PI/180, co=Math.cos(a), si=Math.sin(a);
+  return [ x*co-y*si + W/2, x*si+y*co + H/2 ];   // coordinate contenuto (de-ruotate)
+};
+board.addEventListener('contextmenu',e=>e.preventDefault());
+let dragMove=null;   // {startPt, anchor:[c,r], curPt} — trascinamento della selezione
+board.addEventListener('pointerdown',e=>{
+  if(spaceDown || e.button===1) return;   // pan: gestito a livello di stage
+  const pt=localXY(e); const hit=cellAt(...pt);
+  if(tool==='lasso'){
+    if(e.button===2){ lassoPts.length=0; render(); return; }   // destro = annulla il lazo
+    // clic di nuovo sul PRIMO esagono = chiudi (oltre a doppio clic e Invio)
+    if(lassoPts.length>=2 && hit){ const first=cellAt(...lassoPts[0]);
+      if(first && hit[0]===first[0] && hit[1]===first[1]){ closeLasso(); return; } }
+    lassoPts.push(pt); render(); return;
+  }
+  // trascina la selezione: nello strumento seleziona, presa su una cella GIÀ selezionata
+  if(tool==='select' && !e.shiftKey && e.button!==2 && hit && inSel(hit[0],hit[1])){
+    dragMove={startPt:pt, anchor:hit, curPt:pt};
+    board.setPointerCapture(e.pointerId); return;
+  }
+  if(e.shiftKey || tool==='select'){   // selezione rettangolare (⇧ da qualsiasi strumento; ⇧ nello strumento seleziona = aggiungi)
+    selecting=true; selStartPt=pt;
+    baseSel=(e.shiftKey && tool==='select' && selection)?new Set(selection):null;
+    selAnchorKey=hit?key(hit[0],hit[1]):null;
+    if(hit){ cursor.c=hit[0]; cursor.r=hit[1]; }
+    selection=rectSelect(pt,pt);
+    render(); updateStatus(); board.setPointerCapture(e.pointerId); return;
+  }
+  if(!hit) return;
+  if(tool==='bucket' && e.button!==2){   // secchiello: riempi la zona connessa
+    cursor.c=hit[0]; cursor.r=hit[1]; bucketFill(hit[0],hit[1]); updateStatus(); return; }
+  selection=null; snapshot(); painting=true; mode=(e.button===2)?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
+  cursor.c=hit[0]; cursor.r=hit[1]; applyAt(hit); render(hit[0],hit[1]); updateStatus(); board.setPointerCapture(e.pointerId);
+});
+board.addEventListener('dblclick',e=>{
+  if(tool==='lasso'&&lassoPts.length){ e.preventDefault(); closeLasso(); return; }
+  // doppio clic su una tessera = seleziona TUTTE le identiche sulla tela (stessa firma: rotazione/trasformazioni comprese); ⇧ aggiunge
+  const hit=cellAt(...localXY(e)); if(!hit) return;
+  const cell=cells.get(key(hit[0],hit[1])); if(!cell) return;
+  const sig=cellSig(cell);
+  const s=(e.shiftKey&&selection)?new Set(selection):new Set();
+  for(const [k,c2] of cells){ if(cellSig(c2)===sig) s.add(k); }
+  selection=s.size?s:null;
+  if(tool!=='select') setTool('select');
+  render(); updateStatus();
+});
+board.addEventListener('pointermove',e=>{
+  if(panning) return;   // pan gestito a livello di stage
+  const pt=localXY(e); hoverPt=pt;
+  if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; render(); return; }
+  const hit=cellAt(...pt);
+  if(selecting){ selection=rectSelect(selStartPt,pt); render(); return; }
+  if(painting){
+    // traiettoria reale ad alta frequenza (eventi coalescenti) + interpolazione: niente celle saltate
+    const evs=(e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+    for(const ev of evs) paintTo(localXY(ev));
+    render(hit?hit[0]:null, hit?hit[1]:null); updateStatus(); return;
+  }
+  render(hit?hit[0]:null, hit?hit[1]:null);
+});
+board.addEventListener('pointerup',e=>{
+  if(dragMove){
+    const target=cellAt(...dragMove.curPt);
+    const moved=Math.hypot(dragMove.curPt[0]-dragMove.startPt[0],dragMove.curPt[1]-dragMove.startPt[1])>4;
+    if(moved && target) dropSelection(dragMove.anchor,target,e.altKey);   // Alt = copia
+    dragMove=null; render();
+  }
+  painting=false;selecting=false;baseSel=null;selAnchorKey=null;lastPaintPt=null;
+  if(spaceDown)board.style.cursor='grab'; else updateCursor();
+});
+board.addEventListener('pointerleave',()=>{painting=false;lastPaintPt=null;render();});
+function applyAt([c,r]){ const k=key(c,r); if(k===lastKey)return; lastKey=k; cursor.c=c;cursor.r=r;
+  for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r); else stamp(t.c,t.r,t); } }
+/* dipinge fino a pt INTERPOLANDO dal punto precedente: campiona il segmento ogni ~mezzo esagono,
+   così anche i tratti velocissimi non saltano celle */
+let lastPaintPt=null;
+function paintTo(pt){
+  if(lastPaintPt){
+    const d=Math.hypot(pt[0]-lastPaintPt[0],pt[1]-lastPaintPt[1]);
+    const n=Math.max(1,Math.ceil(d/(R*0.4)));
+    for(let i=1;i<=n;i++){
+      const x=lastPaintPt[0]+(pt[0]-lastPaintPt[0])*i/n, y=lastPaintPt[1]+(pt[1]-lastPaintPt[1])*i/n;
+      const h=cellAt(x,y); if(h) applyAt(h);
+    }
+  } else { const h=cellAt(...pt); if(h) applyAt(h); }
+  lastPaintPt=pt;
+}
+/* rotella (su tutto lo stage, come grafino): scorre la tela · ⌘/Ctrl = zoom sul puntatore · Alt = ruota il pennello */
+stageEl.addEventListener('wheel',e=>{ e.preventDefault();
+  if(e.ctrlKey||e.metaKey){   // zoom stile grafino, centrato sul puntatore
+    const r=stageEl.getBoundingClientRect(); setZoomAt(e.clientX-r.left,e.clientY-r.top,view.zoom*Math.exp(-e.deltaY*0.003)); return; }
+  if(e.altKey){ brush.rot=((brush.rot+(e.deltaY>0?1:5))%6+6)%6; updateStatus();
+    const hit=cellAt(...localXY(e)); render(hit?hit[0]:null,hit?hit[1]:null); return; }
+  view.x-=e.deltaX; view.y-=e.deltaY; applyPan(); },{passive:false});
+
+/* ---- selezione: operazioni ---- */
+function selCells(){ return selection ? [...selection].map(k=>k.split(',').map(Number)) : []; }
+function selBounds(){ const cs=selCells(); return {c0:Math.min(...cs.map(p=>p[0])),c1:Math.max(...cs.map(p=>p[0])),r0:Math.min(...cs.map(p=>p[1])),r1:Math.max(...cs.map(p=>p[1]))}; }
+function selOp(fn){ if(!selection||!selection.size)return; snapshot(); for(const [c,r] of selCells()) fn(c,r); render(); }
+function copySel(){ if(!selection||!selection.size)return; const b=selBounds(); clipboard={w:b.c1-b.c0+1,h:b.r1-b.r0+1,data:[]};
+  for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(cell) clipboard.data.push({dc:c-b.c0,dr:r-b.r0,cell:JSON.parse(JSON.stringify(cell))}); } }
+function paste(){ if(!clipboard)return; snapshot(); for(const it of clipboard.data){ const c=cursor.c+it.dc, r=cursor.r+it.dr; if(c<cols&&r<rows) cells.set(key(c,r),JSON.parse(JSON.stringify(it.cell))); } render(); }
+function shiftSel(dc,dr){ if(!selection||!selection.size)return; snapshot(); const moves=[];
+  for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); cells.delete(key(c,r)); if(cell)moves.push([c+dc,r+dr,cell]); }
+  for(const [c,r,cell] of moves){ if(c>=0&&c<cols&&r>=0&&r<rows) cells.set(key(c,r),cell); }
+  selection=new Set(selCells().map(([c,r])=>[c+dc,r+dr]).filter(([c,r])=>c>=0&&c<cols&&r>=0&&r<rows).map(([c,r])=>key(c,r)));
+  if(!selection.size) selection=null; render(); }
+/* trasformazioni: sulla SELEZIONE come GRUPPO rigido se c'è, altrimenti sul PENNELLO
+   (anteprima in alto a destra). Per trasformare le singole tessere selezionate: ⇧Y / ⇧U. */
+function xformRot(d){
+  if(selection&&selection.size){ groupRotate(d); }
+  else { brush.rot=((brush.rot+d)%6+6)%6; }
+  updateStatus(); render();
+}
+function xformFlip(){
+  if(selection&&selection.size){ groupMirror(); }
+  else { brush.flip=!brush.flip; $('flip').classList.toggle('on',brush.flip); }
+  updateStatus(); render();
+}
+function xformInv(){
+  if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(cell) cell.inv=!cell.inv; }); }
+  else { brush.inv=!brush.inv; $('inv').classList.toggle('on',brush.inv); }
+  updateStatus(); render();
+}
+
+/* ---- palette / slot ---- */
+function tileSVG(t){
+  return `<svg viewBox="-1.15 -1.15 2.3 2.3"><path d="${HEX_UNIT_D}" fill="#fff"/><clipPath id="cp_${t.id}"><path d="${HEX_UNIT_D}"/></clipPath><g clip-path="url(#cp_${t.id})">${tileFigSVG(t,'#111',brush.sw??connSW,'cp'+t.id)}</g></svg>`;
+}
+/* figure SVG di una tessera (base o forgiata) come gruppo, per le anteprime; uid per mask/clip univoche */
+function tileFigSVG(t, fill, sw, uid){
+  if(t.stamps){   // forgiata: adds + mask con i subs in nero
+    let adds='', subs='';
+    for(let i=0;i<t.stamps.length;i++){ const s=t.stamps[i]; const st=tileById(s.t); if(!st)continue;
+      const g=`<g transform="rotate(${(s.rot||0)*60}) scale(${s.flip?-1:1},1)">${tileFigSVG(st, s.op==='sub'?'#000':fill, s.sw??sw, uid+'_'+i)}</g>`;
+      if(s.op==='sub') subs+=g; else adds+=g; }
+    if(!subs) return adds;
+    return `<mask id="fm_${uid}" maskUnits="userSpaceOnUse" x="-1.2" y="-1.2" width="2.4" height="2.4"><rect x="-1.2" y="-1.2" width="2.4" height="2.4" fill="#fff"/>${subs}</mask><g mask="url(#fm_${uid})">${adds}</g>`;
+  }
+  return t.parts.map(pp=> pp.sw
+    ? `<path d="${pp.d}" fill="none" stroke="${fill}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`
+    : `<path d="${pp.d}" fill="${fill}" fill-rule="${pp.eo?'evenodd':'nonzero'}"/>`).join('');
+}
+/* anteprima di un preset {t,rot,flip,inv,sw} con le sue trasformazioni; uid = id univoco per la clip */
+function stampPreviewSVG(p, uid){
+  const t=p&&tileById(p.t); if(!t) return '';
+  const ink=p.col||'#111';
+  const hexFill=p.inv?ink:'#fff', figFill=p.inv?'#fff':ink;
+  const tr=`rotate(${(p.rot||0)*60}) scale(${p.flip?-1:1},1)`;
+  return `<svg viewBox="-1.15 -1.15 2.3 2.3"><clipPath id="sp_${uid}"><path d="${HEX_UNIT_D}"/></clipPath><path d="${HEX_UNIT_D}" fill="${hexFill}"/><g clip-path="url(#sp_${uid})"><g transform="${tr}">${tileFigSVG(t,figFill,p.sw??connSW,uid)}</g></g></svg>`;
+}
+/* anteprima della tessera attiva con rot/flip/inv correnti (riflette r/f/i) */
+function updateBrushPreview(){ const box=document.getElementById('brushPrev'); if(box) box.innerHTML=stampPreviewSVG(brushCell(),'brush'); }
+/* applica un preset di slot al pennello (tessera + rotazione + specchio + inversione) */
+function applyPreset(p){
+  brush.tile=p.t; brush.rot=p.rot||0; brush.flip=!!p.flip; brush.inv=!!p.inv;
+  noteRecentTile(p.t);
+  if(p.sw!=null) brush.sw=p.sw;
+  brush.col=p.col||null;
+  syncBrushUI();
+  document.querySelectorAll('#palette .tile').forEach(x=>x.classList.toggle('sel',x.dataset.id===brush.tile));
+  updateStatus(); render();
+}
+/* allinea i controlli (flip/inv, slider spessore, colore) allo stato del pennello */
+function syncBrushUI(){
+  $('flip').classList.toggle('on',brush.flip); $('inv').classList.toggle('on',brush.inv);
+  $('connSW').value=brush.sw; $('swVal').textContent=(+brush.sw).toFixed(2);
+  const cc=$('cellCol'); if(cc) cc.value=brush.col||layers[active].color;
+  buildSwatches();
+}
+function buildPalette(){
+  const pal=document.getElementById('palette'); pal.innerHTML=''; document.getElementById('tcount').textContent='('+TILES.length+')';
+  lastHilite='';   // il rebuild azzera le classi hilite: forza il ricalcolo
+  let closed=new Set(); try{ closed=new Set(JSON.parse(localStorage.getItem('hexagraph.palclosed')||'[]')); }catch(e){}
+  let lastG=null;
+  TILES.forEach(t=>{
+    if(t.cat!==lastG){ lastG=t.cat; const cat=t.cat, n=TILES.filter(x=>x.cat===cat).length;
+      const h=document.createElement('div'); h.className='grouphdr'; h.title='clic per aprire/chiudere la categoria';
+      h.innerHTML=`<span>${cat} <span style="opacity:.6">${n}</span></span><span>${closed.has(cat)?'▸':'▾'}</span>`;
+      h.onclick=()=>{ closed.has(cat)?closed.delete(cat):closed.add(cat);
+        localStorage.setItem('hexagraph.palclosed',JSON.stringify([...closed])); buildPalette(); };
+      pal.appendChild(h); }
+    if(closed.has(t.cat)) return;
+    const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':''); b.dataset.id=t.id; b.title=t.name||t.id;
+    b.innerHTML=tileSVG(t);
+    b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }   // ⌥+clic = preferita
+      selectTile(t.id); if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };   // in seleziona senza selezione: deposita nella cella del cursore
+    b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
+      if(cell&&cell.t!=null) cell.t=t.id;                              // piena: sostituisce la tessera (tiene rot/flip/colore)
+      else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } // vuota: riempie con l'orientazione corrente del pennello
+    }); } };   // doppio clic = applica la tessera a TUTTA la selezione
+    if(t.cat==='Forgiate') b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
+    pal.appendChild(b);
+  });
+}
+/* ---- PREFERITE (⌥+clic) e RECENTI (automatiche) in cima alla libreria ---- */
+let favTiles=[], recTiles=[];
+try{ favTiles=JSON.parse(localStorage.getItem('hexagraph.favs')||'[]'); }catch(e){}
+try{ recTiles=JSON.parse(localStorage.getItem('hexagraph.rectiles')||'[]'); }catch(e){}
+function noteRecentTile(id){ if(recTiles[0]===id) return;
+  recTiles=[id,...recTiles.filter(x=>x!==id)].slice(0,8); localStorage.setItem('hexagraph.rectiles',JSON.stringify(recTiles)); buildQuickTiles(); }
+function toggleFav(id){ favTiles=favTiles.includes(id)?favTiles.filter(x=>x!==id):[...favTiles,id];
+  localStorage.setItem('hexagraph.favs',JSON.stringify(favTiles)); buildQuickTiles(); }
+/* stesso comportamento delle tessere di libreria: clic seleziona (e deposita in modalità seleziona),
+   doppio clic sostituisce nella selezione, ⌥+clic = preferita */
+function quickTileButton(t){
+  const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':''); b.dataset.id=t.id; b.title=(t.name||t.id)+' — ⌥+clic: preferita';
+  b.innerHTML=tileSVG(t);
+  b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }
+    selectTile(t.id); if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };
+  b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
+    if(cell&&cell.t!=null) cell.t=t.id; else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } }); } };
+  return b;
+}
+function buildQuickTiles(){
+  const el=$('palfav'); if(!el) return; el.innerHTML=''; lastHilite='';
+  const rows=[['Preferite ★',favTiles],['Recenti',recTiles.filter(id=>!favTiles.includes(id))]];
+  for(const [label,ids] of rows){
+    const list=ids.map(tileById).filter(Boolean);
+    if(!list.length) continue;
+    const h=document.createElement('div'); h.className='grouphdr'; h.style.cursor='default'; h.innerHTML=`<span>${label}</span>`;
+    el.appendChild(h);
+    for(const t of list) el.appendChild(quickTileButton(t));
+  }
+}
+function selectTile(id){ brush.tile=id; noteRecentTile(id);
+  document.querySelectorAll('#palette .tile, #palfav .tile').forEach(x=>x.classList.toggle('sel',x.dataset.id===id));
+  updateBrushPreview(); render(); }
+function cycleTile(dir){ let i=tileIndex[brush.tile]||0; i=(i+dir+TILES.length)%TILES.length; selectTile(TILES[i].id); }
+function buildSlots(){
+  const el=document.getElementById('slots'); el.innerHTML=''; lastHilite='';
+  for(let i=0;i<10;i++){ const d=document.createElement('div'); d.className='slot'; d.dataset.i=i;
+    const lbl=(i+1)%10; d.innerHTML=`<span class="n">${lbl}</span>`+(slots[i]?stampPreviewSVG(slots[i],'slot'+i)+`<span class="slotx" title="togli dallo slot">×</span>`:'');
+    const xb=d.querySelector('.slotx'); if(xb) xb.onclick=e=>{ e.stopPropagation(); slots[i]=null; buildSlots(); };
+    d.onclick=()=>{
+      if(assignMode){ slots[i]=brushCell(); setAssign(false); buildSlots(); }   // m + click: assegna il preset attivo (anche sovrascrive)
+      else if(slots[i]){ applyPreset(slots[i]);                                 // slot pieno: applica il preset (con trasformazioni)
+        if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } }   // come la libreria: deposita al cursore
+      else { slots[i]=brushCell(); buildSlots(); }                              // slot vuoto: click = assegna il preset attivo
+    };
+    d.ondblclick=()=>{ const p=slots[i]; if(p&&selection&&selection.size){   // doppio clic = applica il preset a tutta la selezione
+      selOp((c,r)=>{ const nc={t:p.t,rot:p.rot||0,flip:!!p.flip,inv:!!p.inv,sw:p.sw??brush.sw}; if(p.col)nc.col=p.col; cells.set(key(c,r),nc); }); } };
+    d.oncontextmenu=e=>{ e.preventDefault(); if(slots[i]){ slots[i]=null; buildSlots(); } };   // destro: svuota lo slot
+    el.appendChild(d);
+  }
+  updateSlotCur();
+}
+/* evidenzia lo slot che corrisponde al pennello corrente (es. dopo aver depositato con 0-9) */
+function updateSlotCur(){
+  const sig=JSON.stringify([brush.tile,brush.rot,!!brush.flip,!!brush.inv]);
+  document.querySelectorAll('#slots .slot').forEach(el=>{ const s=slots[+el.dataset.i];
+    el.classList.toggle('cur', !!s && JSON.stringify([s.t,s.rot||0,!!s.flip,!!s.inv])===sig); });
+}
+/* una cella SELEZIONATA sulla tela (singola, tessera semplice) evidenzia la sua tessera
+   in libreria e lo slot col preset uguale; le composte (⊕⊖∩⊻) non evidenziano nulla */
+let lastHilite='';
+function updateHilites(){
+  let id=null, slotIdx=-1;
+  if(selection&&selection.size===1){
+    const cell=cells.get([...selection][0]);
+    if(cell&&cell.t!=null && !(cell.extra&&cell.extra.length) && !(cell.sub&&cell.sub.length) && !(cell.iso&&cell.iso.length) && !(cell.xor&&cell.xor.length)){
+      id=cell.t;
+      slots.forEach((s,i)=>{ if(s&&s.t===cell.t&&(s.rot||0)===(cell.rot||0)&&!!s.flip===!!cell.flip&&!!s.inv===!!cell.inv) slotIdx=i; });
+    }
+  }
+  const sig=id+'/'+slotIdx;
+  if(sig===lastHilite) return; lastHilite=sig;
+  document.querySelectorAll('#palette .tile, #palfav .tile').forEach(x=>x.classList.toggle('hilite',x.dataset.id===id));
+  document.querySelectorAll('#slots .slot').forEach(x=>x.classList.toggle('hilite',+x.dataset.i===slotIdx));
+}
+function setAssign(v){ assignMode=v; document.querySelectorAll('#slots .slot').forEach(s=>s.classList.toggle('act',v)); }
+
+/* ---- controlli ---- */
+const $=id=>document.getElementById(id);
+
+/* ---- FORGIA: tessere nuove componendo/scavando quelle esistenti ----
+   Nessuna geometria booleana: una forgiata è {id,name,stamps:[{t,rot,flip,sw,op}]} con op add/sub,
+   composta a runtime (canvas scratch in drawStamp, mask in tileFigSVG). Persistite in localStorage
+   e nel JSON di salvataggio. Le forgiate si appiattiscono se riusate nella forgia (mai annidate). */
+let FORGED=[];
+function rebuildTileIndex(){ for(const k in tileIndex) delete tileIndex[k]; TILES.forEach((t,j)=>tileIndex[t.id]=j); }
+function registerForged(f){ const t={id:f.id,grp:'fx',cat:'Forgiate',name:f.name,stamps:f.stamps};
+  if(tileIndex[f.id]!=null) TILES[tileIndex[f.id]]=t; else { TILES.push(t); tileIndex[f.id]=TILES.length-1; } }
+function loadForged(){ try{ FORGED=JSON.parse(localStorage.getItem('hexagraph.forged')||'[]'); }catch(e){ FORGED=[]; } FORGED.forEach(registerForged); }
+function saveForged(){ localStorage.setItem('hexagraph.forged',JSON.stringify(FORGED)); }
+function nextForgedId(){ let n=1; while(tileIndex['fx_'+n]!=null) n++; return 'fx_'+n; }
+function deleteForged(id){ const i=FORGED.findIndex(f=>f.id===id); if(i<0)return;
+  if(!confirm('Eliminare la tessera forgiata "'+(FORGED[i].name||id)+'"? Le celle che la usano resteranno vuote.')) return;
+  FORGED.splice(i,1); saveForged();
+  const ti=tileIndex[id]; if(ti!=null) TILES.splice(ti,1); rebuildTileIndex();
+  if(brush.tile===id) brush.tile=TILES[0]?TILES[0].id:null;
+  buildPalette(); updateBrushPreview(); render(); }
+
+/* forgia la cella sotto il cursore: primaria+extra → add, sub → sub, inv → pieno meno figure */
+function forgeFromCell(){
+  let cc=cursor.c, cr=cursor.r;
+  if(selection && selection.size===1){ [cc,cr]=[...selection][0].split(',').map(Number); }
+  else if(selection && selection.size>1){ alert('Seleziona UNA sola cella da forgiare.'); return; }
+  const cell=cells.get(key(cc,cr));
+  if(!cell || (cell.t==null && !(cell.extra&&cell.extra.length) && !cell.inv)){
+    alert('Seleziona una cella con una figura (anche composta con ⊕/⊖), poi forgia.'); return; }
+  if((cell.iso&&cell.iso.length)||(cell.xor&&cell.xor.length)){
+    alert('Le celle con intersezioni ∩ o esclusioni ⊻ non si possono ancora forgiare (il modello forgiato conosce solo aggiungi/scava).'); return; }
+  const stamps=[];
+  const flatten=(st,op)=>{   // false = non rappresentabile (forgiata dentro scavo/inverso)
+    const tile=tileById(st.t); if(!tile) return true;
+    if(tile.stamps){
+      if(op==='sub') return false;
+      for(const s of tile.stamps){
+        const rot=(((st.rot||0)+(st.flip?-(s.rot||0):(s.rot||0)))%6+6)%6;
+        stamps.push({t:s.t,rot,flip:!!st.flip!==!!s.flip,sw:s.sw??st.sw??connSW,op:s.op==='sub'?'sub':'add'});
+      }
+      return true;
+    }
+    stamps.push({t:st.t,rot:st.rot||0,flip:!!st.flip,sw:st.sw??connSW,op}); return true;
+  };
+  let ok=true;
+  if(cell.inv){   // complemento: esagono pieno, figure scavate
+    const full=TILES.find(t=>t.name==='pieno')||TILES[0];
+    stamps.push({t:full.id,rot:0,flip:false,sw:cell.sw??connSW,op:'add'});
+    if(cell.t!=null) for(const st of cellStamps(cell)){ ok=ok&&flatten(st,'sub'); }
+  } else {
+    for(const st of cellStamps(cell)){ ok=ok&&flatten(st,'add'); }
+  }
+  for(const st of (cell.sub||[])){ ok=ok&&flatten(st,'sub'); }
+  if(!ok){ alert('La cella contiene una tessera forgiata dentro uno scavo o un inverso: ricomponila con forme base e riprova.'); return; }
+  if(!stamps.some(s=>s.op!=='sub')){ alert('La cella non ha figure che aggiungono.'); return; }
+  const id=nextForgedId();
+  const name=prompt('Nome della nuova tessera forgiata:','forgiata '+id.slice(3));
+  if(name===null) return;
+  const f={id, name:name.trim()||('forgiata '+id.slice(3)), stamps};
+  FORGED.push(f); registerForged(f); saveForged(); buildPalette(); selectTile(id);
+}
+$('forgeCell').onclick=forgeFromCell;
+$('rotL').onclick=()=>xformRot(-1);
+$('rotR').onclick=()=>xformRot(1);
+$('flip').onclick=()=>xformFlip();
+$('inv').onclick=()=>xformInv();
+/* ---- COLORE: swatch riso + recenti + auto (A = colore del livello) ---- */
+const RISO_COLORS=['#111111','#0078bf','#ff665e','#00a95c','#ffe800','#ff48b0','#ff6c2f','#765ba7','#00838a','#914e72','#62a8e5','#928d88'];
+let recentCols=[]; try{ recentCols=JSON.parse(localStorage.getItem('hexagraph.recentcols')||'[]'); }catch(e){}
+function pushRecentCol(col){ col=col.toLowerCase(); if(RISO_COLORS.includes(col))return;
+  recentCols=[col,...recentCols.filter(c=>c!==col)].slice(0,8); localStorage.setItem('hexagraph.recentcols',JSON.stringify(recentCols)); }
+/* clic su uno swatch: colora la SELEZIONE se c'è (A = torna al colore del livello), altrimenti imposta il pennello */
+function setBrushCol(col){
+  if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return; if(col)cell.col=col; else delete cell.col; }); }
+  else brush.col=col;
+  syncBrushUI(); updateStatus(); render();
+}
+const colLum=c=>{ const n=parseInt(c.slice(1),16); return 0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255); };
+function buildSwatches(){
+  const el=$('swatches'); if(!el)return; el.innerHTML='';
+  const auto=document.createElement('button'); auto.className='sw auto'+(brush.col?'':' sel');
+  auto.style.background=layers[active].color; auto.style.color=colLum(layers[active].color)>140?'#111':'#fff';
+  auto.textContent='A'; auto.title='automatico: colore del livello attivo';
+  auto.onclick=()=>setBrushCol(null); el.appendChild(auto);
+  for(const c of RISO_COLORS.concat(recentCols)){
+    const b=document.createElement('button'); b.className='sw'+(brush.col&&brush.col.toLowerCase()===c?' sel':'');
+    b.style.background=c; b.title=c; b.onclick=()=>setBrushCol(c); el.appendChild(b); }
+}
+$('cellCol').oninput=()=>setBrushCol($('cellCol').value);
+$('cellCol').onchange=()=>{ const v=$('cellCol').value; if(v){ pushRecentCol(v); buildSwatches(); } };
+/* modalità timbro/fusione mutuamente esclusive (clic sulla stessa = torna a "sostituisci") */
+function setStampMode(m){ stampMode=(stampMode===m)?null:m;
+  ['merge','sub','iso','xor'].forEach(id=>$(id).classList.toggle('on',stampMode===id)); }
+$('merge').onclick=()=>setStampMode('merge');
+$('sub').onclick=()=>setStampMode('sub');
+$('iso').onclick=()=>setStampMode('iso');
+$('xor').onclick=()=>setStampMode('xor');
+function setTool(t){ tool=t; lassoPts.length=0;
+  $('toolDraw').classList.toggle('on',t==='draw');
+  $('toolSelect').classList.toggle('on',t==='select');
+  $('toolLasso').classList.toggle('on',t==='lasso');
+  $('bucket').classList.toggle('on',t==='bucket');
+  updateCursor(); render(); }
+$('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); render(); };
+$('toolSelect').onclick=()=>setTool('select');
+$('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
+$('toolDraw').onclick=()=>setTool(tool==='draw'?'select':'draw');
+$('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
+$('grid').onclick=()=>{showGrid=!showGrid;$('grid').classList.toggle('on',!showGrid);render();};
+$('cols').onfocus=()=>snapshot(); $('rows').onfocus=()=>snapshot();
+$('cols').oninput=()=>{cols=+$('cols').value||cols;cursor.c=Math.min(cursor.c,cols-1);render();};
+$('rows').oninput=()=>{rows=+$('rows').value||rows;cursor.r=Math.min(cursor.r,rows-1);render();};
+$('pageDark').oninput=()=>{pageDark=$('pageDark').checked;render();};
+/* ---- comandi vista (bottom-right) ---- */
+$('zIn').onclick=()=>zoomByCenter(1.2);
+$('zOut').onclick=()=>zoomByCenter(1/1.2);
+$('zPct').onclick=()=>fitView();
+$('outBlack').oninput=()=>{outsideBlack=$('outBlack').checked;render();};
+function rotateBoard(delta){ snapshot(); boardRot=((boardRot+delta)%360+360)%360; document.documentElement.style.setProperty('--boardRot',boardRot+'deg'); render(); }
+$('gridRotL').onclick=()=>rotateBoard(-90);
+$('gridRotR').onclick=()=>rotateBoard(90);
+$('connSW').oninput=()=>{ brush.sw=connSW=+$('connSW').value; $('swVal').textContent=connSW.toFixed(2); updateBrushPreview(); render(); };   // connSW resta come fallback per le celle senza sw (vecchi salvataggi)
+$('connSW').onchange=()=>buildPalette();   // aggiorna le anteprime della palette al rilascio
+/* zoom della libreria tessere: + = tessere più grandi (meno colonne) */
+let palCols=6; try{ palCols=Math.min(9,Math.max(3,+localStorage.getItem('hexagraph.palcols')||6)); }catch(e){}
+function applyPalCols(){ const v='repeat('+palCols+',1fr)'; $('palette').style.gridTemplateColumns=v; $('palfav').style.gridTemplateColumns=v; localStorage.setItem('hexagraph.palcols',palCols); }
+$('palMinus').onclick=e=>{ e.stopPropagation(); palCols=Math.min(9,palCols+1); applyPalCols(); };
+$('palPlus').onclick=e=>{ e.stopPropagation(); palCols=Math.max(3,palCols-1); applyPalCols(); };
+/* ---- LIVELLI ---- */
+let dragI=null;
+function buildLayers(){
+  const el=$('layers'); el.innerHTML='';
+  layers.map((L,i)=>({L,i})).reverse().forEach(({L,i})=>{   // alto dello stack in cima alla lista
+    const row=document.createElement('div'); row.className='layerRow'+(i===active?' active':''); row.dataset.i=i;
+    row.innerHTML=`<span class="lhandle" title="trascina per riordinare">⠿</span>`
+      +`<span class="lvis" title="mostra/nascondi">${L.visible?'◉':'○'}</span>`
+      +`<input type="color" class="lcol" value="${L.color}">`
+      +`<div class="lmid"><div class="lname">${L.name}</div><div class="lctl">`
+      +`<select class="lblend">${BLENDS.map(b=>`<option value="${b}" ${b===L.blend?'selected':''}>${BLEND_LABELS[b]}</option>`).join('')}</select>`
+      +`<input type="range" class="lop" min="0" max="100" value="${Math.round(L.opacity*100)}" title="opacità"></div></div>`
+      +`<span class="ldel" title="elimina">✕</span>`;
+    row.querySelector('.lvis').onclick=e=>{e.stopPropagation();snapshot();L.visible=!L.visible;buildLayers();render();};
+    row.querySelector('.lcol').onpointerdown=()=>snapshot();
+    row.querySelector('.lcol').oninput=e=>{e.stopPropagation();L.color=e.target.value;syncBrushUI();render();};
+    row.querySelector('.lcol').onclick=e=>e.stopPropagation();
+    row.querySelector('.lblend').onpointerdown=()=>snapshot();
+    row.querySelector('.lblend').onchange=e=>{e.stopPropagation();L.blend=e.target.value;render();};
+    row.querySelector('.lblend').onclick=e=>e.stopPropagation();
+    row.querySelector('.lop').onpointerdown=()=>snapshot();
+    row.querySelector('.lop').oninput=e=>{e.stopPropagation();L.opacity=+e.target.value/100;render();};
+    row.querySelector('.ldel').onclick=e=>{e.stopPropagation();deleteLayer(i);};
+    row.onclick=()=>{ setActive(i); syncBrushUI(); buildLayers(); };
+    const handle=row.querySelector('.lhandle'); handle.draggable=true;
+    handle.onclick=e=>e.stopPropagation();
+    handle.ondragstart=e=>{dragI=i;};
+    row.ondragover=e=>{e.preventDefault();row.classList.add('dragover');};
+    row.ondragleave=()=>row.classList.remove('dragover');
+    row.ondrop=e=>{e.preventDefault();row.classList.remove('dragover');moveLayer(dragI,i);};
+    el.appendChild(row);
+  });
+}
+function addLayer(){ snapshot(); layers.push(newLayer()); setActive(layers.length-1); buildLayers(); render(); }
+function deleteLayer(i){ if(layers.length<=1)return; snapshot(); const wasActive=layers[active]; layers.splice(i,1); active=Math.max(0,layers.indexOf(wasActive)); if(active<0)active=Math.min(i,layers.length-1); setActive(active); buildLayers(); render(); }
+function moveLayer(from,to){ if(from==null||from===to)return; snapshot(); const cur=layers[active]; const [L]=layers.splice(from,1); layers.splice(to,0,L); active=layers.indexOf(cur); setActive(active); buildLayers(); render(); }
+$('addLayer').onclick=addLayer;
+/* ---- SFONDO IMMAGINE ---- */
+$('bgLoad').onclick=()=>$('bgFile').click();
+$('bgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const img=new Image(); img.onload=()=>{ bgImage=img; render(); }; img.src=URL.createObjectURL(f); e.target.value=''; };
+$('bgClear').onclick=()=>{ bgImage=null; render(); };
+$('bgOpacity').oninput=()=>{ bgOpacity=+$('bgOpacity').value/100; $('bgOpVal').textContent=$('bgOpacity').value+'%'; render(); };
+/* ---- sezioni delle barre: collassabili (clic sull'header) e spostabili (maniglia ⠿) ---- */
+let dragSec=null;
+function saveSections(bar){
+  const body=bar.querySelector('.barbody');
+  const order=[...body.querySelectorAll('.group[data-sec]')].map(s=>s.dataset.sec);
+  const closed=[...body.querySelectorAll('.group[data-sec].closed')].map(s=>s.dataset.sec);
+  localStorage.setItem('hexagraph.sections.'+bar.id, JSON.stringify({order,closed}));
+}
+function initSections(){
+  document.querySelectorAll('.bar').forEach(bar=>{
+    const body=bar.querySelector('.barbody');
+    let st={}; try{ st=JSON.parse(localStorage.getItem('hexagraph.sections.'+bar.id)||'{}'); }catch(e){}
+    if(st.order){ st.order.forEach(id=>{ const s=body.querySelector('[data-sec="'+id+'"]'); if(s) body.appendChild(s); });
+      body.querySelectorAll('.group[data-sec]').forEach(s=>{ if(!st.order.includes(s.dataset.sec)) body.appendChild(s); }); }   // sezioni nuove (non nell'ordine salvato) in coda
+    body.querySelectorAll('.group[data-sec]').forEach(sec=>{
+      const lbl=sec.querySelector('.glabel');
+      if(lbl && !sec.querySelector('.sechdr')){
+        const hdr=document.createElement('div'); hdr.className='sechdr';
+        const h=document.createElement('span'); h.className='shandle'; h.title='trascina per spostare la sezione'; h.textContent='⠿'; hdr.appendChild(h);
+        sec.insertBefore(hdr,sec.firstChild); hdr.appendChild(lbl);
+        const car=document.createElement('span'); car.className='scaret'; car.textContent='▾'; hdr.appendChild(car);
+        hdr.onclick=e=>{ if(e.target===h)return; sec.classList.toggle('closed'); car.textContent=sec.classList.contains('closed')?'▸':'▾'; saveSections(bar); };
+        h.draggable=true;
+        h.ondragstart=()=>{ dragSec=sec; };
+        sec.ondragover=e=>{ if(dragSec&&dragSec.parentElement===body){ e.preventDefault(); sec.classList.add('dragover'); } };
+        sec.ondragleave=()=>sec.classList.remove('dragover');
+        sec.ondrop=e=>{ e.preventDefault(); sec.classList.remove('dragover');
+          if(dragSec&&dragSec!==sec&&dragSec.parentElement===body){ body.insertBefore(dragSec,sec); saveSections(bar); } dragSec=null; };
+      }
+      if(st.closed && st.closed.includes(sec.dataset.sec)){ sec.classList.add('closed'); const c=sec.querySelector('.scaret'); if(c)c.textContent='▸'; }
+    });
+  });
+}
+/* ---- barre comprimibili ---- */
+document.querySelectorAll('.collapse').forEach(b=>{ b.onclick=()=>{ const bar=document.getElementById(b.dataset.bar); const left=b.dataset.bar==='leftbar';
+  bar.classList.toggle('collapsed'); const col=bar.classList.contains('collapsed'); b.textContent = col ? (left?'›':'‹') : (left?'‹':'›'); }; });
+/* ---- pan libero (stile grafino): spazio+trascina O tasto centrale, su tutto lo stage ---- */
+let spaceDown=false, panning=false, panStart=null;
+window.addEventListener('keydown',e=>{ if(e.code==='Space' && !['INPUT','TEXTAREA'].includes(e.target.tagName)){ spaceDown=true; board.style.cursor='grab'; e.preventDefault(); } });
+window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; panning=false; updateCursor(); } });
+stageEl.addEventListener('pointerdown',e=>{
+  if(!(spaceDown || e.button===1)) return;
+  panning=true; board.style.cursor='grabbing'; panStart={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};
+  stageEl.setPointerCapture(e.pointerId); e.preventDefault();
+});
+stageEl.addEventListener('pointermove',e=>{
+  if(!panning) return;
+  view.x=panStart.vx+(e.clientX-panStart.x); view.y=panStart.vy+(e.clientY-panStart.y); applyPan();
+});
+const endPan=()=>{ if(!panning) return; panning=false; if(spaceDown)board.style.cursor='grab'; else updateCursor(); };
+stageEl.addEventListener('pointerup',endPan);
+stageEl.addEventListener('pointercancel',endPan);
+$('undo').onclick=()=>doUndo();
+$('redo').onclick=()=>doRedo();
+$('clear').onclick=()=>{snapshot();cells.clear();selection=null;render();};
+function doUndo(){ if(undoStack.length){ redoStack.push(docState()); restoreState(undoStack.pop()); render(); refreshUndo(); } }
+function doRedo(){ if(redoStack.length){ undoStack.push(docState()); restoreState(redoStack.pop()); render(); refreshUndo(); } }
+function refreshUndo(){ $('undo').disabled=!undoStack.length; $('redo').disabled=!redoStack.length; }
+
+/* ---- ANIMAZIONE frame-per-frame ----
+   Un frame = fotografia dei livelli (celle comprese). Il frame corrente È `layers`:
+   si committa in anim.frames[anim.cur] quando si cambia frame. Onion = frame precedente al 25%. */
+const anim={on:false, frames:[], cur:0, onion:true, prevLayers:null, nextLayers:null, playing:null,
+  pastCol:'#ff5a3c', nextCol:'#2b7fff'};   // colori onion skin: frame precedente / successivo
+try{ const oc=JSON.parse(localStorage.getItem('hexagraph.onion')||'{}'); if(oc.past)anim.pastCol=oc.past; if(oc.next)anim.nextCol=oc.next; }catch(e){}
+/* onion layers del frame prima e dopo quello corrente (senza wrap) */
+function updateOnionLayers(){
+  anim.prevLayers = anim.cur>0 ? layersFrom(anim.frames[anim.cur-1]) : null;
+  anim.nextLayers = anim.cur<anim.frames.length-1 ? layersFrom(anim.frames[anim.cur+1]) : null;
+}
+/* silhouette di un frame in un colore piatto, riversata in trasparenza (tinta onion) */
+const onionC=document.createElement('canvas'); const onionG=onionC.getContext('2d');
+function drawOnion(Ls,color,alpha){
+  if(onionC.width!==board.width||onionC.height!==board.height){ onionC.width=board.width; onionC.height=board.height; }
+  onionG.setTransform(1,0,0,1,0,0); onionG.clearRect(0,0,onionC.width,onionC.height);
+  onionG.setTransform(ctx.getTransform());
+  for(const L of Ls){ if(!L.visible) continue;
+    for(const [k,cell] of L.cells){ const [c,r]=k.split(',').map(Number); const [cx,cy]=cellCenter(c,r);
+      onionG.save(); onionG.translate(cx,cy); drawCellFigures(onionG,cell,color); onionG.restore(); } }
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=alpha; ctx.drawImage(onionC,0,0); ctx.restore();
+}
+function layersData(){ return JSON.parse(JSON.stringify(layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})))); }
+function layersFrom(d){ return d.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:new Map(JSON.parse(JSON.stringify(L.cells)))})); }
+function animCommit(){ if(anim.frames.length) anim.frames[anim.cur]=layersData(); }
+function updFrLabel(){ $('frLabel').textContent=(anim.cur+1)+'/'+anim.frames.length; }
+/* disegna un frame su un canvas-miniatura, senza toccare la board (blend ignorati: basta per la thumb) */
+function drawFrameOn(cv, Ls){
+  const [W,H]=boardSize(); const g=cv.getContext('2d'); const s=cv.height/H;
+  g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,cv.width,cv.height);
+  g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.scale(s,s);
+  for(const L of Ls){ if(!L.visible) continue;
+    const m=(L.cells instanceof Map)?L.cells:new Map(L.cells);
+    for(const [k,cell] of m){ const [c,r]=k.split(',').map(Number); const [cx,cy]=cellCenter(c,r);
+      g.save(); g.translate(cx,cy); g.globalAlpha=L.opacity; drawCellFigures(g,cell,cell.col||L.color); g.restore(); } }
+}
+const THUMB_H=46;
+function thumbCanvas(){ const [W,H]=boardSize(); const cv=document.createElement('canvas'); cv.height=THUMB_H; cv.width=Math.max(24,Math.round(THUMB_H*W/H)); return cv; }
+let dragFrame=null, thumbT=null;
+function buildTimeline(){
+  const el=$('frames'); el.innerHTML='';
+  anim.frames.forEach((fd,i)=>{
+    const d=document.createElement('div'); d.className='fthumb'+(i===anim.cur?' act':''); d.dataset.i=i;
+    const cv=thumbCanvas(); drawFrameOn(cv, i===anim.cur?layers:fd); d.appendChild(cv);
+    const n=document.createElement('span'); n.className='fn'; n.textContent=i+1; d.appendChild(n);
+    d.onclick=()=>{ stopPlay(); if(i!==anim.cur) animGoto(i); };
+    d.draggable=true;
+    d.ondragstart=e=>{ dragFrame=i; e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; };   // setData: serve a Firefox/Safari per avviare il drag
+    d.ondragover=e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; };
+    d.ondrop=e=>{ e.preventDefault(); if(dragFrame==null||dragFrame===i){ dragFrame=null; return; }
+      stopPlay(); animCommit(); const curData=anim.frames[anim.cur];
+      const [f]=anim.frames.splice(dragFrame,1); anim.frames.splice(i,0,f);
+      anim.cur=anim.frames.indexOf(curData);
+      updateOnionLayers();
+      dragFrame=null; buildTimeline(); render(); };
+    el.appendChild(d);
+  });
+  updFrLabel();
+}
+function updateTimelineAct(){ document.querySelectorAll('#frames .fthumb').forEach(d=>d.classList.toggle('act',+d.dataset.i===anim.cur)); }
+function updateThumb(i){ const d=document.querySelector('#frames .fthumb[data-i="'+i+'"]'); if(!d)return;
+  drawFrameOn(d.querySelector('canvas'), i===anim.cur?layers:anim.frames[i]); }
+function animShow(i){
+  anim.cur=((i%anim.frames.length)+anim.frames.length)%anim.frames.length;
+  layers=layersFrom(anim.frames[anim.cur]); setActive(Math.min(active,layers.length-1));
+  updateOnionLayers();
+  buildLayers(); updFrLabel(); updateTimelineAct(); render();   // l'undo ora ATTRAVERSA i frame (snapshot con indice)
+}
+function animGoto(i){ const old=anim.cur; animCommit(); animShow(i); updateThumb(old); }
+function stopPlay(){ if(anim.playing!=null){ clearTimeout(anim.playing); anim.playing=null; previewing=false; $('frPlay').classList.remove('on'); render(); } }
+function playTick(){ if(anim.playing==null) return; animShow(anim.cur+1);
+  const fps=Math.max(1,Math.min(30,+$('frFps').value||6)); anim.playing=setTimeout(playTick,1000/fps); }
+$('animBtn').onclick=()=>{
+  anim.on=!anim.on; $('animBtn').classList.toggle('on',anim.on); $('timeline').hidden=!anim.on;
+  document.body.classList.toggle('anim',anim.on);
+  if(anim.on){ if(!anim.frames.length){ anim.frames=[layersData()]; anim.cur=0; }
+    animCommit(); updateOnionLayers(); buildTimeline(); }
+  else stopPlay();
+  render();
+};
+$('frAdd').onclick=()=>{ stopPlay(); animCommit(); anim.frames.splice(anim.cur+1,0,JSON.parse(JSON.stringify(anim.frames[anim.cur]))); buildTimeline(); animShow(anim.cur+1); };
+$('frNew').onclick=()=>{ stopPlay(); animCommit(); anim.frames.splice(anim.cur+1,0,layersData().map(L=>({...L,cells:[]}))); buildTimeline(); animShow(anim.cur+1); };
+$('frDel').onclick=()=>{ stopPlay(); if(anim.frames.length<=1)return; anim.frames.splice(anim.cur,1); buildTimeline(); animShow(Math.min(anim.cur,anim.frames.length-1)); };
+$('frOnion').onclick=()=>{ anim.onion=!anim.onion; $('frOnion').classList.toggle('on',anim.onion); render(); };
+const saveOnion=()=>localStorage.setItem('hexagraph.onion',JSON.stringify({past:anim.pastCol,next:anim.nextCol}));
+$('onPast').value=anim.pastCol; $('onNext').value=anim.nextCol;
+$('onPast').oninput=()=>{ anim.pastCol=$('onPast').value; saveOnion(); render(); };
+$('onNext').oninput=()=>{ anim.nextCol=$('onNext').value; saveOnion(); render(); };
+$('frPlay').onclick=()=>{
+  if(anim.playing!=null){ stopPlay(); return; }
+  if(anim.frames.length<2) return;
+  animCommit(); previewing=true; $('frPlay').classList.add('on');
+  anim.playing=setTimeout(playTick,0);
+};
+$('frExport').onclick=()=>{
+  stopPlay(); animCommit(); const keep=anim.cur;
+  for(let i=0;i<anim.frames.length;i++){ animShow(i); drawExport(); download('hexglyph_f'+String(i+1).padStart(2,'0')+'.png', board.toDataURL('image/png')); }
+  animShow(keep);
+};
+/* export VIDEO: registra il canvas (a dimensione export, costante) frame per frame via MediaRecorder.
+   Fallback: senza track.requestFrame (Safari) cattura automatica a fps; senza webm prova mp4;
+   se il file esce vuoto (bug visto il 6 lug: 110 byte) lo dice invece di scaricare spazzatura. */
+$('frVideo').onclick=async()=>{
+  if(anim.frames.length<2) return alert('Servono almeno 2 frame.');
+  if(!window.MediaRecorder) return alert('Questo browser non sa registrare video: usa "PNG ×n".');
+  stopPlay(); animCommit(); const keep=anim.cur;
+  const fps=Math.max(1,Math.min(30,+$('frFps').value||6));
+  const showFrame=i=>{ layers=layersFrom(anim.frames[i]); setActive(Math.min(active,layers.length-1)); };
+  showFrame(0); drawExport();   // porta il canvas alla dimensione export PRIMA di aprire lo stream (dimensione costante)
+  let stream=board.captureStream(0), track=stream.getVideoTracks()[0], manual=true;
+  if(!track || typeof track.requestFrame!=='function'){ manual=false; stream=board.captureStream(fps); }
+  const mime=['video/webm;codecs=vp9','video/webm','video/mp4'].find(m=>MediaRecorder.isTypeSupported(m));
+  if(!mime){ animShow(keep); return alert('Questo browser non sa registrare video: usa "PNG ×n".'); }
+  const rec=new MediaRecorder(stream,{mimeType:mime});
+  const chunks=[]; rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  const stopped=new Promise(res=>rec.onstop=res);
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  rec.start(100);   // timeslice: i dati arrivano man mano
+  for(let loop=0;loop<2;loop++)   // due giri di loop
+    for(let i=0;i<anim.frames.length;i++){ showFrame(i); drawExport(); if(manual) track.requestFrame(); await sleep(1000/fps); }
+  rec.stop(); await stopped;
+  const blob=new Blob(chunks,{type:mime.split(';')[0]});
+  if(blob.size<2000){ animShow(keep); return alert('La registrazione è uscita vuota su questo browser: usa "PNG ×n" (i singoli fotogrammi) e monta il video altrove.'); }
+  download('hexglyph.'+(mime.startsWith('video/mp4')?'mp4':'webm'), URL.createObjectURL(blob));
+  animShow(keep);
+};
+
+/* ---- save / load ---- */
+$('save').onclick=()=>{ if(anim.on) animCommit();
+  const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, slots, forged:FORGED,
+    anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur} : null,
+    layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
+    bg: bgImage?bgToDataURL():null };
+  download('hexglyph.json','data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(blob))); };
+$('load').onclick=()=>$('loadFile').click();
+$('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader();
+  rd.onload=()=>{ try{ const o=JSON.parse(rd.result);
+    if(o.layers){ layers=o.layers.map(L=>({name:L.name,color:L.color,blend:L.blend||'multiply',opacity:L.opacity??1,visible:L.visible!==false,cells:new Map(L.cells||[])})); }
+    else if(o.cells){ layers=[Object.assign(newLayer(),{color:'#111111',blend:'source-over',cells:new Map(o.cells)})]; }   // vecchio formato
+    if(!layers.length) layers=[newLayer()];
+    setActive(0);
+    if(o.cols){cols=o.cols;$('cols').value=cols;} if(o.rows){rows=o.rows;$('rows').value=rows;}
+    if(o.pageDark!=null){pageDark=o.pageDark;$('pageDark').checked=pageDark;}
+    if(o.outsideBlack!=null){outsideBlack=o.outsideBlack;$('outBlack').checked=outsideBlack;}
+    if(o.bgOpacity!=null){bgOpacity=o.bgOpacity;$('bgOpacity').value=Math.round(bgOpacity*100);$('bgOpVal').textContent=Math.round(bgOpacity*100)+'%';}
+    bgImage=null; if(o.bg){ const img=new Image(); img.onload=()=>render(); img.src=o.bg; bgImage=img; }
+    if(o.forged){ o.forged.forEach(f=>{ if(!FORGED.some(x=>x.id===f.id)) FORGED.push(f); registerForged(f); }); saveForged(); buildPalette(); }
+    stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true;
+    anim.frames=(o.anim&&o.anim.frames)||[]; anim.cur=anim.frames.length?Math.min(o.anim.cur||0,anim.frames.length-1):0; anim.prevLayers=null;
+    if(o.slots){ for(let i=0;i<10;i++){ const s=o.slots[i]; slots[i]= s ? (typeof s==='string'?{t:s,rot:0,flip:false,inv:false}:s) : null; } }
+    buildSlots();
+    undoStack.length=0; redoStack.length=0; refreshUndo(); buildLayers(); render();
+  }catch(err){alert('File non valido');} };
+  rd.readAsText(f); e.target.value=''; };
+
+function updateStatus(){ $('curText').textContent=cursor.c+','+cursor.r; $('rotText').textContent=(brush.rot*60)+'°'; $('flipText').textContent=brush.flip?'specchiato':'dritto'; $('invText').textContent=brush.inv?'· inv':''; updateBrushPreview(); updateSlotCur(); updateHilites(); }
+
+/* ---- tastiera (mappa copiata da glyphdrawing.club) ---- */
+window.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
+  const k=e.key;
+  // ⌘/Ctrl+D = deseleziona (e annulla il lazo in corso)
+  if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0; e.preventDefault(); render(); updateStatus(); return; }
+  // assegnazione slot: m poi cifra
+  if(assignMode && /^[0-9]$/.test(k)){ const idx=(k==='0')?9:(+k-1); slots[idx]=brushCell(); setAssign(false); buildSlots(); e.preventDefault(); return; }
+
+  if(e.shiftKey){
+    let h=true;
+    switch(k){
+      case 'A': { selection=new Set(); for(let c=0;c<cols;c++)for(let r=0;r<rows;r++) selection.add(key(c,r)); render(); } break;
+      case 'C': copySel(); break;
+      case 'E': selOp(erase); break;
+      case 'D': selOp(erase); selection=null; render(); break;
+      case 'Q': selOp(stamp); break;
+      case 'B': selOp(bgCell); break;
+      case 'I': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(cell)cell.inv=!cell.inv;}); break;
+      case 'R': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>s.rot=(s.rot+1)%6;   // ⇧R = ruota OGNI tessera in place
+        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);}); break;
+      case 'F': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>{s.flip=!s.flip;};   // ⇧F = specchia OGNI tessera in place
+        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);}); break;
+      case 'H': shiftSel(-1,0); break;
+      case 'L': shiftSel(1,0); break;
+      case 'J': shiftSel(0,1); break;
+      case 'K': shiftSel(0,-1); break;
+      case 'Z': doRedo(); break;
+      case 'G': forgeFromCell(); break;
+      case '<': if(anim.on){ stopPlay(); animGoto(anim.cur-1); } break;
+      case '>': if(anim.on){ stopPlay(); animGoto(anim.cur+1); } break;
+      default: h=false;
+    }
+    if(h){e.preventDefault();return;}
+  }
+
+  let handled=true;
+  switch(k){
+    case 'ArrowRight': moveCursor(...arrowDir(1,0)); break;
+    case 'ArrowLeft': moveCursor(...arrowDir(-1,0)); break;
+    case 'ArrowDown': moveCursor(...arrowDir(0,1)); break;
+    case 'ArrowUp': moveCursor(...arrowDir(0,-1)); break;
+    case 'w': moveCursor(...arrowDir(0,-1)); break;
+    case 'a': moveCursor(...arrowDir(-1,0)); break;
+    case 's': moveCursor(...arrowDir(0,1)); break;
+    case 'd': moveCursor(...arrowDir(1,0)); break;
+    case 'q': case 'Enter': if(k==='Enter'&&tool==='lasso'&&lassoPts.length){ closeLasso(); break; }
+      snapshot(); for(const t of symTargets(cursor.c,cursor.r)) stamp(t.c,t.r,t); advance(); break;
+    case 'e': snapshot(); for(const t of symTargets(cursor.c,cursor.r)) erase(t.c,t.r); advance(); break;
+    case ' ': break;   /* spazio = pan (gestito a parte), non avanza */
+    case 'Delete': if(selection&&selection.size){ selOp(erase); } else { snapshot(); erase(cursor.c,cursor.r); } break;   // canc: svuota selezione o cella al cursore
+    case 'Backspace': if(selection&&selection.size){ selOp(erase); break; }   // con selezione = come canc
+      retreat(); snapshot(); erase(cursor.c,cursor.r); break;
+    case 'b': snapshot(); bgCell(cursor.c,cursor.r); advance(); break;
+    case 'r': xformRot(1); break;       // selezione se c'è, altrimenti pennello (vedi anteprima in alto a destra)
+    case 'f': xformFlip(); break;
+    case 'i': xformInv(); break;
+    case 'Escape': lassoPts.length=0; selection=null; break;
+    case 'h': showGrid=!showGrid; $('grid').classList.toggle('on',!showGrid); break;
+    case 'u': $('merge').click(); break;
+    case 'x': $('sub').click(); break;
+    case 'g': $('bucket').click(); break;
+    case 'z': if(e.metaKey||e.ctrlKey){doUndo();} else doUndo(); break;
+    case 'v': paste(); break;
+    case 'm': setAssign(!assignMode); break;
+    case ',': cycleTile(-1); break;
+    case '.': cycleTile(1); break;
+    case '+': case '=': zoomByCenter(1.2); break;
+    case '-': zoomByCenter(1/1.2); break;
+    case '[': case ']': { const d=(k===']')?0.02:-0.02, cl=v=>Math.min(0.7,Math.max(0.1,+((v+d).toFixed(2))));
+      if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return;
+        cell.sw=cl(cell.sw??connSW); (cell.extra||[]).forEach(s=>s.sw=cl(s.sw??connSW)); (cell.sub||[]).forEach(s=>s.sw=cl(s.sw??connSW)); }); }
+      else brush.sw=cl(brush.sw);
+      syncBrushUI(); } break;
+    case 'p': previewing=true; document.body.classList.add('preview'); break;
+    case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': case '0':
+      { const idx=(k==='0')?9:(+k-1); if(slots[idx]){ applyPreset(slots[idx]); snapshot(); stamp(cursor.c,cursor.r); } } break;
+    default: handled=false;
+  }
+  if(handled){ e.preventDefault(); updateStatus(); render(); }
+});
+window.addEventListener('keyup',e=>{ if(e.key==='p'){ previewing=false; document.body.classList.remove('preview'); render(); } });
+
+/* ---- export ---- */
+function download(name,href){ const a=document.createElement('a'); a.download=name; a.href=href; a.click(); }
+$('exportPng').onclick=()=>{ drawExport(); download('hexglyph.png',board.toDataURL('image/png')); render(); };
+/* figure SVG di una lista di timbri (usa tileFigSVG: gestisce anche le forgiate), clip all'esagono */
+let svgUid=0;
+function stampsSVGList(stampList,color){
+  let fig='';
+  for(const st of stampList){ const tile=tileById(st.t); if(!tile)continue; const sx=st.flip?-R:R;
+    fig+=`<g transform="rotate(${st.rot*60}) scale(${sx},${R})"><g clip-path="url(#hx)">${tileFigSVG(tile,color,st.sw??connSW,'e'+(svgUid++))}</g></g>`; }
+  return fig;
+}
+function cellFiguresSVG(cell,color){ return stampsSVGList(cellStamps(cell),color); }
+$('exportSvg').onclick=()=>{
+  const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  let defs=`<clipPath id="hx" clipPathUnits="userSpaceOnUse"><path d="${HEX_UNIT_D}"/></clipPath>`;
+  let mN=0, layersSvg='';
+  layers.forEach(L=>{ if(!L.visible||L.cells.size===0)return;
+    const blend={'source-over':'normal','multiply':'multiply','screen':'screen','darken':'darken','lighten':'lighten'}[L.blend];
+    let g=`<g style="mix-blend-mode:${blend}" opacity="${L.opacity}">`;
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const cell=L.cells.get(key(c,r)); if(!cell)continue; const [cx,cy]=cellCenter(c,r);
+      const col=cell.col||L.color, tr=`translate(${cx.toFixed(2)},${cy.toFixed(2)})`;
+      const subs=(cell.sub&&cell.sub.length)?stampsSVGList(cell.sub,'#000'):'';
+      const hexWhite=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#fff"/></g>`;
+      let cellG;
+      if(cell.inv){   // complemento: esagono pieno meno figure (e meno sottrazioni)
+        const mid='m'+(mN++);
+        defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${cellFiguresSVG(cell,'#000')}${subs}</g></mask>`;
+        cellG=`<g transform="${tr}" mask="url(#${mid})"><g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="${col}"/></g></g>`;
+      } else if(subs){   // sottrazioni: mask bianca con le forme sub in nero
+        const mid='m'+(mN++);
+        defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${subs}</g></mask>`;
+        cellG=`<g transform="${tr}" mask="url(#${mid})">${cellFiguresSVG(cell,col)}</g>`;
+      } else {
+        cellG=`<g transform="${tr}">${cellFiguresSVG(cell,col)}</g>`;
+      }
+      if(cell.iso&&cell.iso.length){   // interseca: visibile solo sotto le forme iso
+        const mid='m'+(mN++);
+        defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${stampsSVGList(cell.iso,'#fff')}</g></mask>`;
+        cellG=`<g mask="url(#${mid})">${cellG}</g>`;
+      }
+      if(cell.xor&&cell.xor.length){   // escludi: contenuto − forme, più forme − silhouette del contenuto
+        const m1='m'+(mN++), m2='m'+(mN++);
+        defs+=`<mask id="${m1}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${stampsSVGList(cell.xor,'#000')}</g></mask>`;
+        defs+=`<mask id="${m2}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${cellFiguresSVG(cell,'#000')}</g></mask>`;
+        cellG=`<g mask="url(#${m1})">${cellG}</g><g transform="${tr}" mask="url(#${m2})">${stampsSVGList(cell.xor,col)}</g>`;
+      }
+      g+=cellG;
+    }
+    layersSvg+=g+'</g>';
+  });
+  let bg=''; if(bgImage){ const url=bgToDataURL(); const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
+    bg=`<image href="${url}" x="${((W-iw*s)/2).toFixed(1)}" y="${((H-ih*s)/2).toFixed(1)}" width="${(iw*s).toFixed(1)}" height="${(ih*s).toFixed(1)}" opacity="${bgOpacity}"/>`; }
+  const body=`<defs>${defs}</defs><g transform="translate(${cw/2},${ch/2}) rotate(${boardRot}) translate(${-W/2},${-H/2})">${bg}${layersSvg}</g>`;
+  download('hexglyph.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${cw}" height="${ch}" viewBox="0 0 ${cw} ${ch}">${body}</svg>`));
+};
+function bgToDataURL(){ const tc=document.createElement('canvas'); tc.width=bgImage.naturalWidth||bgImage.width; tc.height=bgImage.naturalHeight||bgImage.height; tc.getContext('2d').drawImage(bgImage,0,0); try{return tc.toDataURL('image/jpeg',0.85);}catch(e){return '';} }
+
+/* ---- init ---- */
+layers=[newLayer()]; setActive(0);
+initSections(); loadForged(); applyPalCols();
+buildPalette(); buildQuickTiles(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
+/* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
+let didFit=false;
+new ResizeObserver(()=>{ const r=stageEl.getBoundingClientRect(); if(r.width<2||r.height<2) return;
+  if(!didFit){ didFit=true; fitView(); } else render();   // il canvas segue il viewport
+}).observe(stageEl);
+</script>
+</body>
+</html>
