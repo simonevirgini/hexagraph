@@ -1275,9 +1275,54 @@ $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
 $('toolDraw').onclick=()=>setTool(tool==='draw'?'select':'draw');
 $('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
 $('grid').onclick=()=>{showGrid=!showGrid;$('grid').classList.toggle('on',!showGrid);render();};
+/* ---- ridimensionamento CENTRATO ----
+   Crescendo, il contenuto si sposta per restare al centro: in pratica una riga si aggiunge
+   sopra, la prossima sotto, ecc. (e così per le colonne) — l'asse di simmetria non scappa.
+   NB esagoni: uno spostamento DISPARI di colonna distorce il disegno (colonne pari/dispari si
+   scambiano l'offset verticale), quindi le colonne si spostano solo di quantità PARI → si
+   ricentrano ogni ~2 passi. Le righe si ricentrano a ogni passo. Restringere non sposta nulla
+   (comportamento non distruttivo: le celle oltre il bordo restano, ricompaiono se si riallarga). */
+function contentBounds(allFrames){
+  const a={c0:1e9,c1:-1e9,r0:1e9,r1:-1e9,any:false};
+  const scan=keys=>{ for(const k of keys){ const i=k.indexOf(','), c=+k.slice(0,i), r=+k.slice(i+1);
+    if(c<a.c0)a.c0=c; if(c>a.c1)a.c1=c; if(r<a.r0)a.r0=r; if(r>a.r1)a.r1=r; a.any=true; } };
+  for(const L of layers) scan(L.cells.keys());
+  if(allFrames) for(const fr of anim.frames) for(const L of fr) scan(L.cells.map(e=>e[0]));
+  return a.any?a:null;
+}
+function shiftEntries(entries, dc, dr){ const out=[];
+  for(const [k,v] of entries){ const i=k.indexOf(','), c=+k.slice(0,i)+dc, r=+k.slice(i+1)+dr; out.push([c+','+r, v]); }
+  return out; }
+function resizeCanvas(nc, nr){
+  nc=Math.max(2,Math.min(80,nc|0)); nr=Math.max(2,Math.min(80,nr|0));
+  const dc=nc-cols, dr=nr-rows; if(!dc&&!dr) return;
+  const view=contentBounds(false), rng=contentBounds(true);
+  cols=nc; rows=nr;
+  let sc=0, sr=0;
+  if(view && rng){
+    if(dc>0){ let want=Math.floor((nc-(view.c1-view.c0+1))/2)-view.c0;
+      const lo=-rng.c0, hi=(nc-1)-rng.c1; sc=Math.max(lo,Math.min(hi,want));
+      if(sc%2) sc-=Math.sign(sc); }                        // colonne: solo pari (no distorsione)
+    if(dr>0){ let want=Math.floor((nr-(view.r1-view.r0+1))/2)-view.r0;
+      const lo=-rng.r0, hi=(nr-1)-rng.r1; sr=Math.max(lo,Math.min(hi,want)); }
+  }
+  if(sc||sr){
+    for(const L of layers) L.cells=new Map(shiftEntries(L.cells, sc, sr));
+    cells=layers[active].cells;
+    if(anim.frames.length) anim.frames=anim.frames.map(fr=>fr.map(L=>({...L, cells:shiftEntries(L.cells, sc, sr)})));
+    if(selection && selection.size){ const s=new Set();
+      for(const k of selection){ const i=k.indexOf(','); s.add((+k.slice(0,i)+sc)+','+(+k.slice(i+1)+sr)); } selection=s; }
+    cursor.c+=sc; cursor.r+=sr;
+  }
+  cursor.c=Math.max(0,Math.min(cols-1,cursor.c)); cursor.r=Math.max(0,Math.min(rows-1,cursor.r));
+  axisCache.key='';                                        // gli assi di simmetria dipendono da cols/rows
+  if(anim.on){ updateOnionLayers(); buildTimeline(); }
+  render();
+}
 $('cols').onfocus=()=>snapshot(); $('rows').onfocus=()=>snapshot();
-$('cols').oninput=()=>{cols=+$('cols').value||cols;cursor.c=Math.min(cursor.c,cols-1);render();};
-$('rows').oninput=()=>{rows=+$('rows').value||rows;cursor.r=Math.min(cursor.r,rows-1);render();};
+$('cols').oninput=()=>resizeCanvas(+$('cols').value||cols, rows);
+$('rows').oninput=()=>resizeCanvas(cols, +$('rows').value||rows);
+$('cols').onchange=()=>{$('cols').value=cols;}; $('rows').onchange=()=>{$('rows').value=rows;};   // riallinea il campo al valore clampato dopo la digitazione
 $('pageDark').oninput=()=>{pageDark=$('pageDark').checked;render();};
 /* ---- comandi vista (bottom-right) ---- */
 $('zIn').onclick=()=>zoomByCenter(1.2);
