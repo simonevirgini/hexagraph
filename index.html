@@ -127,6 +127,7 @@
   .layerRow .lhandle{cursor:grab;color:var(--muted);font-size:13px;line-height:1;flex:0 0 auto;width:11px;text-align:center;user-select:none;letter-spacing:-2px}
   .layerRow .lhandle:active{cursor:grabbing}
   .layerRow.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .layerRow.multisel{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}   /* nel set multi-selezione ma non il livello di disegno */
   .layerRow.dragover{border-style:dashed;border-color:var(--accent)}
   .layerRow .lvis,.layerRow .ldel{cursor:pointer;font-size:12px;color:var(--muted);width:15px;text-align:center;flex:0 0 auto}
   .layerRow .ldel:hover{color:#ff7a7a}
@@ -164,6 +165,7 @@
   <div class="sep"></div>
   <div class="tgroup"><!-- disegno -->
     <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella">✎</button>
+    <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
   </div>
   <div class="sep"></div>
@@ -240,7 +242,7 @@
     <button class="collapse" data-bar="rightbar" title="comprimi pannello">›</button>
     <div class="barbody">
       <div class="group" data-sec="layers">
-        <div class="glabel">Livelli <span style="color:var(--muted)">— trascina per riordinare</span></div>
+        <div class="glabel">Livelli <span style="color:var(--muted)">— trascina per riordinare · ⇧-clic = più livelli</span></div>
         <div id="layers"></div>
         <div class="row">
           <button class="btn" id="addLayer">+ Nuovo livello</button>
@@ -421,9 +423,22 @@ const BLENDS=['source-over','multiply','screen','darken','lighten'];
 const BLEND_LABELS={'source-over':'Normale','multiply':'Multiply','screen':'Screen','darken':'Scurisci','lighten':'Schiarisci'};
 const LAYER_COLORS=['#111111','#ff4d8d','#2b6cff','#19c37d','#ffb020','#9b5cff','#00b3b3','#ff5a3c'];
 let layers=[]; let active=0;
-let cells;                         // riferimento alla Map del livello attivo
+/* LIVELLI MULTIPLI selezionati (§8.4): activeSet = indici dei livelli selezionati (⇧-clic nel
+   pannello). Il DISEGNO (matita/gomma/secchiello/timbro) va sempre sul livello più in alto (=active,
+   l'indice massimo del set). Le operazioni di GRUPPO su una selezione di celle (sposta/ruota/
+   specchia/colora/cancella/inverti) agiscono su TUTTI i livelli del set insieme. */
+let activeSet=new Set([0]);
+let cells;                         // riferimento alla Map del livello attivo (= più in alto del set)
 function newLayer(){ return {name:'Livello '+(layers.length+1), color:LAYER_COLORS[layers.length%LAYER_COLORS.length], cells:new Map(), blend:'multiply', opacity:1, visible:true}; }
-function setActive(i){ active=Math.max(0,Math.min(layers.length-1,i)); cells=layers[active].cells; }
+function setActive(i){ active=Math.max(0,Math.min(layers.length-1,i)); cells=layers[active].cells; activeSet=new Set([active]); }
+/* livelli su cui agiscono le operazioni di gruppo: il set (ordinato), filtrato agli indici validi */
+function activeLayers(){ const a=[...activeSet].filter(i=>i>=0&&i<layers.length).sort((x,y)=>x-y); return a.length?a:[active]; }
+/* ⇧-clic su una riga livello: aggiunge/toglie dal set; active = il più in alto selezionato */
+function toggleLayerSel(i){
+  if(activeSet.has(i)){ if(activeSet.size>1) activeSet.delete(i); }
+  else activeSet.add(i);
+  active=Math.max(...activeSet); cells=layers[active].cells;
+}
 let bgImage=null, bgOpacity=1;
 /* canvas offscreen per compositare i livelli */
 const lc=document.createElement('canvas'); const lctx=lc.getContext('2d');
@@ -435,7 +450,7 @@ let colPhase=0;
 let colFlip=false, rowFlip=false;   // alternanza del lato (dx/sx, giù/su) per i delta DISPARI del resize
 const colPar=c=>(((c+colPhase)%2)+2)%2;
 let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=true;
-let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'bucket'
+let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'erase' | 'bucket'
 /* MODALITÀ PATTERN: null = tela normale · {shape:'rect'|'strip'|'hexa'|'rhomb'} — le dimensioni
    della forma derivano SEMPRE da cols/rows (hexa: raggio dal lato minore · rhomb: lato B dalle righe) */
 let pattern=null;
@@ -924,22 +939,22 @@ function groupRotate(d){
   let sx=0,sy=0,sz=0; cubes.forEach(([x,y,z])=>{sx+=x;sy+=y;sz+=z;});
   const ctr=cubeRound(sx/cs.length,sy/cs.length,sz/cs.length);
   const steps=((d%6)+6)%6;
-  const moved=[], newSel=new Set();
-  cs.forEach(([c,r],i)=>{
-    let p=[cubes[i][0]-ctr[0],cubes[i][1]-ctr[1],cubes[i][2]-ctr[2]];
-    for(let s=0;s<steps;s++) p=[-p[2],-p[0],-p[1]];   // 60° in senso orario
-    const [nc,nr]=fromCube(p[0]+ctr[0],p[2]+ctr[2]);
-    moved.push([nc,nr,cells.get(key(c,r))]);
-  });
-  for(const [c,r] of cs) cells.delete(key(c,r));
+  // mappa origine→destinazione (identica per tutti i livelli selezionati)
+  const map=cs.map(([c,r],i)=>{ let p=[cubes[i][0]-ctr[0],cubes[i][1]-ctr[1],cubes[i][2]-ctr[2]];
+    for(let s=0;s<steps;s++) p=[-p[2],-p[0],-p[1]]; const [nc,nr]=fromCube(p[0]+ctr[0],p[2]+ctr[2]); return [c,r,nc,nr]; });
   const rotStamp=s=>{ s.rot=((s.rot+d)%6+6)%6; };
-  for(const [nc,nr,cell] of moved){
-    if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
-    newSel.add(key(nc,nr));
-    if(!cell) continue;
-    rotStamp(cell); (cell.extra||[]).forEach(rotStamp); (cell.sub||[]).forEach(rotStamp); (cell.iso||[]).forEach(rotStamp); (cell.xor||[]).forEach(rotStamp);
-    cells.set(key(nc,nr),cell);
+  let newSel=new Set();
+  for(const li of activeLayers()){ const M=layers[li].cells;
+    const moved=map.map(([c,r,nc,nr])=>[nc,nr,M.get(key(c,r))]);
+    for(const [c,r] of cs) M.delete(key(c,r));
+    const ns=new Set();
+    for(const [nc,nr,cell] of moved){ if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
+      ns.add(key(nc,nr)); if(!cell) continue;
+      rotStamp(cell); (cell.extra||[]).forEach(rotStamp); (cell.sub||[]).forEach(rotStamp); (cell.iso||[]).forEach(rotStamp); (cell.xor||[]).forEach(rotStamp);
+      M.set(key(nc,nr),cell); }
+    newSel=ns;
   }
+  cells=layers[active].cells;
   selection=newSel.size?newSel:null; render();
 }
 /* specchia la SELEZIONE come gruppo attorno alla sua colonna centrale (orizzontale) */
@@ -947,17 +962,20 @@ function groupMirror(){
   const cs=selCells(); if(!cs.length) return;
   snapshot();
   const cc=Math.round(cs.reduce((a,[c])=>a+c,0)/cs.length);
-  const moved=[], newSel=new Set();
-  for(const [c,r] of cs) moved.push([2*cc-c, r, cells.get(key(c,r))]);   // stessa parità → stessa riga visiva
-  for(const [c,r] of cs) cells.delete(key(c,r));
+  const map=cs.map(([c,r])=>[c,r,2*cc-c,r]);   // stessa parità → stessa riga visiva
   const flipStamp=s=>{ s.flip=!s.flip; s.rot=((-s.rot)%6+6)%6; };
-  for(const [nc,nr,cell] of moved){
-    if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
-    newSel.add(key(nc,nr));
-    if(!cell) continue;
-    flipStamp(cell); (cell.extra||[]).forEach(flipStamp); (cell.sub||[]).forEach(flipStamp); (cell.iso||[]).forEach(flipStamp); (cell.xor||[]).forEach(flipStamp);
-    cells.set(key(nc,nr),cell);
+  let newSel=new Set();
+  for(const li of activeLayers()){ const M=layers[li].cells;
+    const moved=map.map(([c,r,nc,nr])=>[nc,nr,M.get(key(c,r))]);
+    for(const [c,r] of cs) M.delete(key(c,r));
+    const ns=new Set();
+    for(const [nc,nr,cell] of moved){ if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
+      ns.add(key(nc,nr)); if(!cell) continue;
+      flipStamp(cell); (cell.extra||[]).forEach(flipStamp); (cell.sub||[]).forEach(flipStamp); (cell.iso||[]).forEach(flipStamp); (cell.xor||[]).forEach(flipStamp);
+      M.set(key(nc,nr),cell); }
+    newSel=ns;
   }
+  cells=layers[active].cells;
   selection=newSel.size?newSel:null; render();
 }
 /* sposta la SELEZIONE di un delta cubico, fondendo nelle destinazioni secondo stampMode.
@@ -967,16 +985,18 @@ function dropSelection(anchor,target,copy){
   const dx=t[0]-a[0], dz=t[2]-a[2];
   if(!dx&&!dz) return;
   snapshot();
-  const moved=[], newSel=new Set();
-  for(const [c,r] of selCells()){ const p=toCube(c,r); const [nc,nr]=fromCube(p[0]+dx,p[2]+dz);
-    const cell=cells.get(key(c,r));
-    moved.push([nc,nr, (copy&&cell)?JSON.parse(JSON.stringify(cell)):cell]); }
-  if(!copy) for(const [c,r] of selCells()) cells.delete(key(c,r));
-  for(const [nc,nr,cell] of moved){
-    if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
-    newSel.add(key(nc,nr));
-    if(cell) mergeCellInto(nc,nr,cell);
+  const cs=selCells();
+  const map=cs.map(([c,r])=>{ const p=toCube(c,r); const [nc,nr]=fromCube(p[0]+dx,p[2]+dz); return [c,r,nc,nr]; });
+  let newSel=new Set();
+  for(const li of activeLayers()){ const M=layers[li].cells; cells=M;   // mergeCellInto usa la globale `cells`
+    const moved=map.map(([c,r,nc,nr])=>{ const cell=M.get(key(c,r)); return [nc,nr,(copy&&cell)?JSON.parse(JSON.stringify(cell)):cell]; });
+    if(!copy) for(const [c,r] of cs) M.delete(key(c,r));
+    const ns=new Set();
+    for(const [nc,nr,cell] of moved){ if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
+      ns.add(key(nc,nr)); if(cell) mergeCellInto(nc,nr,cell); }
+    newSel=ns;
   }
+  cells=layers[active].cells;
   selection=newSel.size?newSel:null; render();
 }
 /* fonde una cella trascinata nella destinazione: normale = sostituisce, ⊕ somma, ⊖ scava, ∩ interseca, ⊻ esclude */
@@ -1134,7 +1154,7 @@ board.addEventListener('pointerdown',e=>{
   if(!hit) return;
   if(tool==='bucket' && e.button!==2){   // secchiello: riempi la zona connessa
     cursor.c=hit[0]; cursor.r=hit[1]; bucketFill(hit[0],hit[1]); updateStatus(); return; }
-  selection=null; snapshot(); painting=true; mode=(e.button===2)?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
+  selection=null; snapshot(); painting=true; mode=(e.button===2||tool==='erase')?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
   cursor.c=hit[0]; cursor.r=hit[1]; applyAt(hit); render(hit[0],hit[1]); updateStatus(); board.setPointerCapture(e.pointerId);
 });
 board.addEventListener('dblclick',e=>{
@@ -1201,14 +1221,24 @@ stageEl.addEventListener('wheel',e=>{ e.preventDefault();
 /* ---- selezione: operazioni ---- */
 function selCells(){ return selection ? [...selection].map(k=>k.split(',').map(Number)) : []; }
 function selBounds(){ const cs=selCells(); return {c0:Math.min(...cs.map(p=>p[0])),c1:Math.max(...cs.map(p=>p[0])),r0:Math.min(...cs.map(p=>p[1])),r1:Math.max(...cs.map(p=>p[1]))}; }
-function selOp(fn){ if(!selection||!selection.size)return; snapshot(); for(const [c,r] of selCells()){ if(!inDomain(c,r))continue; fn(c,r); } render(); }
+/* applica fn a ogni cella selezionata. multi=true → su TUTTI i livelli selezionati (§8.4):
+   per trasformazioni del contenuto esistente (cancella/inverti/ruota-singole/colora/spessore).
+   multi assente → solo il livello attivo (timbra/sfondo: introducono il pennello). */
+function selOp(fn, multi){ if(!selection||!selection.size)return; snapshot();
+  const cs=selCells().filter(([c,r])=>inDomain(c,r));
+  for(const li of (multi?activeLayers():[active])){ cells=layers[li].cells; for(const [c,r] of cs) fn(c,r); }
+  cells=layers[active].cells; render(); }
 function copySel(){ if(!selection||!selection.size)return; const b=selBounds(); clipboard={w:b.c1-b.c0+1,h:b.r1-b.r0+1,data:[]};
   for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(cell) clipboard.data.push({dc:c-b.c0,dr:r-b.r0,cell:JSON.parse(JSON.stringify(cell))}); } }
 function paste(){ if(!clipboard)return; snapshot(); for(const it of clipboard.data){ const c=cursor.c+it.dc, r=cursor.r+it.dr; if(c<cols&&r<rows&&inDomain(c,r)) cells.set(key(c,r),JSON.parse(JSON.stringify(it.cell))); } render(); }
-function shiftSel(dc,dr){ if(!selection||!selection.size)return; snapshot(); const moves=[];
-  for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); cells.delete(key(c,r)); if(cell)moves.push([c+dc,r+dr,cell]); }
-  for(const [c,r,cell] of moves){ if(c>=0&&c<cols&&r>=0&&r<rows&&inDomain(c,r)) cells.set(key(c,r),cell); }
-  selection=new Set(selCells().map(([c,r])=>[c+dc,r+dr]).filter(([c,r])=>c>=0&&c<cols&&r>=0&&r<rows).map(([c,r])=>key(c,r)));
+function shiftSel(dc,dr){ if(!selection||!selection.size)return; snapshot();
+  const cs=selCells();
+  for(const li of activeLayers()){ const M=layers[li].cells; const moves=[];
+    for(const [c,r] of cs){ const cell=M.get(key(c,r)); M.delete(key(c,r)); if(cell)moves.push([c+dc,r+dr,cell]); }
+    for(const [c,r,cell] of moves){ if(c>=0&&c<cols&&r>=0&&r<rows&&inDomain(c,r)) M.set(key(c,r),cell); }
+  }
+  cells=layers[active].cells;
+  selection=new Set(cs.map(([c,r])=>[c+dc,r+dr]).filter(([c,r])=>c>=0&&c<cols&&r>=0&&r<rows).map(([c,r])=>key(c,r)));
   if(!selection.size) selection=null; render(); }
 /* trasformazioni: sulla SELEZIONE come GRUPPO rigido se c'è, altrimenti sul PENNELLO
    (anteprima in alto a destra). Per trasformare le singole tessere selezionate: ⇧Y / ⇧U. */
@@ -1223,7 +1253,7 @@ function xformFlip(){
   updateStatus(); render();
 }
 function xformInv(){
-  if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(cell) cell.inv=!cell.inv; }); }
+  if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(cell) cell.inv=!cell.inv; }, true); }
   else { brush.inv=!brush.inv; $('inv').classList.toggle('on',brush.inv); }
   updateStatus(); render();
 }
@@ -1448,7 +1478,7 @@ function pushRecentCol(col){ col=col.toLowerCase(); if(RISO_COLORS.includes(col)
   recentCols=[col,...recentCols.filter(c=>c!==col)].slice(0,8); localStorage.setItem('hexagraph.recentcols',JSON.stringify(recentCols)); }
 /* clic su uno swatch: colora la SELEZIONE se c'è (A = torna al colore del livello), altrimenti imposta il pennello */
 function setBrushCol(col){
-  if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return; if(col)cell.col=col; else delete cell.col; }); }
+  if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return; if(col)cell.col=col; else delete cell.col; }, true); }
   else brush.col=col;
   syncBrushUI(); updateStatus(); render();
 }
@@ -1474,6 +1504,7 @@ $('iso').onclick=()=>setStampMode('iso');
 $('xor').onclick=()=>setStampMode('xor');
 function setTool(t){ tool=t; lassoPts.length=0;
   $('toolDraw').classList.toggle('on',t==='draw');
+  $('toolErase').classList.toggle('on',t==='erase');
   $('toolSelect').classList.toggle('on',t==='select');
   $('toolLasso').classList.toggle('on',t==='lasso');
   $('bucket').classList.toggle('on',t==='bucket');
@@ -1485,6 +1516,7 @@ $('symAxes').classList.toggle('on',showAxes);
 $('toolSelect').onclick=()=>setTool('select');
 $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
 $('toolDraw').onclick=()=>setTool(tool==='draw'?'select':'draw');
+$('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
 $('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
 $('grid').onclick=()=>{showGrid=!showGrid;$('grid').classList.toggle('on',!showGrid);render();};
 /* ---- ridimensionamento CENTRATO ----
@@ -1573,7 +1605,7 @@ let dragI=null;
 function buildLayers(){
   const el=$('layers'); el.innerHTML='';
   layers.map((L,i)=>({L,i})).reverse().forEach(({L,i})=>{   // alto dello stack in cima alla lista
-    const row=document.createElement('div'); row.className='layerRow'+(i===active?' active':''); row.dataset.i=i;
+    const row=document.createElement('div'); row.className='layerRow'+(i===active?' active':(activeSet.has(i)?' multisel':'')); row.dataset.i=i;
     row.innerHTML=`<span class="lhandle" title="trascina per riordinare">⠿</span>`
       +`<span class="lvis" title="mostra/nascondi">${L.visible?'◉':'○'}</span>`
       +`<input type="color" class="lcol" value="${L.color}">`
@@ -1591,7 +1623,7 @@ function buildLayers(){
     row.querySelector('.lop').onpointerdown=()=>snapshot();
     row.querySelector('.lop').oninput=e=>{e.stopPropagation();L.opacity=+e.target.value/100;render();};
     row.querySelector('.ldel').onclick=e=>{e.stopPropagation();deleteLayer(i);};
-    row.onclick=()=>{ setActive(i); syncBrushUI(); buildLayers(); };
+    row.onclick=e=>{ if(e.shiftKey) toggleLayerSel(i); else setActive(i); syncBrushUI(); buildLayers(); };
     const handle=row.querySelector('.lhandle'); handle.draggable=true;
     handle.onclick=e=>e.stopPropagation();
     handle.ondragstart=e=>{dragI=i;};
@@ -1944,15 +1976,15 @@ window.addEventListener('keydown',e=>{
     switch(k){
       case 'A': { selection=new Set(); for(let c=0;c<cols;c++)for(let r=0;r<rows;r++) selection.add(key(c,r)); render(); } break;
       case 'C': copySel(); break;
-      case 'E': selOp(erase); break;
-      case 'D': selOp(erase); selection=null; render(); break;
+      case 'E': selOp(erase,true); break;
+      case 'D': selOp(erase,true); selection=null; render(); break;
       case 'Q': selOp(stamp); break;
       case 'B': selOp(bgCell); break;
-      case 'I': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(cell)cell.inv=!cell.inv;}); break;
+      case 'I': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(cell)cell.inv=!cell.inv;},true); break;
       case 'R': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>s.rot=(s.rot+1)%6;   // ⇧R = ruota OGNI tessera in place
-        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);}); break;
+        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);},true); break;
       case 'F': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>{s.flip=!s.flip;};   // ⇧F = specchia OGNI tessera in place
-        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);}); break;
+        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);},true); break;
       case 'H': shiftSel(-1,0); break;
       case 'L': shiftSel(1,0); break;
       case 'J': shiftSel(0,1); break;
@@ -1980,8 +2012,8 @@ window.addEventListener('keydown',e=>{
       snapshot(); for(const t of symTargets(cursor.c,cursor.r)) stamp(t.c,t.r,t); advance(); break;
     case 'e': snapshot(); for(const t of symTargets(cursor.c,cursor.r)) erase(t.c,t.r); advance(); break;
     case ' ': break;   /* spazio = pan (gestito a parte), non avanza */
-    case 'Delete': if(selection&&selection.size){ selOp(erase); } else { snapshot(); erase(cursor.c,cursor.r); } break;   // canc: svuota selezione o cella al cursore
-    case 'Backspace': if(selection&&selection.size){ selOp(erase); break; }   // con selezione = come canc
+    case 'Delete': if(selection&&selection.size){ selOp(erase,true); } else { snapshot(); erase(cursor.c,cursor.r); } break;   // canc: svuota selezione o cella al cursore
+    case 'Backspace': if(selection&&selection.size){ selOp(erase,true); break; }   // con selezione = come canc
       retreat(); snapshot(); erase(cursor.c,cursor.r); break;
     case 'b': snapshot(); bgCell(cursor.c,cursor.r); advance(); break;
     case 'r': xformRot(1); break;       // selezione se c'è, altrimenti pennello (vedi anteprima in alto a destra)
@@ -2001,7 +2033,7 @@ window.addEventListener('keydown',e=>{
     case '-': zoomByCenter(1/1.2); break;
     case '[': case ']': { const d=(k===']')?0.02:-0.02, cl=v=>Math.min(0.7,Math.max(0.1,+((v+d).toFixed(2))));
       if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return;
-        cell.sw=cl(cell.sw??connSW); (cell.extra||[]).forEach(s=>s.sw=cl(s.sw??connSW)); (cell.sub||[]).forEach(s=>s.sw=cl(s.sw??connSW)); }); }
+        cell.sw=cl(cell.sw??connSW); (cell.extra||[]).forEach(s=>s.sw=cl(s.sw??connSW)); (cell.sub||[]).forEach(s=>s.sw=cl(s.sw??connSW)); }, true); }
       else brush.sw=cl(brush.sw);
       syncBrushUI(); } break;
     case 'p': previewing=true; document.body.classList.add('preview'); break;
