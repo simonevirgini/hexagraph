@@ -242,7 +242,10 @@
       <div class="group" data-sec="layers">
         <div class="glabel">Livelli <span style="color:var(--muted)">— trascina per riordinare</span></div>
         <div id="layers"></div>
-        <button class="btn" id="addLayer">+ Nuovo livello</button>
+        <div class="row">
+          <button class="btn" id="addLayer">+ Nuovo livello</button>
+          <button class="btn" id="dupLayer" title="duplica il livello attivo (con tutte le sue tessere)">⧉ Duplica</button>
+        </div>
       </div>
 
       <div class="group" data-sec="color">
@@ -425,6 +428,12 @@ let bgImage=null, bgOpacity=1;
 /* canvas offscreen per compositare i livelli */
 const lc=document.createElement('canvas'); const lctx=lc.getContext('2d');
 let cols=21, rows=21, R=36;   // 21×21: dispari, così gli assi di simmetria cadono sulle celle
+/* FASE di parità delle colonne (§8.2): 0 o 1. Si inverte ogni volta che si inserisce/toglie una
+   colonna a SINISTRA, così le celle esistenti (rinumerate di +1) conservano lo stesso sfalsamento
+   verticale e il disegno NON si deforma. Tutta la parità-colonna passa da colPar(c). */
+let colPhase=0;
+let colFlip=false, rowFlip=false;   // alternanza del lato (dx/sx, giù/su) per i delta DISPARI del resize
+const colPar=c=>(((c+colPhase)%2)+2)%2;
 let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=true;
 let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'bucket'
 /* MODALITÀ PATTERN: null = tela normale · {shape:'rect'|'strip'|'hexa'|'rhomb'} — le dimensioni
@@ -448,7 +457,7 @@ const key=(c,r)=>c+','+r;
 const colW=()=>1.5*R, rowH=()=>Math.sqrt(3)*R, margin=()=>R+4;
 function cellCenter(c,r){
   const x=c*colW()+margin();
-  const y=r*rowH()+(c%2?rowH()/2:0)+margin();
+  const y=r*rowH()+(colPar(c)?rowH()/2:0)+margin();
   return [x,y];
 }
 function boardSize(){ return [Math.ceil((cols-1)*colW()+2*R+8), Math.ceil(rows*rowH()+rowH()/2+8)]; }
@@ -787,12 +796,12 @@ function cellAt(mx,my){
 
 /* ---- azioni base ---- */
 /* stato completo del documento per undo/redo (tutti i livelli + canvas + rotazione, escluso lo sfondo immagine) */
-function docState(){ return JSON.stringify({cols,rows,boardRot,active,pattern, view:{x:view.x,y:view.y},
+function docState(){ return JSON.stringify({cols,rows,boardRot,active,pattern,colPhase, view:{x:view.x,y:view.y},
   frame:(anim.on&&anim.frames.length)?anim.cur:null,   // lo snapshot sa a QUALE frame appartiene
   layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]}))}); }
 function restoreState(s){ const o=JSON.parse(s);
   const resized=(o.cols!==cols||o.rows!==rows);   // undo/redo di un RESIZE: ripristina anche il pan, così la figura non salta
-  cols=o.cols; rows=o.rows; boardRot=o.boardRot;
+  cols=o.cols; rows=o.rows; boardRot=o.boardRot; colPhase=o.colPhase||0;
   if(resized && o.view){ view.x=o.view.x; view.y=o.view.y; }
   pattern=o.pattern||null; patCache.key=''; updatePatternUI();
   // undo attraverso la timeline: se lo snapshot è di un altro frame, prima ci si sposta lì
@@ -896,11 +905,11 @@ function bgCell(c,r){ if(!inDomain(c,r))return; cells.set(key(c,r),{t:null,rot:0
 function erase(c,r){ cells.delete(key(c,r)); }
 /* ---- secchiello (flood fill) ---- */
 /* vicini esagonali flat-top con colonne sfalsate (colonne dispari più in basso) */
-function hexNeighbors(c,r){ return (c%2===0)
+function hexNeighbors(c,r){ return (colPar(c)===0)
   ? [[c,r-1],[c,r+1],[c-1,r-1],[c-1,r],[c+1,r-1],[c+1,r]]
   : [[c,r-1],[c,r+1],[c-1,r],[c-1,r+1],[c+1,r],[c+1,r+1]]; }
 /* ---- coordinate cubiche (layout odd-q) per spostare/ruotare gruppi di celle come un blocco rigido ---- */
-const oddq=c=>((c%2)+2)%2;
+const oddq=c=>colPar(c);   // parità di colonna (con la fase §8.2): tiene coerenti cube coords, vicini e sfalsamento
 function toCube(c,r){ const x=c, z=r-(c-oddq(c))/2; return [x,-x-z,z]; }
 function fromCube(x,z){ return [x, z+(x-oddq(x))/2]; }
 function cubeRound(x,y,z){ let rx=Math.round(x),ry=Math.round(y),rz=Math.round(z);
@@ -1018,7 +1027,7 @@ function moveCursor(dc,dr){
     const dir=Math.sign(dc);
     const c=cursor.c, nc=Math.max(0,Math.min(cols-1,c+dir));
     if(nc===c) return;
-    const up=cursor.r+((c%2)?0:-1), down=cursor.r+((c%2)?1:0);
+    const up=cursor.r+((colPar(c))?0:-1), down=cursor.r+((colPar(c))?1:0);
     let nr=(zigBias>0)?down:up;
     if(nr<0) nr=down; else if(nr>rows-1) nr=up;   // ai bordi usa l'altra diagonale
     cursor.c=nc; cursor.r=Math.max(0,Math.min(rows-1,nr)); zigBias=-zigBias;
@@ -1496,30 +1505,30 @@ function contentBounds(allFrames){
 function shiftEntries(entries, dc, dr){ const out=[];
   for(const [k,v] of entries){ const i=k.indexOf(','), c=+k.slice(0,i)+dc, r=+k.slice(i+1)+dr; out.push([c+','+r, v]); }
   return out; }
-/* Crescita/riduzione a FIGURA FERMA (§8.2): la figura resta immobile sullo schermo e le colonne/
-   righe compaiono o spariscono su ENTRAMBI i lati. Due meccanismi combinati:
-   1) shift-celle per ricentrare il contenuto nella griglia (colonne solo di passi PARI — uno shift
-      dispari scambia la parità dello sfalsamento e distorce il disegno);
-   2) compensazione del pan (view.x/y) per annullare il salto visivo dovuto al ricentraggio della
-      tavola e allo shift appena fatto (assorbe anche il mezzo passo residuo delle colonne dispari). */
+/* Crescita/riduzione a FIGURA FERMA (§8.2): le colonne/righe si aggiungono o si tolgono
+   ALTERNANDO il lato (destra/sinistra per le colonne, sotto/sopra per le righe) e ciò che è
+   disegnato resta ASSOLUTAMENTE IMMOBILE sullo schermo. Come:
+   - split() divide il delta di ogni asse fra i due lati; il +1 dei delta dispari si alterna
+     (colFlip/rowFlip). sc/sr = quanto va sul lato BASSO (sinistra/sopra) = spostamento netto indici.
+   - le colonne a sinistra rinumerano tutto: per non deformare il disegno si inverte la FASE di
+     parità (colPhase) — le celle esistenti conservano lo sfalsamento verticale (vedi colPar).
+   - il pan (view.x/y) compensa lo spostamento così la figura non salta (helper boardScreenOffset). */
 function resizeCanvas(nc, nr){
   nc=Math.max(2,Math.min(80,nc|0)); nr=Math.max(2,Math.min(80,nr|0));
   const dc=nc-cols, dr=nr-rows; if(!dc&&!dr) return;
-  const cb=contentBounds(false), rng=contentBounds(true);
+  const cb=contentBounds(false);
   const [Wold,Hold]=boardSize();
-  // ancora = centro del contenuto (o centro tavola se vuota); cellCenter non dipende da cols/rows
   const anchor = cb
     ? (()=>{ const [x0,y0]=cellCenter(cb.c0,cb.r0), [x1,y1]=cellCenter(cb.c1,cb.r1); return [(x0+x1)/2,(y0+y1)/2]; })()
     : [Wold/2, Hold/2];
+  const split=(d,fr)=>{ const n=Math.abs(d); let lo=Math.floor(n/2), hi=n-lo;
+    if(fr.v){ const t=lo; lo=hi; hi=t; } if(n%2) fr.v=!fr.v;   // il +1 dispari alterna il lato
+    return d>=0 ? lo : -lo; };                                // >0 = aggiunte al lato basso · <0 = tolte dal lato basso
+  const cf={v:colFlip}, rf={v:rowFlip};
+  const sc=dc?split(dc,cf):0, sr=dr?split(dr,rf):0;
+  colFlip=cf.v; rowFlip=rf.v;
   cols=nc; rows=nr;
-  let sc=0, sr=0;
-  if(cb && rng){                                           // ricentra il contenuto — SIA crescendo SIA restringendo
-    if(dc){ let want=Math.floor((nc-(cb.c1-cb.c0+1))/2)-cb.c0;
-      const lo=-rng.c0, hi=(nc-1)-rng.c1; sc=Math.max(lo,Math.min(hi,want));
-      if(sc%2) sc-=Math.sign(sc); }                        // colonne: solo pari (no distorsione)
-    if(dr){ let want=Math.floor((nr-(cb.r1-cb.r0+1))/2)-cb.r0;
-      const lo=-rng.r0, hi=(nr-1)-rng.r1; sr=Math.max(lo,Math.min(hi,want)); }
-  }
+  colPhase^=(sc&1);                                         // ogni colonna a sinistra inverte la fase (no deformazione)
   if(sc||sr){
     for(const L of layers) L.cells=new Map(shiftEntries(L.cells, sc, sr));
     cells=layers[active].cells;
@@ -1593,9 +1602,17 @@ function buildLayers(){
   });
 }
 function addLayer(){ snapshot(); layers.push(newLayer()); setActive(layers.length-1); buildLayers(); render(); }
+/* duplica il livello attivo (tessere comprese) e lo mette SOPRA l'originale, come livello attivo */
+function duplicateLayer(){ snapshot();
+  const src=layers[active];
+  const dup={name:src.name+' copia', color:src.color, blend:src.blend, opacity:src.opacity, visible:src.visible,
+    cells:new Map(JSON.parse(JSON.stringify([...src.cells])))};   // deep-clone delle celle
+  layers.splice(active+1,0,dup); setActive(active+1); buildLayers(); render();
+}
 function deleteLayer(i){ if(layers.length<=1)return; snapshot(); const wasActive=layers[active]; layers.splice(i,1); active=Math.max(0,layers.indexOf(wasActive)); if(active<0)active=Math.min(i,layers.length-1); setActive(active); buildLayers(); render(); }
 function moveLayer(from,to){ if(from==null||from===to)return; snapshot(); const cur=layers[active]; const [L]=layers.splice(from,1); layers.splice(to,0,L); active=layers.indexOf(cur); setActive(active); buildLayers(); render(); }
 $('addLayer').onclick=addLayer;
+$('dupLayer').onclick=duplicateLayer;
 /* ---- SFONDO IMMAGINE ---- */
 $('bgLoad').onclick=()=>$('bgFile').click();
 $('bgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const img=new Image(); img.onload=()=>{ bgImage=img; render(); }; img.src=URL.createObjectURL(f); e.target.value=''; };
@@ -1881,7 +1898,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, pattern, slots, forged:FORGED,
+  const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, pattern, colPhase, slots, forged:FORGED,
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -1894,6 +1911,7 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     if(!layers.length) layers=[newLayer()];
     setActive(0);
     if(o.cols){cols=o.cols;$('cols').value=cols;} if(o.rows){rows=o.rows;$('rows').value=rows;}
+    colPhase=o.colPhase||0;
     pattern=o.pattern||null; patCache.key=''; updatePatternUI();
     if(o.pageDark!=null){pageDark=o.pageDark;$('pageDark').checked=pageDark;}
     if(o.outsideBlack!=null){outsideBlack=o.outsideBlack;$('outBlack').checked=outsideBlack;}
@@ -2123,6 +2141,7 @@ function createProject(){
   anim.frames=[]; anim.cur=0; anim.prevLayers=null; anim.nextLayers=null;
   layers=[]; layers=[newLayer()]; setActive(0);
   cols=nc; rows=nr; $('cols').value=cols; $('rows').value=rows;
+  colPhase=0; colFlip=false; rowFlip=false;
   pattern=pat; patCache.key=''; axisCache.key='';
   selection=null; lassoPts.length=0; bgImage=null;
   boardRot=0; document.documentElement.style.setProperty('--boardRot','0deg');
