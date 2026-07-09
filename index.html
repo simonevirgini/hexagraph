@@ -653,6 +653,15 @@ function setupBoard(baseColor){
   if(baseColor){ ctx.fillStyle=baseColor; ctx.fillRect(0,0,W,H); }
   return [W,H];
 }
+/* dove finisce sullo schermo (CSS px, MENO il pan view.x/y) un punto in coordinate tavola, per
+   dati W,H: serve a compensare il pan quando la tavola cambia misura, così la figura non SALTA
+   (§8.2). È la stessa catena di setupBoard esclusa la translate(view). */
+function boardScreenOffset(p, W, H){
+  const swap=(boardRot%180!==0), cw=swap?H:W, ch=swap?W:H;
+  const a=boardRot*Math.PI/180, cos=Math.cos(a), sin=Math.sin(a);
+  const dx=p[0]-W/2, dy=p[1]-H/2;
+  return [view.zoom*(dx*cos-dy*sin+cw/2), view.zoom*(dx*sin+dy*cos+ch/2)];
+}
 /* path-unione degli esagoni della griglia (per clip carta/immagine) — in modalità pattern solo il dominio */
 function gridClipPath(){ const p=new Path2D();
   for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r);
@@ -778,11 +787,13 @@ function cellAt(mx,my){
 
 /* ---- azioni base ---- */
 /* stato completo del documento per undo/redo (tutti i livelli + canvas + rotazione, escluso lo sfondo immagine) */
-function docState(){ return JSON.stringify({cols,rows,boardRot,active,pattern,
+function docState(){ return JSON.stringify({cols,rows,boardRot,active,pattern, view:{x:view.x,y:view.y},
   frame:(anim.on&&anim.frames.length)?anim.cur:null,   // lo snapshot sa a QUALE frame appartiene
   layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]}))}); }
 function restoreState(s){ const o=JSON.parse(s);
+  const resized=(o.cols!==cols||o.rows!==rows);   // undo/redo di un RESIZE: ripristina anche il pan, così la figura non salta
   cols=o.cols; rows=o.rows; boardRot=o.boardRot;
+  if(resized && o.view){ view.x=o.view.x; view.y=o.view.y; }
   pattern=o.pattern||null; patCache.key=''; updatePatternUI();
   // undo attraverso la timeline: se lo snapshot è di un altro frame, prima ci si sposta lì
   if(o.frame!=null && anim.on && anim.frames.length){
@@ -1485,17 +1496,28 @@ function contentBounds(allFrames){
 function shiftEntries(entries, dc, dr){ const out=[];
   for(const [k,v] of entries){ const i=k.indexOf(','), c=+k.slice(0,i)+dc, r=+k.slice(i+1)+dr; out.push([c+','+r, v]); }
   return out; }
+/* Crescita/riduzione a FIGURA FERMA (§8.2): la figura resta immobile sullo schermo e le colonne/
+   righe compaiono o spariscono su ENTRAMBI i lati. Due meccanismi combinati:
+   1) shift-celle per ricentrare il contenuto nella griglia (colonne solo di passi PARI — uno shift
+      dispari scambia la parità dello sfalsamento e distorce il disegno);
+   2) compensazione del pan (view.x/y) per annullare il salto visivo dovuto al ricentraggio della
+      tavola e allo shift appena fatto (assorbe anche il mezzo passo residuo delle colonne dispari). */
 function resizeCanvas(nc, nr){
   nc=Math.max(2,Math.min(80,nc|0)); nr=Math.max(2,Math.min(80,nr|0));
   const dc=nc-cols, dr=nr-rows; if(!dc&&!dr) return;
-  const view=contentBounds(false), rng=contentBounds(true);
+  const cb=contentBounds(false), rng=contentBounds(true);
+  const [Wold,Hold]=boardSize();
+  // ancora = centro del contenuto (o centro tavola se vuota); cellCenter non dipende da cols/rows
+  const anchor = cb
+    ? (()=>{ const [x0,y0]=cellCenter(cb.c0,cb.r0), [x1,y1]=cellCenter(cb.c1,cb.r1); return [(x0+x1)/2,(y0+y1)/2]; })()
+    : [Wold/2, Hold/2];
   cols=nc; rows=nr;
   let sc=0, sr=0;
-  if(view && rng){
-    if(dc>0){ let want=Math.floor((nc-(view.c1-view.c0+1))/2)-view.c0;
+  if(cb && rng){                                           // ricentra il contenuto — SIA crescendo SIA restringendo
+    if(dc){ let want=Math.floor((nc-(cb.c1-cb.c0+1))/2)-cb.c0;
       const lo=-rng.c0, hi=(nc-1)-rng.c1; sc=Math.max(lo,Math.min(hi,want));
       if(sc%2) sc-=Math.sign(sc); }                        // colonne: solo pari (no distorsione)
-    if(dr>0){ let want=Math.floor((nr-(view.r1-view.r0+1))/2)-view.r0;
+    if(dr){ let want=Math.floor((nr-(cb.r1-cb.r0+1))/2)-cb.r0;
       const lo=-rng.r0, hi=(nr-1)-rng.r1; sr=Math.max(lo,Math.min(hi,want)); }
   }
   if(sc||sr){
@@ -1507,10 +1529,15 @@ function resizeCanvas(nc, nr){
     cursor.c+=sc; cursor.r+=sr;
   }
   cursor.c=Math.max(0,Math.min(cols-1,cursor.c)); cursor.r=Math.max(0,Math.min(rows-1,cursor.r));
+  // pan: tieni FERMA l'ancora sullo schermo (dopo lo shift la stessa figura è in anchor+shift)
+  const [Wnew,Hnew]=boardSize();
+  const after=[anchor[0]+sc*colW(), anchor[1]+sr*rowH()];
+  const gb=boardScreenOffset(anchor,Wold,Hold), ga=boardScreenOffset(after,Wnew,Hnew);
+  view.x+=gb[0]-ga[0]; view.y+=gb[1]-ga[1];
   axisCache.key='';                                        // gli assi di simmetria dipendono da cols/rows
   updatePatternUI();                                       // dominio e parità (dritto/mattoncino) dipendono da cols/rows
   if(anim.on){ updateOnionLayers(); buildTimeline(); }
-  render();
+  applyView();                                             // il pan è cambiato: aggiorna label + ridisegna
 }
 $('cols').onfocus=()=>snapshot(); $('rows').onfocus=()=>snapshot();
 $('cols').oninput=()=>resizeCanvas(+$('cols').value||cols, rows);
