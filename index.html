@@ -12,6 +12,7 @@
     --text:#eceadf; --muted:#918f9c; --accent:#ff48b0; --accent2:#2b7fff; --onink:#fff;   /* rosa fluo riso + blu riso */
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}   /* hidden vince sempre (anche su .row{display:flex} & co.) */
   html,body{margin:0;height:100%}
   body{
     background:var(--bg); color:var(--text);
@@ -135,6 +136,22 @@
   .layerRow .lctl{display:flex;gap:5px;align-items:center}
   .layerRow select{flex:0 0 auto;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:3px;font-size:10px;padding:1px 2px}
   .layerRow .lop{flex:1;min-width:24px}
+  /* dialoghi modali (nuovo progetto · export pattern) */
+  .dlg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:20}
+  .dlg[hidden]{display:none}
+  .dlgbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px;width:340px;max-width:92vw;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .dlgtitle{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)}
+  .dlgtitle::before{content:'⬡ ';color:var(--accent)}
+  .segrow{display:flex;gap:5px}
+  .seg{flex:1;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:7px 4px;cursor:pointer;font-size:12px;font-family:inherit}
+  .seg:hover{border-color:var(--accent)}
+  .seg.on{color:var(--text);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .shapegrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .shape{background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:8px 6px;cursor:pointer;font-size:12px;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .shape svg{width:44px;height:30px;display:block}
+  .shape:hover{border-color:var(--accent)}
+  .shape.on{color:var(--text);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .dlgnote{font-size:11px;color:var(--muted);line-height:1.6;min-height:2.2em}
 </style>
 </head>
 <body>
@@ -259,6 +276,11 @@
           <label class="field">Colonne<input type="number" id="cols" min="2" max="80" value="21"></label>
           <label class="field">Righe<input type="number" id="rows" min="2" max="80" value="21"></label>
         </div>
+        <div class="legend" id="patInfo" hidden></div>
+        <div class="row" id="patRow" hidden>
+          <button class="btn" id="patBoundsBtn" title="mostra/nascondi il confine della tavola dentro il pattern">⬡ confine</button>
+          <button class="btn" id="patOff" title="torna alla tela normale (il disegno resta)">esci dal pattern</button>
+        </div>
         <div class="row">
           <button class="btn" id="gridRotL" title="ruota tutta la tela di -90°">⟲ ruota tela</button>
           <button class="btn" id="gridRotR" title="ruota tutta la tela di +90°">ruota tela ⟳</button>
@@ -273,8 +295,9 @@
 
       <div class="group" data-sec="saveexp">
         <div class="glabel">Salva / Carica &amp; Export</div>
-        <div class="row"><button class="btn" id="clear">Svuota</button></div>
+        <div class="row"><button class="btn" id="newProj" title="nuovo progetto: tela normale o tela per pattern">Nuovo…</button><button class="btn" id="clear">Svuota</button></div>
         <div class="row"><button class="btn" id="exportPng">Export Png</button><button class="btn" id="exportSvg">Export Svg</button></div>
+        <div class="row" id="patExpRow" hidden><button class="btn" id="exportPattern" title="esporta il pattern ripetuto alla dimensione che vuoi (PNG o SVG)">⬡ Export Pattern…</button></div>
         <div class="row"><button class="btn" id="save">Salva</button><button class="btn" id="load">Carica</button></div>
         <input type="file" id="loadFile" accept="application/json" style="display:none">
       </div>
@@ -315,6 +338,56 @@
   <button class="btn" style="flex:0 0 auto" id="frVideo" title="esporta un video .webm (2 giri di loop, fps correnti)">WEBM</button>
   <button class="btn" style="flex:0 0 auto" id="frExport" title="scarica tutti i frame come sequenza PNG">PNG ×n</button>
 </div>
+<!-- dialogo NUOVO PROGETTO: tela normale o tela per pattern (forma + dimensioni) -->
+<div id="newDlg" class="dlg" hidden>
+  <div class="dlgbox">
+    <div class="dlgtitle">Nuovo progetto</div>
+    <div class="segrow">
+      <button class="seg on" id="npNormal">tela normale</button>
+      <button class="seg" id="npPattern">tela per pattern</button>
+    </div>
+    <div id="npShapes" class="shapegrid" hidden>
+      <button class="shape" data-shape="rect"><svg viewBox="0 0 44 30"><rect x="8" y="5" width="28" height="20" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>rettangolo</button>
+      <button class="shape" data-shape="strip"><svg viewBox="0 0 44 30"><rect x="3" y="11" width="38" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>striscia</button>
+      <button class="shape" data-shape="hexa"><svg viewBox="0 0 44 30"><path d="M15 3 L29 3 L36 15 L29 27 L15 27 L8 15 Z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>esagono</button>
+      <button class="shape" data-shape="rhomb"><svg viewBox="0 0 44 30"><path d="M13 5 L39 5 L31 25 L5 25 Z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>rombo</button>
+    </div>
+    <div class="row" id="npSizeAB">
+      <label class="field" id="npAWrap">Colonne<input type="number" id="npA" min="2" max="80" value="12"></label>
+      <label class="field" id="npBWrap">Righe<input type="number" id="npB" min="2" max="80" value="12"></label>
+    </div>
+    <div class="dlgnote" id="npNote"></div>
+    <div class="row">
+      <button class="btn" id="npCancel">Annulla</button>
+      <button class="btn primary" id="npCreate">Crea (il disegno attuale va perso)</button>
+    </div>
+  </div>
+</div>
+<!-- dialogo EXPORT PATTERN: ripetizioni o dimensione in px, PNG o SVG -->
+<div id="patDlg" class="dlg" hidden>
+  <div class="dlgbox">
+    <div class="dlgtitle">Export pattern</div>
+    <div class="segrow">
+      <button class="seg on" id="peModeRep">ripetizioni</button>
+      <button class="seg" id="peModePx">dimensione px</button>
+    </div>
+    <div class="row" id="peRepRow">
+      <label class="field">Ripetizioni ↔<input type="number" id="peN" min="1" max="64" value="4"></label>
+      <label class="field" id="peMWrap">Ripetizioni ↕<input type="number" id="peM" min="1" max="64" value="4"></label>
+    </div>
+    <div class="row" id="pePxRow" hidden>
+      <label class="field">Larghezza px<input type="number" id="peW" min="16" max="8192" value="2048"></label>
+      <label class="field">Altezza px<input type="number" id="peH" min="16" max="8192" value="2048"></label>
+    </div>
+    <div class="row"><label class="field">Larghezza di UNA ripetizione in px (scala del PNG)<input type="number" id="peT" min="16" max="4096"></label></div>
+    <div class="dlgnote" id="peNote"></div>
+    <div class="row">
+      <button class="btn" id="peCancel">Annulla</button>
+      <button class="btn" id="peSvg">SVG</button>
+      <button class="btn primary" id="pePng">PNG</button>
+    </div>
+  </div>
+</div>
 <div id="status">cur <b id="curText">0,0</b> · rot <b id="rotText">0°</b> · <span id="flipText">dritto</span> <span id="invText"></span></div>
 
 <script src="tiles.js?v=3"></script>
@@ -354,6 +427,10 @@ const lc=document.createElement('canvas'); const lctx=lc.getContext('2d');
 let cols=21, rows=21, R=36;   // 21×21: dispari, così gli assi di simmetria cadono sulle celle
 let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=true;
 let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'bucket'
+/* MODALITÀ PATTERN: null = tela normale · {shape:'rect'|'strip'|'hexa'|'rhomb'} — le dimensioni
+   della forma derivano SEMPRE da cols/rows (hexa: raggio dal lato minore · rhomb: lato B dalle righe) */
+let pattern=null;
+let patBounds=localStorage.getItem('hexagraph.patbounds')!=='0';   // confine della tavola nel preview del pattern
 let stampMode=null;                // null (sostituisci) | 'merge' ⊕ | 'sub' ⊖ | 'iso' ∩ | 'xor' ⊻ — vale per timbro E rilascio del trascinamento
 /* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
@@ -375,6 +452,77 @@ function cellCenter(c,r){
   return [x,y];
 }
 function boardSize(){ return [Math.ceil((cols-1)*colW()+2*R+8), Math.ceil(rows*rowH()+rowH()/2+8)]; }
+
+/* ---- geometria del PATTERN ----
+   Il dominio è il sottoinsieme di celle della tavola che forma la "tessera" del pattern;
+   i vettori di traslazione (in px, spazio tavola) dicono dove cadono le copie.
+   Trappola parità (vedi HANDOFF §8.1): con colonne DISPARI la traslazione orizzontale include
+   mezza riga (effetto mattoncino) — è un vettore valido del reticolo esagonale, quindi la
+   tassellatura resta perfetta: pari = ripetizione dritta, dispari = sfalsata. */
+let patCache={key:'',dom:null,edges:null};
+function patHexaN(){ return Math.max(1,Math.floor((Math.min(cols,rows)-1)/2)); }          // raggio dell'esagonone
+function patRhombM(){ return Math.max(1, rows-Math.floor((cols-1)/2)); }                  // lato B del rombo (in assiali)
+function patDomain(){
+  if(!pattern) return null;
+  const ck=pattern.shape+'/'+cols+'/'+rows;
+  if(patCache.key===ck) return patCache.dom;
+  const dom=new Set();
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
+    let ok=true;
+    if(pattern.shape==='rhomb'){ const z=r-Math.floor(c/2); ok=(z>=0 && z<patRhombM()); } // parallelogramma in assiali
+    else if(pattern.shape==='hexa'){
+      const N=patHexaN(), C=toCube(Math.round((cols-1)/2),Math.round((rows-1)/2)), p=toCube(c,r);
+      ok=Math.max(Math.abs(p[0]-C[0]),Math.abs(p[1]-C[1]),Math.abs(p[2]-C[2]))<=N;        // distanza cubica dal centro
+    }
+    if(ok) dom.add(key(c,r));
+  }
+  patCache={key:ck,dom,edges:null};
+  return dom;
+}
+function inDomain(c,r){ const d=patDomain(); return !d || d.has(key(c,r)); }
+/* vettori di traslazione: rect/rhomb/hexa 2 vettori, strip 1 (ripete solo in orizzontale) */
+function patVectors(){
+  if(!pattern) return [];
+  const cw=colW(), rh=rowH();
+  if(pattern.shape==='rect')  return [[cols*cw,(cols%2)*rh/2],[0,rows*rh]];
+  if(pattern.shape==='strip') return [[cols*cw,(cols%2)*rh/2]];
+  if(pattern.shape==='rhomb') return [[cols*cw,cols*rh/2],[0,patRhombM()*rh]];
+  const N=patHexaN(); return [[(2*N+1)*cw,rh/2],[N*cw,(1.5*N+1)*rh]];                     // esagonone: assiali (2N+1,−N) e (N,N+1)
+}
+/* spigoli di CONFINE del dominio (per il contorno della tavola nel preview): gli spigoli
+   il cui vicino oltre il punto medio non fa parte del dominio */
+function patEdges(){
+  const dom=patDomain(); if(!dom) return [];
+  if(patCache.edges) return patCache.edges;
+  const edges=[];
+  for(const k of dom){ const i=k.indexOf(','), c=+k.slice(0,i), r=+k.slice(i+1);
+    const [cx,cy]=cellCenter(c,r);
+    for(let e=0;e<6;e++){ const a=corner(e,R), b=corner(e+1,R);
+      const n=cellAt(cx+a[0]+b[0], cy+a[1]+b[1]);                                         // centro del vicino = centro + 2·(punto medio spigolo)
+      if(!n || !dom.has(key(n[0],n[1]))) edges.push([cx+a[0],cy+a[1],cx+b[0],cy+b[1]]);
+    } }
+  patCache.edges=edges;
+  return edges;
+}
+/* offset delle copie (i·v1+j·v2) che toccano il rettangolo dato (coordinate tavola, già
+   allargato di una tavola verso l'alto/sinistra dal chiamante); span limitato per sicurezza */
+function patRange(x0,y0,x1,y1){
+  const vs=patVectors(); if(!vs.length) return [];
+  const v1=vs[0], v2=vs[1]||[0,1];
+  const det=v1[0]*v2[1]-v1[1]*v2[0];
+  let i0=1e9,i1=-1e9,j0=1e9,j1=-1e9;
+  for(const [px,py] of [[x0,y0],[x1,y0],[x0,y1],[x1,y1]]){
+    const i=(px*v2[1]-py*v2[0])/det, j=(py*v1[0]-px*v1[1])/det;
+    i0=Math.min(i0,i); i1=Math.max(i1,i); j0=Math.min(j0,j); j1=Math.max(j1,j);
+  }
+  i0=Math.floor(i0); i1=Math.ceil(i1); j0=Math.floor(j0); j1=Math.ceil(j1);
+  const ic=Math.round((i0+i1)/2), jc=Math.round((j0+j1)/2), CAP=24;                       // max ~49×49 copie
+  i0=Math.max(i0,ic-CAP); i1=Math.min(i1,ic+CAP);
+  if(vs.length>1){ j0=Math.max(j0,jc-CAP); j1=Math.min(j1,jc+CAP); } else { j0=j1=0; }
+  const out=[];
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++) out.push([i*v1[0]+j*v2[0], i*v1[1]+j*v2[1], i, j]);
+  return out;
+}
 
 /* ---- disegno cella ---- */
 function cellStamps(cell){ return [{t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw}].concat(cell.extra||[]); }
@@ -443,14 +591,34 @@ function compositeLayers(Ls,alpha){
   Ls=Ls||layers; alpha=alpha==null?1:alpha;
   for(const L of Ls){ if(!L.visible || L.cells.size===0) continue;
     setupOff();
-    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const cell=L.cells.get(key(c,r)); if(!cell)continue;
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
       const [cx,cy]=cellCenter(c,r); lctx.save(); lctx.translate(cx,cy); drawCellFigures(lctx,cell,cell.col||L.color); lctx.restore(); }
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(lc,0,0); ctx.restore();
   }
 }
-function drawBgImage(W,H){ if(!bgImage)return; ctx.save(); ctx.globalAlpha=bgOpacity;
+function drawBgImage(W,H,g){ if(!bgImage)return; g=g||ctx; g.save(); g.globalAlpha=bgOpacity;
   const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
-  ctx.drawImage(bgImage,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s); ctx.restore(); }
+  g.drawImage(bgImage,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s); g.restore(); }
+/* ---- unità del pattern: la tavola (carta+immagine+livelli, solo dominio) su un offscreen
+   a risoluzione q, pronta per essere timbrata come copia ---- */
+const puC=document.createElement('canvas'); const puG=puC.getContext('2d');
+const plC=document.createElement('canvas'); const plG=plC.getContext('2d');
+function drawPatternUnit(q){
+  const [W,H]=boardSize();
+  q=Math.min(q, 4096/Math.max(W,H));                       // tetto alla dimensione dell'offscreen
+  const w=Math.max(1,Math.ceil(W*q)), h=Math.max(1,Math.ceil(H*q));
+  if(puC.width!==w||puC.height!==h){ puC.width=w; puC.height=h; }
+  if(plC.width!==w||plC.height!==h){ plC.width=w; plC.height=h; }
+  puG.setTransform(1,0,0,1,0,0); puG.clearRect(0,0,w,h); puG.setTransform(q,0,0,q,0,0);
+  puG.save(); puG.clip(gridClipPath()); puG.fillStyle=pageDark?'#000':'#fff'; puG.fillRect(0,0,W,H); drawBgImage(W,H,puG); puG.restore();
+  for(const L of layers){ if(!L.visible||L.cells.size===0) continue;
+    plG.setTransform(1,0,0,1,0,0); plG.clearRect(0,0,w,h); plG.setTransform(q,0,0,q,0,0);
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
+      const [cx,cy]=cellCenter(c,r); plG.save(); plG.translate(cx,cy); drawCellFigures(plG,cell,cell.col||L.color); plG.restore(); }
+    puG.save(); puG.setTransform(1,0,0,1,0,0); puG.globalAlpha=L.opacity; puG.globalCompositeOperation=L.blend; puG.drawImage(plC,0,0); puG.restore();
+  }
+  return [W,H];
+}
 /* export: canvas grande quanto la TAVOLA a risoluzione piena, sfondo trasparente (con eventuale immagine) */
 function setupExportBoard(){
   const [W,H]=boardSize(); const dpr=window.devicePixelRatio||1;
@@ -485,19 +653,35 @@ function setupBoard(baseColor){
   if(baseColor){ ctx.fillStyle=baseColor; ctx.fillRect(0,0,W,H); }
   return [W,H];
 }
-/* path-unione di tutti gli esagoni della griglia (per clip carta/immagine) */
+/* path-unione degli esagoni della griglia (per clip carta/immagine) — in modalità pattern solo il dominio */
 function gridClipPath(){ const p=new Path2D();
-  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r);
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r);
     p.addPath(HEX_UNIT_PATH, new DOMMatrix().translateSelf(cx,cy).scaleSelf(R)); }
   return p; }
 function render(hoverC,hoverR){
   const paper=pageDark?'#000':'#fff';
-  const [W,H]=setupBoard(outsideBlack?'#000':paper);   // fuori dalla griglia
-  // carta + immagine SOLO dentro gli esagoni (clip alla honeycomb)
+  const [W,H]=setupBoard(pattern?null:(outsideBlack?'#000':paper));   // fuori dalla griglia
+  // PATTERN: la tavola ripetuta attorno all'originale (copie identiche: si giudica il pattern vero)
+  if(pattern){
+    // TUTTO il viewport è carta: i filetti di antialiasing tra le copie devono cadere su carta, non sul fondo scuro
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle=paper; ctx.fillRect(0,0,board.width,board.height); ctx.restore();
+    const dpr=window.devicePixelRatio||1;
+    drawPatternUnit(Math.min(3, Math.max(0.4, view.zoom*dpr)));
+    const inv=ctx.getTransform().inverse();
+    const pts=[[0,0],[board.width,0],[0,board.height],[board.width,board.height]]
+      .map(([x,y])=>{ const p=inv.transformPoint(new DOMPoint(x,y)); return [p.x,p.y]; });
+    const x0=Math.min(...pts.map(p=>p[0])), y0=Math.min(...pts.map(p=>p[1]));
+    const x1=Math.max(...pts.map(p=>p[0])), y1=Math.max(...pts.map(p=>p[1]));
+    for(const [ox,oy,i,j] of patRange(x0-W,y0-H,x1,y1)){
+      if(!i&&!j) continue;                                  // la copia centrale è la tavola vera, disegnata sotto
+      ctx.drawImage(puC, ox, oy, W, H);
+    }
+  }
+  // carta + immagine SOLO dentro gli esagoni (clip alla honeycomb / al dominio del pattern)
   ctx.save(); ctx.clip(gridClipPath()); ctx.fillStyle=paper; ctx.fillRect(0,0,W,H); drawBgImage(W,H); ctx.restore();
   // linee griglia (sotto i livelli)
   if(showGrid && !previewing){ ctx.save(); ctx.strokeStyle=pageDark?'rgba(255,255,255,.16)':'rgba(0,0,0,.16)';
-    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r); ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R); ctx.lineWidth=1/R; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); } ctx.restore(); }
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r); ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R); ctx.lineWidth=1/R; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); } ctx.restore(); }
   // onion skin: frame precedente e successivo come silhouette colorate, sotto quello corrente
   if(anim.on && anim.onion && !previewing){
     if(anim.prevLayers) drawOnion(anim.prevLayers, anim.pastCol, 0.3);
@@ -508,6 +692,11 @@ function render(hoverC,hoverR){
   if(previewing) return;
   const acc=(getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#7cc4ff').trim();
   const acc2=(getComputedStyle(document.documentElement).getPropertyValue('--accent2')||'#2b7fff').trim();
+  // confine della tavola-pattern (toggle ⬡): si vede quale copia è quella VERA
+  if(pattern && patBounds){ ctx.save(); ctx.globalAlpha=0.6; ctx.strokeStyle=acc; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.lineWidth=1.5/Math.max(0.05,view.zoom); ctx.beginPath();
+    for(const [ax,ay,bx,by] of patEdges()){ ctx.moveTo(ax,ay); ctx.lineTo(bx,by); }
+    ctx.stroke(); ctx.restore(); }
   // assi della simmetria attiva (disattivabili col bottone ⌖): celle-guida in blu tenue
   if(symMode!=='none' && showAxes){ ctx.save(); ctx.globalAlpha=0.45; ctx.strokeStyle=acc2; ctx.lineJoin='round';
     for(const [c,r] of symAxisCells()){ const [cx,cy]=cellCenter(c,r);
@@ -554,7 +743,7 @@ function render(hoverC,hoverR){
       const a=toCube(dragMove.anchor[0],dragMove.anchor[1]), t=toCube(target[0],target[1]);
       const dx=t[0]-a[0], dz=t[2]-a[2];
       for(const [c,r] of selCells()){ const p=toCube(c,r); const [nc,nr]=fromCube(p[0]+dx,p[2]+dz);
-        if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+        if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
         dests.push([nc,nr]);
         const cell=cells.get(key(c,r)); if(!cell) continue;
         const [px,py]=cellCenter(nc,nr);
@@ -589,11 +778,12 @@ function cellAt(mx,my){
 
 /* ---- azioni base ---- */
 /* stato completo del documento per undo/redo (tutti i livelli + canvas + rotazione, escluso lo sfondo immagine) */
-function docState(){ return JSON.stringify({cols,rows,boardRot,active,
+function docState(){ return JSON.stringify({cols,rows,boardRot,active,pattern,
   frame:(anim.on&&anim.frames.length)?anim.cur:null,   // lo snapshot sa a QUALE frame appartiene
   layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]}))}); }
 function restoreState(s){ const o=JSON.parse(s);
   cols=o.cols; rows=o.rows; boardRot=o.boardRot;
+  pattern=o.pattern||null; patCache.key=''; updatePatternUI();
   // undo attraverso la timeline: se lo snapshot è di un altro frame, prima ci si sposta lì
   if(o.frame!=null && anim.on && anim.frames.length){
     if(o.frame!==anim.cur && o.frame<anim.frames.length){ animCommit(); anim.cur=o.frame; }
@@ -677,6 +867,7 @@ function symAxisCells(){
   return out;
 }
 function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie simmetriche)
+  if(!inDomain(c,r)) return;                     // in modalità pattern si disegna solo nel dominio
   const rot=ov?ov.rot:brush.rot, flip=ov?ov.flip:brush.flip;
   const ex=cells.get(key(c,r));
   const s={t:brush.tile,rot,flip,sw:brush.sw};
@@ -690,7 +881,7 @@ function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie sim
   if(stampMode==='xor' && ex && ex.t!=null){ ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale
   const nc=brushCell(); nc.rot=rot; nc.flip=flip; cells.set(key(c,r),nc);
 }
-function bgCell(c,r){ cells.set(key(c,r),{t:null,rot:0,flip:false,inv:brush.inv}); }
+function bgCell(c,r){ if(!inDomain(c,r))return; cells.set(key(c,r),{t:null,rot:0,flip:false,inv:brush.inv}); }
 function erase(c,r){ cells.delete(key(c,r)); }
 /* ---- secchiello (flood fill) ---- */
 /* vicini esagonali flat-top con colonne sfalsate (colonne dispari più in basso) */
@@ -723,7 +914,7 @@ function groupRotate(d){
   for(const [c,r] of cs) cells.delete(key(c,r));
   const rotStamp=s=>{ s.rot=((s.rot+d)%6+6)%6; };
   for(const [nc,nr,cell] of moved){
-    if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+    if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
     newSel.add(key(nc,nr));
     if(!cell) continue;
     rotStamp(cell); (cell.extra||[]).forEach(rotStamp); (cell.sub||[]).forEach(rotStamp); (cell.iso||[]).forEach(rotStamp); (cell.xor||[]).forEach(rotStamp);
@@ -741,7 +932,7 @@ function groupMirror(){
   for(const [c,r] of cs) cells.delete(key(c,r));
   const flipStamp=s=>{ s.flip=!s.flip; s.rot=((-s.rot)%6+6)%6; };
   for(const [nc,nr,cell] of moved){
-    if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+    if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
     newSel.add(key(nc,nr));
     if(!cell) continue;
     flipStamp(cell); (cell.extra||[]).forEach(flipStamp); (cell.sub||[]).forEach(flipStamp); (cell.iso||[]).forEach(flipStamp); (cell.xor||[]).forEach(flipStamp);
@@ -762,7 +953,7 @@ function dropSelection(anchor,target,copy){
     moved.push([nc,nr, (copy&&cell)?JSON.parse(JSON.stringify(cell)):cell]); }
   if(!copy) for(const [c,r] of selCells()) cells.delete(key(c,r));
   for(const [nc,nr,cell] of moved){
-    if(nc<0||nc>=cols||nr<0||nr>=rows) continue;
+    if(nc<0||nc>=cols||nr<0||nr>=rows||!inDomain(nc,nr)) continue;
     newSel.add(key(nc,nr));
     if(cell) mergeCellInto(nc,nr,cell);
   }
@@ -770,6 +961,7 @@ function dropSelection(anchor,target,copy){
 }
 /* fonde una cella trascinata nella destinazione: normale = sostituisce, ⊕ somma, ⊖ scava, ∩ interseca, ⊻ esclude */
 function mergeCellInto(c,r,src){
+  if(!inDomain(c,r)) return;
   const k=key(c,r), dst=cells.get(k);
   if(!stampMode || !dst){ cells.set(k,src); return; }
   const full=TILES.find(t=>t.name==='pieno')||TILES[0];
@@ -793,7 +985,7 @@ function bucketFill(sc,sr){
   const seen=new Set(), stack=[[sc,sr]];
   while(stack.length){
     const [c,r]=stack.pop();
-    if(c<0||c>=cols||r<0||r>=rows) continue;
+    if(c<0||c>=cols||r<0||r>=rows||!inDomain(c,r)) continue;
     const k=key(c,r);
     if(seen.has(k)) continue;
     if(limit && !limit.has(k)) continue;
@@ -989,13 +1181,13 @@ stageEl.addEventListener('wheel',e=>{ e.preventDefault();
 /* ---- selezione: operazioni ---- */
 function selCells(){ return selection ? [...selection].map(k=>k.split(',').map(Number)) : []; }
 function selBounds(){ const cs=selCells(); return {c0:Math.min(...cs.map(p=>p[0])),c1:Math.max(...cs.map(p=>p[0])),r0:Math.min(...cs.map(p=>p[1])),r1:Math.max(...cs.map(p=>p[1]))}; }
-function selOp(fn){ if(!selection||!selection.size)return; snapshot(); for(const [c,r] of selCells()) fn(c,r); render(); }
+function selOp(fn){ if(!selection||!selection.size)return; snapshot(); for(const [c,r] of selCells()){ if(!inDomain(c,r))continue; fn(c,r); } render(); }
 function copySel(){ if(!selection||!selection.size)return; const b=selBounds(); clipboard={w:b.c1-b.c0+1,h:b.r1-b.r0+1,data:[]};
   for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(cell) clipboard.data.push({dc:c-b.c0,dr:r-b.r0,cell:JSON.parse(JSON.stringify(cell))}); } }
-function paste(){ if(!clipboard)return; snapshot(); for(const it of clipboard.data){ const c=cursor.c+it.dc, r=cursor.r+it.dr; if(c<cols&&r<rows) cells.set(key(c,r),JSON.parse(JSON.stringify(it.cell))); } render(); }
+function paste(){ if(!clipboard)return; snapshot(); for(const it of clipboard.data){ const c=cursor.c+it.dc, r=cursor.r+it.dr; if(c<cols&&r<rows&&inDomain(c,r)) cells.set(key(c,r),JSON.parse(JSON.stringify(it.cell))); } render(); }
 function shiftSel(dc,dr){ if(!selection||!selection.size)return; snapshot(); const moves=[];
   for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); cells.delete(key(c,r)); if(cell)moves.push([c+dc,r+dr,cell]); }
-  for(const [c,r,cell] of moves){ if(c>=0&&c<cols&&r>=0&&r<rows) cells.set(key(c,r),cell); }
+  for(const [c,r,cell] of moves){ if(c>=0&&c<cols&&r>=0&&r<rows&&inDomain(c,r)) cells.set(key(c,r),cell); }
   selection=new Set(selCells().map(([c,r])=>[c+dc,r+dr]).filter(([c,r])=>c>=0&&c<cols&&r>=0&&r<rows).map(([c,r])=>key(c,r)));
   if(!selection.size) selection=null; render(); }
 /* trasformazioni: sulla SELEZIONE come GRUPPO rigido se c'è, altrimenti sul PENNELLO
@@ -1316,6 +1508,7 @@ function resizeCanvas(nc, nr){
   }
   cursor.c=Math.max(0,Math.min(cols-1,cursor.c)); cursor.r=Math.max(0,Math.min(rows-1,cursor.r));
   axisCache.key='';                                        // gli assi di simmetria dipendono da cols/rows
+  updatePatternUI();                                       // dominio e parità (dritto/mattoncino) dipendono da cols/rows
   if(anim.on){ updateOnionLayers(); buildTimeline(); }
   render();
 }
@@ -1661,7 +1854,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, slots, forged:FORGED,
+  const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, pattern, slots, forged:FORGED,
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -1674,6 +1867,7 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     if(!layers.length) layers=[newLayer()];
     setActive(0);
     if(o.cols){cols=o.cols;$('cols').value=cols;} if(o.rows){rows=o.rows;$('rows').value=rows;}
+    pattern=o.pattern||null; patCache.key=''; updatePatternUI();
     if(o.pageDark!=null){pageDark=o.pageDark;$('pageDark').checked=pageDark;}
     if(o.outsideBlack!=null){outsideBlack=o.outsideBlack;$('outBlack').checked=outsideBlack;}
     if(o.bgOpacity!=null){bgOpacity=o.bgOpacity;$('bgOpacity').value=Math.round(bgOpacity*100);$('bgOpVal').textContent=Math.round(bgOpacity*100)+'%';}
@@ -1691,6 +1885,8 @@ function updateStatus(){ $('curText').textContent=cursor.c+','+cursor.r; $('rotT
 
 /* ---- tastiera (mappa copiata da glyphdrawing.club) ---- */
 window.addEventListener('keydown',e=>{
+  // con un dialogo aperto la tastiera non deve disegnare (Esc lo chiude)
+  if(!$('newDlg').hidden||!$('patDlg').hidden){ if(e.key==='Escape'){ $('newDlg').hidden=true; $('patDlg').hidden=true; } return; }
   if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
   const k=e.key;
   // ⌘/Ctrl+D = deseleziona (e annulla il lazo in corso)
@@ -1784,14 +1980,15 @@ function stampsSVGList(stampList,color){
   return fig;
 }
 function cellFiguresSVG(cell,color){ return stampsSVGList(cellStamps(cell),color); }
-$('exportSvg').onclick=()=>{
-  const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
-  let defs=`<clipPath id="hx" clipPathUnits="userSpaceOnUse"><path d="${HEX_UNIT_D}"/></clipPath>`;
+/* corpo SVG dei livelli della tavola (defs con le mask + gruppi livello) — riusato
+   dall'export normale e dall'export pattern; in modalità pattern filtra il dominio */
+function svgLayersBody(W,H){
+  let defs='';
   let mN=0, layersSvg='';
   layers.forEach(L=>{ if(!L.visible||L.cells.size===0)return;
     const blend={'source-over':'normal','multiply':'multiply','screen':'screen','darken':'darken','lighten':'lighten'}[L.blend];
     let g=`<g style="mix-blend-mode:${blend}" opacity="${L.opacity}">`;
-    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const cell=L.cells.get(key(c,r)); if(!cell)continue; const [cx,cy]=cellCenter(c,r);
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue; const [cx,cy]=cellCenter(c,r);
       const col=cell.col||L.color, tr=`translate(${cx.toFixed(2)},${cy.toFixed(2)})`;
       const subs=(cell.sub&&cell.sub.length)?stampsSVGList(cell.sub,'#000'):'';
       const hexWhite=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#fff"/></g>`;
@@ -1831,14 +2028,147 @@ $('exportSvg').onclick=()=>{
     }
     layersSvg+=g+'</g>';
   });
-  let bg=''; if(bgImage){ const url=bgToDataURL(); const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
-    bg=`<image href="${url}" x="${((W-iw*s)/2).toFixed(1)}" y="${((H-ih*s)/2).toFixed(1)}" width="${(iw*s).toFixed(1)}" height="${(ih*s).toFixed(1)}" opacity="${bgOpacity}"/>`; }
-  const body=`<defs>${defs}</defs><g transform="translate(${cw/2},${ch/2}) rotate(${boardRot}) translate(${-W/2},${-H/2})">${bg}${layersSvg}</g>`;
+  return {defs,layersSvg};
+}
+function svgBgImage(W,H){
+  if(!bgImage) return '';
+  const url=bgToDataURL(); const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
+  return `<image href="${url}" x="${((W-iw*s)/2).toFixed(1)}" y="${((H-ih*s)/2).toFixed(1)}" width="${(iw*s).toFixed(1)}" height="${(ih*s).toFixed(1)}" opacity="${bgOpacity}"/>`;
+}
+function svgWrap(cw,ch,body){
   // dimensioni FISICHE in mm (lato lungo = 280mm): senza, Illustrator legge i px della tavola e l'artboard viene enorme
   const mmScale=280/Math.max(cw,ch), wmm=(cw*mmScale).toFixed(1), hmm=(ch*mmScale).toFixed(1);
-  download('hexglyph.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${wmm}mm" height="${hmm}mm" viewBox="0 0 ${cw} ${ch}">${body}</svg>`));
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${wmm}mm" height="${hmm}mm" viewBox="0 0 ${cw} ${ch}">${body}</svg>`;
+}
+$('exportSvg').onclick=()=>{
+  const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  const u=svgLayersBody(W,H);
+  const defs=`<clipPath id="hx" clipPathUnits="userSpaceOnUse"><path d="${HEX_UNIT_D}"/></clipPath>`+u.defs;
+  const body=`<defs>${defs}</defs><g transform="translate(${cw/2},${ch/2}) rotate(${boardRot}) translate(${-W/2},${-H/2})">${svgBgImage(W,H)}${u.layersSvg}</g>`;
+  download('hexglyph.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgWrap(cw,ch,body)));
 };
 function bgToDataURL(){ const tc=document.createElement('canvas'); tc.width=bgImage.naturalWidth||bgImage.width; tc.height=bgImage.naturalHeight||bgImage.height; tc.getContext('2d').drawImage(bgImage,0,0); try{return tc.toDataURL('image/jpeg',0.85);}catch(e){return '';} }
+
+/* ---- MODALITÀ PATTERN: UI (info in Canvas, confine, dialoghi) ---- */
+const PAT_NAMES={rect:'rettangolo',strip:'striscia',hexa:'esagono',rhomb:'rombo'};
+function updatePatternUI(){
+  const on=!!pattern;
+  $('patInfo').hidden=!on; $('patRow').hidden=!on; $('patExpRow').hidden=!on;
+  if(!on) return;
+  let extra='';
+  if(pattern.shape==='rect'||pattern.shape==='strip') extra=(cols%2)?' · a mattoncino (colonne dispari)':' · dritto (colonne pari)';
+  if(pattern.shape==='hexa') extra=' · raggio '+patHexaN();
+  if(pattern.shape==='rhomb') extra=' · '+cols+'×'+patRhombM();
+  $('patInfo').innerHTML='<b>Pattern: '+PAT_NAMES[pattern.shape]+'</b>'+extra;
+  $('patBoundsBtn').classList.toggle('on',patBounds);
+}
+$('patBoundsBtn').onclick=()=>{ patBounds=!patBounds; localStorage.setItem('hexagraph.patbounds',patBounds?'1':'0'); updatePatternUI(); render(); };
+$('patOff').onclick=()=>{ snapshot(); pattern=null; patCache.key=''; updatePatternUI(); render(); };
+
+/* ---- dialogo NUOVO PROGETTO ---- */
+let npMode='normal', npShape='rect';
+function syncNewDlg(){
+  $('npNormal').classList.toggle('on',npMode==='normal');
+  $('npPattern').classList.toggle('on',npMode==='pattern');
+  $('npShapes').hidden=(npMode!=='pattern');
+  document.querySelectorAll('#npShapes .shape').forEach(b=>b.classList.toggle('on',npMode==='pattern'&&b.dataset.shape===npShape));
+  let aTxt='Colonne', bTxt='Righe', showB=true, aVal=21, bVal=21, note='Tela classica, nessuna ripetizione.';
+  if(npMode==='pattern'){
+    if(npShape==='rect'){ aVal=12; bVal=12; note='Colonne PARI = ripetizione dritta · DISPARI = a mattoncino (le copie a fianco scendono di mezza riga).'; }
+    else if(npShape==='strip'){ aTxt='Colonne (lunghezza)'; bTxt='Righe (altezza fascia)'; aVal=12; bVal=4; note='La striscia si ripete solo in ORIZZONTALE: per bordi e fregi.'; }
+    else if(npShape==='hexa'){ aTxt='Raggio (celle)'; showB=false; aVal=5; note='Tela a esagono che tassella a nido d’ape: le copie circondano su 6 lati.'; }
+    else { aTxt='Lato A (colonne)'; bTxt='Lato B'; aVal=10; bVal=10; note='Parallelogramma sugli assi esagonali: la ripetizione scende in obliquo.'; }
+  }
+  $('npAWrap').firstChild.nodeValue=aTxt; $('npBWrap').firstChild.nodeValue=bTxt;
+  $('npBWrap').style.display=showB?'':'none';
+  $('npA').value=aVal; $('npB').value=bVal;
+  $('npNote').textContent=note;
+}
+function createProject(){
+  const A=Math.max(2,Math.min(80,+$('npA').value||12)), B=Math.max(2,Math.min(80,+$('npB').value||12));
+  let nc=A, nr=B, pat=null;
+  if(npMode==='pattern'){
+    pat={shape:npShape};
+    if(npShape==='hexa'){ const N=Math.max(1,Math.min(39,+$('npA').value||5)); nc=nr=2*N+1; }
+    else if(npShape==='rhomb'){ nr=Math.min(80,B+Math.floor((A-1)/2)); }   // righe = lato B + lo sbieco delle colonne
+  }
+  stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true; document.body.classList.remove('anim');
+  anim.frames=[]; anim.cur=0; anim.prevLayers=null; anim.nextLayers=null;
+  layers=[]; layers=[newLayer()]; setActive(0);
+  cols=nc; rows=nr; $('cols').value=cols; $('rows').value=rows;
+  pattern=pat; patCache.key=''; axisCache.key='';
+  selection=null; lassoPts.length=0; bgImage=null;
+  boardRot=0; document.documentElement.style.setProperty('--boardRot','0deg');
+  cursor.c=Math.round((cols-1)/2); cursor.r=Math.round((rows-1)/2);
+  undoStack.length=0; redoStack.length=0; refreshUndo();   // progetto nuovo = storia nuova
+  buildLayers(); updatePatternUI(); updateStatus(); fitView(); render();
+  $('newDlg').hidden=true;
+}
+$('newProj').onclick=()=>{ $('newDlg').hidden=false; syncNewDlg(); };
+$('npCancel').onclick=()=>{ $('newDlg').hidden=true; };
+$('npNormal').onclick=()=>{ npMode='normal'; syncNewDlg(); };
+$('npPattern').onclick=()=>{ npMode='pattern'; syncNewDlg(); };
+document.querySelectorAll('#npShapes .shape').forEach(b=>b.onclick=()=>{ npShape=b.dataset.shape; npMode='pattern'; syncNewDlg(); });
+$('npCreate').onclick=createProject;
+$('newDlg').onclick=e=>{ if(e.target===$('newDlg')) $('newDlg').hidden=true; };
+
+/* ---- dialogo EXPORT PATTERN (PNG a ripetizioni o a misura, SVG con <use>) ---- */
+let peMode='rep';
+function syncPeDlg(){
+  $('peModeRep').classList.toggle('on',peMode==='rep');
+  $('peModePx').classList.toggle('on',peMode==='px');
+  $('peRepRow').hidden=(peMode!=='rep'); $('pePxRow').hidden=(peMode!=='px');
+  $('peNote').textContent=(peMode==='rep')
+    ? 'Dimensione finale = ripetizioni × larghezza di una ripetizione.'
+    : 'Il pattern riempie l’area data; la scala la decide «larghezza di una ripetizione».';
+}
+/* dimensioni dell'export in unità-tavola (bw,bh) + scala px/unità (s) */
+function patExportDims(){
+  const [W,H]=boardSize(); const vs=patVectors(); const v1=vs[0], v2=vs[1]||null;
+  const s=Math.max(0.05,(+$('peT').value||W)/W);
+  let bw,bh;
+  if(peMode==='rep'){
+    const N=Math.max(1,Math.min(64,+$('peN').value||4)), M=Math.max(1,Math.min(64,+$('peM').value||4));
+    bw=N*Math.abs(v1[0])+(v2?M*Math.abs(v2[0]):0);
+    bh=(v2?N*Math.abs(v1[1])+M*Math.abs(v2[1]):H+N*Math.abs(v1[1]));
+  } else {
+    bw=Math.max(16,+$('peW').value||2048)/s; bh=Math.max(16,+$('peH').value||2048)/s;
+  }
+  return {bw,bh,s};
+}
+$('exportPattern').onclick=()=>{ if(!pattern) return;
+  const [W]=boardSize(); if(!+$('peT').value) $('peT').value=Math.round(W);
+  $('peMWrap').style.display=(pattern.shape==='strip')?'none':'';
+  syncPeDlg(); $('patDlg').hidden=false; };
+$('peModeRep').onclick=()=>{ peMode='rep'; syncPeDlg(); };
+$('peModePx').onclick=()=>{ peMode='px'; syncPeDlg(); };
+$('peCancel').onclick=()=>{ $('patDlg').hidden=true; };
+$('patDlg').onclick=e=>{ if(e.target===$('patDlg')) $('patDlg').hidden=true; };
+$('pePng').onclick=()=>{
+  const [W,H]=boardSize(); const {bw,bh,s}=patExportDims();
+  const cw=Math.round(bw*s), ch=Math.round(bh*s);
+  if(cw>8192||ch>8192) return alert('Uscirebbe più grande di 8192px: riduci ripetizioni o scala.');
+  drawPatternUnit(s);
+  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; const g=cv.getContext('2d');
+  g.setTransform(s,0,0,s,0,0);
+  for(const [ox,oy] of patRange(-W,-H,bw,bh)) g.drawImage(puC,ox,oy,W,H);
+  download('hexglyph-pattern.png',cv.toDataURL('image/png'));
+  $('patDlg').hidden=true; render();
+};
+$('peSvg').onclick=()=>{
+  const [W,H]=boardSize(); const {bw,bh}=patExportDims();
+  const u=svgLayersBody(W,H);
+  let clip='<clipPath id="dom" clipPathUnits="userSpaceOnUse">';
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r);
+    clip+=`<path d="${HEX_UNIT_D}" transform="translate(${cx.toFixed(2)},${cy.toFixed(2)}) scale(${R})"/>`; }
+  clip+='</clipPath>';
+  const defs=`<clipPath id="hx" clipPathUnits="userSpaceOnUse"><path d="${HEX_UNIT_D}"/></clipPath>`+clip
+    +`<g id="pu" clip-path="url(#dom)">${svgBgImage(W,H)}${u.layersSvg}</g>`+u.defs;
+  let uses='';
+  for(const [ox,oy] of patRange(-W,-H,bw,bh)) uses+=`<use href="#pu" x="${ox.toFixed(2)}" y="${oy.toFixed(2)}"/>`;
+  download('hexglyph-pattern.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgWrap(Math.round(bw),Math.round(bh),`<defs>${defs}</defs>${uses}`)));
+  $('patDlg').hidden=true;
+};
 
 /* ---- init ---- */
 layers=[newLayer()]; setActive(0);
