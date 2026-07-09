@@ -332,6 +332,7 @@
   <button class="btn ic" id="frDel" title="elimina il frame corrente">✕</button>
   <div class="sep"></div>
   <button class="btn ic" id="frPlay" title="play / stop — ⇧&lt; ⇧&gt; scorrono i frame">▶︎</button>
+  <button class="btn ic" id="frPong" title="loop ping-pong: riproduce avanti e poi indietro (come Procreate)">⇌</button>
   <span style="color:var(--muted);font-size:11px">fps</span>
   <input type="number" id="frFps" min="1" max="30" value="6" style="width:56px;flex:0 0 auto" title="fotogrammi al secondo (modificabile anche durante il play)">
   <button class="btn ic on" id="frOnion" title="onion skin: frame precedente e successivo in trasparenza, ognuno col suo colore">◎</button>
@@ -462,7 +463,7 @@ const brush={ tile:TILES[0]?TILES[0].id:null, rot:0, flip:false, inv:false, sw:0
 const cursor={c:0,r:0};
 const view={zoom:1,x:0,y:0};   // vista: zoom + traslazione (px) applicati via CSS transform sulla tavola
 let selection=null;                // Set di chiavi "c,r" (null = nessuna selezione)
-let clipboard=null;                // {w,h, data:[{dc,dr,cell}]}
+let clipboard=null;                // {w,h, data:[{dc,dr,c,r,cell}]} — dc/dr = offset (incolla al cursore) · c/r = posizione assoluta (incolla sul posto)
 const slots=new Array(10).fill(null);
 let assignMode=false;
 const undoStack=[], redoStack=[];
@@ -1229,8 +1230,16 @@ function selOp(fn, multi){ if(!selection||!selection.size)return; snapshot();
   for(const li of (multi?activeLayers():[active])){ cells=layers[li].cells; for(const [c,r] of cs) fn(c,r); }
   cells=layers[active].cells; render(); }
 function copySel(){ if(!selection||!selection.size)return; const b=selBounds(); clipboard={w:b.c1-b.c0+1,h:b.r1-b.r0+1,data:[]};
-  for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(cell) clipboard.data.push({dc:c-b.c0,dr:r-b.r0,cell:JSON.parse(JSON.stringify(cell))}); } }
+  for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(cell) clipboard.data.push({dc:c-b.c0,dr:r-b.r0,c,r,cell:JSON.parse(JSON.stringify(cell))}); } }
 function paste(){ if(!clipboard)return; snapshot(); for(const it of clipboard.data){ const c=cursor.c+it.dc, r=cursor.r+it.dr; if(c<cols&&r<rows&&inDomain(c,r)) cells.set(key(c,r),JSON.parse(JSON.stringify(it.cell))); } render(); }
+/* incolla SUL POSTO (come ⌘F di Illustrator): rimette le celle alle coordinate esatte da cui sono
+   state copiate, sul livello ATTIVO — così ⌘C su un livello e ⌘V su un altro le sposta di livello
+   mantenendo la posizione. Le celle incollate diventano la nuova selezione. */
+function pasteInPlace(){ if(!clipboard)return; snapshot(); const sel=new Set();
+  for(const it of clipboard.data){ const c=it.c, r=it.r; if(c>=0&&c<cols&&r>=0&&r<rows&&inDomain(c,r)){
+    cells.set(key(c,r),JSON.parse(JSON.stringify(it.cell))); sel.add(key(c,r)); } }
+  if(sel.size) selection=sel;
+  render(); updateStatus(); }
 function shiftSel(dc,dr){ if(!selection||!selection.size)return; snapshot();
   const cs=selCells();
   for(const li of activeLayers()){ const M=layers[li].cells; const moves=[];
@@ -1713,7 +1722,11 @@ function refreshUndo(){ $('undo').disabled=!undoStack.length; $('redo').disabled
    Un frame = fotografia dei livelli (celle comprese). Il frame corrente È `layers`:
    si committa in anim.frames[anim.cur] quando si cambia frame. Onion = frame precedente al 25%. */
 const anim={on:false, frames:[], cur:0, onion:true, prevLayers:null, nextLayers:null, playing:null,
+  pingpong:false, dir:1,   // pingpong = riproduzione avanti-e-indietro (Procreate); dir = verso corrente durante il play
   pastCol:'#ff5a3c', nextCol:'#2b7fff'};   // colori onion skin: frame precedente / successivo
+/* ordine dei frame in UN ciclo: normale 0..n-1 · ping-pong 0..n-1,n-2..1 (estremi non ripetuti) */
+function cycleOrder(){ const n=anim.frames.length, o=[]; for(let i=0;i<n;i++)o.push(i);
+  if(anim.pingpong && n>2) for(let i=n-2;i>=1;i--)o.push(i); return o; }
 try{ const oc=JSON.parse(localStorage.getItem('hexagraph.onion')||'{}'); if(oc.past)anim.pastCol=oc.past; if(oc.next)anim.nextCol=oc.next; }catch(e){}
 /* onion layers del frame prima e dopo quello corrente (senza wrap) */
 function updateOnionLayers(){
@@ -1781,7 +1794,13 @@ function animShow(i){
 }
 function animGoto(i){ const old=anim.cur; animCommit(); animShow(i); updateThumb(old); }
 function stopPlay(){ if(anim.playing!=null){ clearTimeout(anim.playing); anim.playing=null; previewing=false; $('frPlay').classList.remove('on'); render(); } }
-function playTick(){ if(anim.playing==null) return; animShow(anim.cur+1);
+function playTick(){ if(anim.playing==null) return;
+  const n=anim.frames.length;
+  if(anim.pingpong && n>2){   // rimbalza agli estremi senza ripeterli
+    let next=anim.cur+anim.dir;
+    if(next>=n){ anim.dir=-1; next=n-2; } else if(next<0){ anim.dir=1; next=1; }
+    animShow(next);
+  } else animShow(anim.cur+1);
   const fps=Math.max(1,Math.min(30,+$('frFps').value||6)); anim.playing=setTimeout(playTick,1000/fps); }
 $('animBtn').onclick=()=>{
   anim.on=!anim.on; $('animBtn').classList.toggle('on',anim.on); $('timeline').hidden=!anim.on;
@@ -1809,9 +1828,10 @@ $('onNext').oninput=()=>{ anim.nextCol=$('onNext').value; saveOnion(); render();
 $('frPlay').onclick=()=>{
   if(anim.playing!=null){ stopPlay(); return; }
   if(anim.frames.length<2) return;
-  animCommit(); previewing=true; $('frPlay').classList.add('on');
+  animCommit(); previewing=true; $('frPlay').classList.add('on'); anim.dir=1;   // riparte sempre in avanti
   anim.playing=setTimeout(playTick,0);
 };
+$('frPong').onclick=()=>{ anim.pingpong=!anim.pingpong; $('frPong').classList.toggle('on',anim.pingpong); };
 $('frExport').onclick=()=>{
   stopPlay(); animCommit(); const keep=anim.cur;
   for(let i=0;i<anim.frames.length;i++){ animShow(i); drawExport(); download('hexglyph_f'+String(i+1).padStart(2,'0')+'.png', board.toDataURL('image/png')); }
@@ -1887,7 +1907,7 @@ $('frGif').onclick=async()=>{
   const gw=Math.round(cw*scale), gh=Math.round(ch*scale);
   const cv=document.createElement('canvas'); cv.width=gw; cv.height=gh; const g=cv.getContext('2d');
   const imgs=[];
-  for(let i=0;i<anim.frames.length;i++){
+  for(const i of cycleOrder()){   // ping-pong: la GIF include il ritorno indietro
     layers=layersFrom(anim.frames[i]); setActive(Math.min(active,layers.length-1));
     drawExport();
     g.fillStyle=pageDark?'#000':'#fff'; g.fillRect(0,0,gw,gh);   // la GIF non ha alpha: carta sotto
@@ -1920,7 +1940,7 @@ $('frVideo').onclick=async()=>{
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   rec.start(100);   // timeslice: i dati arrivano man mano
   for(let loop=0;loop<2;loop++)   // due giri di loop
-    for(let i=0;i<anim.frames.length;i++){ showFrame(i); drawExport(); if(manual) track.requestFrame(); await sleep(1000/fps); }
+    for(const i of cycleOrder()){ showFrame(i); drawExport(); if(manual) track.requestFrame(); await sleep(1000/fps); }
   rec.stop(); await stopped;
   const blob=new Blob(chunks,{type:mime.split(';')[0]});
   if(blob.size<2000){ animShow(keep); return alert('La registrazione è uscita vuota su questo browser: usa "PNG ×n" (i singoli fotogrammi) e monta il video altrove.'); }
@@ -1931,7 +1951,7 @@ $('frVideo').onclick=async()=>{
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
   const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, pattern, colPhase, slots, forged:FORGED,
-    anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur} : null,
+    anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur, pingpong:anim.pingpong} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
   download('hexglyph.json','data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(blob))); };
@@ -1952,6 +1972,7 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     if(o.forged){ o.forged.forEach(f=>{ if(!FORGED.some(x=>x.id===f.id)) FORGED.push(f); registerForged(f); }); saveForged(); buildPalette(); }
     stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true;
     anim.frames=(o.anim&&o.anim.frames)||[]; anim.cur=anim.frames.length?Math.min(o.anim.cur||0,anim.frames.length-1):0; anim.prevLayers=null;
+    anim.pingpong=!!(o.anim&&o.anim.pingpong); $('frPong').classList.toggle('on',anim.pingpong);
     if(o.slots){ for(let i=0;i<10;i++){ const s=o.slots[i]; slots[i]= s ? (typeof s==='string'?{t:s,rot:0,flip:false,inv:false}:s) : null; } }
     buildSlots();
     undoStack.length=0; redoStack.length=0; refreshUndo(); buildLayers(); render();
@@ -1968,6 +1989,9 @@ window.addEventListener('keydown',e=>{
   const k=e.key;
   // ⌘/Ctrl+D = deseleziona (e annulla il lazo in corso)
   if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0; e.preventDefault(); render(); updateStatus(); return; }
+  // ⌘/Ctrl+C = copia · ⌘/Ctrl+V = incolla SUL POSTO (⌘F di Illustrator): stessa posizione, livello attivo
+  if((e.metaKey||e.ctrlKey) && (k==='c'||k==='C')){ copySel(); e.preventDefault(); return; }
+  if((e.metaKey||e.ctrlKey) && (k==='v'||k==='V')){ pasteInPlace(); e.preventDefault(); return; }
   // assegnazione slot: m poi cifra
   if(assignMode && /^[0-9]$/.test(k)){ const idx=(k==='0')?9:(+k-1); slots[idx]=brushCell(); setAssign(false); buildSlots(); e.preventDefault(); return; }
 
