@@ -306,20 +306,6 @@
         <div class="row"><button class="btn" id="save">Salva</button><button class="btn" id="load">Carica</button></div>
         <input type="file" id="loadFile" accept="application/json" style="display:none">
       </div>
-
-      <details class="group" data-sec="keys">
-        <summary>Comandi tastiera (copiati da glyphdrawing.club)</summary>
-        <div class="legend" style="margin-top:8px">
-          <b>Disegno</b><br>
-          <kbd>←↑↓→</kbd> / <kbd>w</kbd><kbd>a</kbd><kbd>s</kbd><kbd>d</kbd> muovi cursore (←/→ a zig-zag: due passi = stessa altezza) · <kbd>q</kbd>/<kbd>↵</kbd> timbra · <kbd>e</kbd> cella vuota · <kbd>⌫</kbd> indietro<br>
-          <kbd>0</kbd>–<kbd>9</kbd> piazza slot · <kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti — <b>sul pennello</b> (guarda l'anteprima in alto a destra), o <b>sulla selezione</b> se c'è · <kbd>u</kbd> unisci · <kbd>x</kbd> sottrai · <kbd>g</kbd> secchiello · <kbd>b</kbd> sfondo · <kbd>h</kbd> griglia · <kbd>z</kbd> annulla · <kbd>p</kbd> (tieni) anteprima · <kbd>+</kbd>/<kbd>−</kbd> zoom · <kbd>,</kbd>/<kbd>.</kbd> tessera<br><br>
-          <b>Selezione</b> (freccia: clic/trascina · lazo: clic sui vertici — si evidenziano gli ESAGONI del percorso — e richiudi cliccando il primo esagono, con doppio clic o <kbd>↵</kbd>; il bordo fa parte della selezione · <kbd>⇧</kbd>+trascina da qualsiasi strumento · <kbd>⇧A</kbd> tutto · <kbd>Esc</kbd> annulla)<br>
-          <b>Trascina una cella selezionata per SPOSTARE il gruppo</b> (con <kbd>alt</kbd> = COPIA): al rilascio sostituisce, o fonde secondo la modalità attiva (⊕ somma · ⊖ scava · ∩ interseca · ⊻ esclude) · <kbd>⌘D</kbd> deseleziona · <kbd>canc</kbd> svuota la selezione<br>
-          <kbd>r</kbd>/<kbd>f</kbd> ruota/specchia il GRUPPO intero (rigido) · <kbd>⇧R</kbd>/<kbd>⇧F</kbd> ruota/specchia ogni SINGOLA tessera · <kbd>i</kbd> inverti · doppio clic su una tessera nella TELA = seleziona tutte le identiche (⇧ aggiunge) · clic su uno swatch = colora la selezione · doppio clic su una tessera in LIBRERIA = sostituisce le tessere selezionate<br>
-          <kbd>⇧C</kbd> copia · <kbd>v</kbd> incolla · <kbd>⇧E</kbd> cancella · <kbd>⇧D</kbd> svuota · <kbd>⇧Q</kbd> riempi · <kbd>⇧B</kbd> sfondo · <kbd>⇧G</kbd> forgia (1 cella) · <kbd>⇧H⇧J⇧K⇧L</kbd> sposta
-        </div>
-        <div class="legend" style="margin-top:6px"><b>Mouse</b>: click = timbra · trascina = dipingi · destro = cancella · <kbd>⇧</kbd>+trascina = seleziona</div>
-      </details>
     </div>
   </aside>
 </div>
@@ -812,23 +798,36 @@ function cellAt(mx,my){
 
 /* ---- azioni base ---- */
 /* stato completo del documento per undo/redo (tutti i livelli + canvas + rotazione, escluso lo sfondo immagine) */
-function docState(){ return JSON.stringify({cols,rows,boardRot,active,pattern,colPhase, view:{x:view.x,y:view.y},
-  frame:(anim.on&&anim.frames.length)?anim.cur:null,   // lo snapshot sa a QUALE frame appartiene
-  layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]}))}); }
+/* Stato del documento per undo/redo (§8.5 — copre ANCHE la timeline). Se esistono frame,
+   cattura l'INTERA animazione (tutti i frame + indice + on + pingpong), col frame corrente
+   aggiornato ai `layers` vivi; altrimenti cattura i soli `layers`. Esclusi: FORGED e localStorage. */
+function docState(){
+  const o={cols,rows,boardRot,active,pattern,colPhase, view:{x:view.x,y:view.y}};
+  if(anim.frames.length){
+    o.anim={cur:anim.cur, on:anim.on, pingpong:anim.pingpong,
+      frames:anim.frames.map((fr,i)=> i===anim.cur ? layersData() : fr)};   // frame corrente = stato vivo
+  } else {
+    o.layers=layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]}));
+  }
+  return JSON.stringify(o);
+}
 function restoreState(s){ const o=JSON.parse(s);
   const resized=(o.cols!==cols||o.rows!==rows);   // undo/redo di un RESIZE: ripristina anche il pan, così la figura non salta
   cols=o.cols; rows=o.rows; boardRot=o.boardRot; colPhase=o.colPhase||0;
   if(resized && o.view){ view.x=o.view.x; view.y=o.view.y; }
   pattern=o.pattern||null; patCache.key=''; updatePatternUI();
-  // undo attraverso la timeline: se lo snapshot è di un altro frame, prima ci si sposta lì
-  if(o.frame!=null && anim.on && anim.frames.length){
-    if(o.frame!==anim.cur && o.frame<anim.frames.length){ animCommit(); anim.cur=o.frame; }
-  }
-  layers=o.layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:new Map(L.cells)}));
-  setActive(Math.min(o.active,layers.length-1));
-  if(o.frame!=null && anim.on && anim.frames.length){
-    anim.frames[anim.cur]=layersData();   // il frame riflette lo stato ripristinato
-    updateOnionLayers(); updFrLabel(); updateTimelineAct(); updateThumb(anim.cur);
+  if(o.anim){                                    // ripristina l'intera timeline
+    stopPlay();
+    anim.frames=JSON.parse(JSON.stringify(o.anim.frames));
+    anim.cur=Math.max(0,Math.min(o.anim.cur, anim.frames.length-1));
+    anim.pingpong=!!o.anim.pingpong; $('frPong').classList.toggle('on',anim.pingpong);
+    anim.on=!!o.anim.on; $('animBtn').classList.toggle('on',anim.on); $('timeline').hidden=!anim.on; document.body.classList.toggle('anim',anim.on);
+    layers=layersFrom(anim.frames[anim.cur]); setActive(Math.min(o.active,layers.length-1));
+    updateOnionLayers(); if(anim.on){ buildTimeline(); updFrLabel(); updateTimelineAct(); }
+  } else {                                        // nessun frame: solo i livelli
+    if(anim.on||anim.frames.length){ stopPlay(); anim.on=false; anim.frames=[]; $('animBtn').classList.remove('on'); $('timeline').hidden=true; document.body.classList.remove('anim'); }
+    layers=o.layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:new Map(L.cells)}));
+    setActive(Math.min(o.active,layers.length-1));
   }
   $('cols').value=cols; $('rows').value=rows;
   cursor.c=Math.min(cursor.c,cols-1); cursor.r=Math.min(cursor.r,rows-1);
@@ -836,7 +835,8 @@ function restoreState(s){ const o=JSON.parse(s);
   buildLayers();
 }
 function snapshot(){ const s=docState(); if(undoStack.length && undoStack[undoStack.length-1]===s) return;   // niente doppioni no-op
-  undoStack.push(s); if(undoStack.length>80)undoStack.shift(); redoStack.length=0; refreshUndo(); }
+  const cap=anim.frames.length?30:80;   // con l'animazione ogni snapshot pesa (tutti i frame): stack più corto
+  undoStack.push(s); while(undoStack.length>cap)undoStack.shift(); redoStack.length=0; refreshUndo(); }
 function brushCell(){ const c={t:brush.tile,rot:brush.rot,flip:brush.flip,inv:brush.inv,sw:brush.sw}; if(brush.col)c.col=brush.col; return c; }
 /* ---- SIMMETRIE: il timbro si ripete attorno al CENTRO della tela (niente assi disegnati) ----
    Ritorna le copie {c,r,rot,flip} con l'orientazione giusta per ognuna (specchi riflettono la tessera, rotazioni la ruotano). */
@@ -1774,7 +1774,7 @@ function buildTimeline(){
     d.ondragstart=e=>{ dragFrame=i; e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; };   // setData: serve a Firefox/Safari per avviare il drag
     d.ondragover=e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; };
     d.ondrop=e=>{ e.preventDefault(); if(dragFrame==null||dragFrame===i){ dragFrame=null; return; }
-      stopPlay(); animCommit(); const curData=anim.frames[anim.cur];
+      stopPlay(); snapshot(); animCommit(); const curData=anim.frames[anim.cur];
       const [f]=anim.frames.splice(dragFrame,1); anim.frames.splice(i,0,f);
       anim.cur=anim.frames.indexOf(curData);
       updateOnionLayers();
@@ -1792,7 +1792,7 @@ function animShow(i){
   updateOnionLayers();
   buildLayers(); updFrLabel(); updateTimelineAct(); render();   // l'undo ora ATTRAVERSA i frame (snapshot con indice)
 }
-function animGoto(i){ const old=anim.cur; animCommit(); animShow(i); updateThumb(old); }
+function animGoto(i){ snapshot(); const old=anim.cur; animCommit(); animShow(i); updateThumb(old); }
 function stopPlay(){ if(anim.playing!=null){ clearTimeout(anim.playing); anim.playing=null; previewing=false; $('frPlay').classList.remove('on'); render(); } }
 function playTick(){ if(anim.playing==null) return;
   const n=anim.frames.length;
@@ -1810,11 +1810,11 @@ $('animBtn').onclick=()=>{
   else stopPlay();
   render();
 };
-$('frAdd').onclick=()=>{ stopPlay(); animCommit(); anim.frames.splice(anim.cur+1,0,JSON.parse(JSON.stringify(anim.frames[anim.cur]))); buildTimeline(); animShow(anim.cur+1); };
-$('frNew').onclick=()=>{ stopPlay(); animCommit(); anim.frames.splice(anim.cur+1,0,layersData().map(L=>({...L,cells:[]}))); buildTimeline(); animShow(anim.cur+1); };
+$('frAdd').onclick=()=>{ stopPlay(); snapshot(); animCommit(); anim.frames.splice(anim.cur+1,0,JSON.parse(JSON.stringify(anim.frames[anim.cur]))); buildTimeline(); animShow(anim.cur+1); };
+$('frNew').onclick=()=>{ stopPlay(); snapshot(); animCommit(); anim.frames.splice(anim.cur+1,0,layersData().map(L=>({...L,cells:[]}))); buildTimeline(); animShow(anim.cur+1); };
 /* elimina un frame qualsiasi (× sulla miniatura o ✕ per il corrente) */
 function deleteFrame(i){
-  if(anim.frames.length<=1) return; stopPlay();
+  if(anim.frames.length<=1) return; stopPlay(); snapshot();
   if(i===anim.cur){ anim.frames.splice(i,1); buildTimeline(); animShow(Math.min(i,anim.frames.length-1)); return; }
   animCommit(); anim.frames.splice(i,1); if(i<anim.cur) anim.cur--;
   updateOnionLayers(); buildTimeline(); render();
