@@ -555,6 +555,21 @@ function patRange(x0,y0,x1,y1){
 
 /* ---- disegno cella ---- */
 function cellStamps(cell){ return [{t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw}].concat(cell.extra||[]); }
+/* ---- ORDINE CRONOLOGICO delle fusioni (round 22) ----
+   Le forme di una cella stanno in liste per tipo (extra/sub/iso/xor) ma vanno APPLICATE
+   nell'ordine in cui l'utente le ha timbrate, altrimenti con tante operazioni una ⊖/∩ vecchia
+   scava/ritaglia anche ciò che è stato unito DOPO. Ogni forma nuova riceve un progressivo `q`
+   (nextQ); orderedOps le rimette in fila per q. Le forme SENZA q (salvataggi vecchi) valgono 0
+   e mantengono l'ordine per tipo di prima → i disegni esistenti NON cambiano aspetto. */
+function nextQ(cell){ let m=0;
+  for(const L of [cell.extra,cell.sub,cell.iso,cell.xor]) if(L) for(const s of L) if(s.q>m) m=s.q;
+  return m+1; }
+function orderedOps(cell){
+  const ops=[];
+  for(const [op,L] of [['add',cell.extra],['sub',cell.sub],['iso',cell.iso],['xor',cell.xor]])
+    if(L) for(const st of L) ops.push({op,st});
+  return ops.map((o,i)=>[o,i]).sort((a,b)=>((a[0].st.q||0)-(b[0].st.q||0))||(a[1]-b[1])).map(p=>p[0]);   // sort stabile per q
+}
 /* disegna un singolo timbro {t,rot,flip,sw} nel contesto corrente (colori già impostati).
    Tessere base: parts. Tessere FORGIATE: stamps (adds+subs interni) → composte isolate su un
    canvas scratch e riversate, così le loro sottrazioni non scavano il resto della cella. */
@@ -584,28 +599,25 @@ function drawStamp(g,st){
   return true;
 }
 /* disegna le FIGURE di una cella nel colore del livello (negativo trasparente).
-   inv = colora il complemento (esagono pieno meno le figure). g = contesto (anche offscreen). */
+   inv = colora il complemento (esagono pieno meno le figure). g = contesto (anche offscreen).
+   Le fusioni si applicano in ORDINE CRONOLOGICO (orderedOps): add=source-over, sub=destination-out,
+   iso=destination-in (sicuro grazie al clip esagonale), xor='xor'. Con inv l'add scava il pieno
+   come prima (mappa legacy: il complemento si costruisce per sottrazione). */
 function drawCellFigures(g, cell, color){
   g.save(); g.scale(R,R); g.clip(HEX_UNIT_PATH);
-  if(cell.inv){ g.fillStyle=color; g.fill(HEX_UNIT_PATH); g.globalCompositeOperation='destination-out'; }
-  g.fillStyle=color; g.strokeStyle=color; g.lineCap='round'; g.lineJoin='round';
-  for(const st of cellStamps(cell)) drawStamp(g,st);
-  // sottrazioni: le forme in cell.sub vengono scavate (destination-out) da quanto disegnato
-  if(cell.sub && cell.sub.length){
-    g.globalCompositeOperation='destination-out'; g.fillStyle='#000'; g.strokeStyle='#000';
-    for(const st of cell.sub) drawStamp(g,st);
-  }
-  // intersezioni: resta solo dove le forme iso si sovrappongono al contenuto (destination-in,
-  // sicuro perché il clip esagonale limita l'operazione alla cella)
-  if(cell.iso && cell.iso.length){
-    g.globalCompositeOperation='destination-in'; g.fillStyle='#000'; g.strokeStyle='#000';
-    for(const st of cell.iso) drawStamp(g,st);
-  }
-  // esclusioni: xor — la sovrapposizione si svuota, il resto della forma si aggiunge
-  if(cell.xor && cell.xor.length){
-    g.globalCompositeOperation='xor'; g.fillStyle=color; g.strokeStyle=color;
-    for(const st of cell.xor) drawStamp(g,st);
-  }
+  g.lineCap='round'; g.lineJoin='round';
+  const OPMODE={add:'source-over', sub:'destination-out', iso:'destination-in', xor:'xor'};
+  const draw=(st,op)=>{
+    if(cell.inv && op==='add') op='sub';                       // nell'inverso le aggiunte scavano il pieno
+    g.globalCompositeOperation=OPMODE[op];
+    const col=(op==='sub'||op==='iso')?'#000':color;           // per scavare/ritagliare basta una forma opaca
+    g.fillStyle=col; g.strokeStyle=col;
+    drawStamp(g,st);
+  };
+  if(cell.inv){ g.fillStyle=color; g.fill(HEX_UNIT_PATH); }    // base del complemento: esagono pieno
+  if(cell.t!=null || !cell.inv) draw({t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw},'add');   // primaria
+  for(const {op,st} of orderedOps(cell)) draw(st,op);
+  g.globalCompositeOperation='source-over';
   g.restore();
 }
 /* offscreen dei livelli: stessa dimensione e stessa trasformazione del canvas principale */
@@ -951,12 +963,15 @@ function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie sim
   const s={t:brush.tile,rot,flip,sw:brush.sw};
   if(ex && ex.t!=null && stampMode==='merge'){
     const sig=v=>v.t+'/'+v.rot+'/'+v.flip;
-    if(!cellStamps(ex).map(sig).includes(sig(s))){ ex.extra=(ex.extra||[]); ex.extra.push(s); }
+    // anti-doppione SOLO se la cella non ha scavi/ritagli: dopo una ⊖/∩/⊻ ri-unire la
+    // stessa forma non è un no-op (ripristina l'area tolta, ordine cronologico)
+    const carved=(ex.sub&&ex.sub.length)||(ex.iso&&ex.iso.length)||(ex.xor&&ex.xor.length);
+    if(carved || !cellStamps(ex).map(sig).includes(sig(s))){ s.q=nextQ(ex); ex.extra=(ex.extra||[]); ex.extra.push(s); }
     return;
   }
-  if(stampMode==='sub'){ if(ex){ ex.sub=(ex.sub||[]); ex.sub.push(s); } return; }   // su cella vuota non fa nulla
-  if(stampMode==='iso'){ if(ex){ ex.iso=(ex.iso||[]); ex.iso.push(s); } return; }   // intersezione con vuoto = vuoto
-  if(stampMode==='xor' && ex && ex.t!=null){ ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale
+  if(stampMode==='sub'){ if(ex){ s.q=nextQ(ex); ex.sub=(ex.sub||[]); ex.sub.push(s); } return; }   // su cella vuota non fa nulla
+  if(stampMode==='iso'){ if(ex){ s.q=nextQ(ex); ex.iso=(ex.iso||[]); ex.iso.push(s); } return; }   // intersezione con vuoto = vuoto
+  if(stampMode==='xor' && ex && ex.t!=null){ s.q=nextQ(ex); ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale
   const nc=brushCell(); nc.rot=rot; nc.flip=flip; cells.set(key(c,r),nc);
 }
 function bgCell(c,r){ if(!inDomain(c,r))return; cells.set(key(c,r),{t:null,rot:0,flip:false,inv:brush.inv}); }
@@ -1051,10 +1066,11 @@ function mergeCellInto(c,r,src){
   const srcStamps=(src.inv&&src.t==null) ? [{t:full.id,rot:0,flip:false,sw:src.sw??connSW}]
                                          : cellStamps(src).filter(s=>s.t!=null);
   if(!srcStamps.length) return;
-  if(stampMode==='merge'){ dst.extra=(dst.extra||[]).concat(srcStamps); if(src.sub&&src.sub.length) dst.sub=(dst.sub||[]).concat(src.sub); }
-  else if(stampMode==='sub'){ dst.sub=(dst.sub||[]).concat(srcStamps); }
-  else if(stampMode==='iso'){ dst.iso=(dst.iso||[]).concat(srcStamps); }
-  else if(stampMode==='xor'){ dst.xor=(dst.xor||[]).concat(srcStamps); }
+  const stamped=(L)=>{ let q=nextQ(dst); return L.map(s=>({...s, q:q++})); };   // q progressivi sulla destinazione
+  if(stampMode==='merge'){ dst.extra=(dst.extra||[]).concat(stamped(srcStamps)); if(src.sub&&src.sub.length) dst.sub=(dst.sub||[]).concat(stamped(src.sub)); }
+  else if(stampMode==='sub'){ dst.sub=(dst.sub||[]).concat(stamped(srcStamps)); }
+  else if(stampMode==='iso'){ dst.iso=(dst.iso||[]).concat(stamped(srcStamps)); }
+  else if(stampMode==='xor'){ dst.xor=(dst.xor||[]).concat(stamped(srcStamps)); }
 }
 /* firma di una cella: due celle propagano solo se identiche in tessera,
    orientazione, specchiatura, inversione E tessere sommate (extra). Vuoto = 'empty'. */
@@ -1397,15 +1413,21 @@ function stampPreviewSVG(p, uid){
   return `<svg viewBox="-1.15 -1.15 2.3 2.3"><clipPath id="sp_${uid}"><path d="${HEX_UNIT_D}"/></clipPath><path d="${HEX_UNIT_D}" fill="${hexFill}"/><g clip-path="url(#sp_${uid})"><g transform="${tr}">${tileFigSVG(t,figFill,p.sw??connSW,uid)}</g></g></svg>`;
 }
 /* anteprima della tessera attiva con rot/flip/inv correnti (riflette r/f/i) + tessera B del dither */
-/* disegna una cella (anche composta) in un mini-canvas per le anteprime del pennello */
+/* disegna una cella (anche composta) in un mini-canvas per le anteprime del pennello.
+   Le figure vanno su un canvas TRASPARENTE a parte e poi composte sopra la carta (come fa
+   la tela con l'offscreen dei livelli): disegnarle direttamente sopra la carta faceva sì che
+   destination-out/in (sub, iso, inv) bucassero anche la carta bianca → anteprima incasinata. */
 function cellPreviewNode(cell){
-  const dpr=window.devicePixelRatio||1, s=42;
-  const cv=document.createElement('canvas'); cv.width=cv.height=Math.round(s*dpr);
+  const dpr=window.devicePixelRatio||1, s=42, w=Math.round(s*dpr);
+  const fig=document.createElement('canvas'); fig.width=fig.height=w;
+  const fg=fig.getContext('2d'); fg.translate(w/2,w/2);
+  const k=(w*0.46)/R; fg.scale(k,k);                       // raggio esagono ≈ 0.46·lato
+  drawCellFigures(fg, cell, cell.col||'#111');             // figure su fondo trasparente
+  const cv=document.createElement('canvas'); cv.width=cv.height=w;
   cv.style.width=cv.style.height='100%'; cv.style.display='block';
-  const g=cv.getContext('2d'); g.translate(cv.width/2, cv.height/2);
-  const k=(cv.width*0.46)/R; g.scale(k,k);                 // raggio esagono ≈ 0.46·lato
-  g.save(); g.scale(R,R); g.fillStyle='#fff'; g.fill(HEX_UNIT_PATH); g.restore();   // sfondo carta bianca
-  drawCellFigures(g, cell, cell.col||'#111');
+  const g=cv.getContext('2d');
+  g.save(); g.translate(w/2,w/2); g.scale(k*R,k*R); g.fillStyle='#fff'; g.fill(HEX_UNIT_PATH); g.restore();   // carta
+  g.drawImage(fig,0,0);                                    // figure sopra
   return cv;
 }
 function updateBrushPreview(){ const box=document.getElementById('brushPrev');
@@ -2258,9 +2280,13 @@ function stampsSVGList(stampList,color){
     fig+=`<g transform="rotate(${st.rot*60}) scale(${sx},${R})"><g clip-path="url(#hx)">${tileFigSVG(tile,color,st.sw??connSW,'e'+(svgUid++))}</g></g>`; }
   return fig;
 }
-function cellFiguresSVG(cell,color){ return stampsSVGList(cellStamps(cell),color); }
 /* corpo SVG dei livelli della tavola (defs con le mask + gruppi livello) — riusato
-   dall'export normale e dall'export pattern; in modalità pattern filtra il dominio */
+   dall'export normale e dall'export pattern; in modalità pattern filtra il dominio.
+   Le fusioni sono applicate in ORDINE CRONOLOGICO come su canvas (orderedOps): si mantengono
+   tre versioni della cella che crescono operazione per operazione — content (figure colorate),
+   silW (silhouette BIANCA del contenuto: "tieni dove c'è contenuto") e silB (esagono bianco con
+   il contenuto in NERO: "tieni dove NON c'è contenuto", serve allo xor). Le mask sono in
+   coordinate locali della cella (userSpaceOnUse dentro il <g transform=tr>). */
 function svgLayersBody(W,H){
   let defs='';
   let mN=0, layersSvg='';
@@ -2269,41 +2295,34 @@ function svgLayersBody(W,H){
     let g=`<g style="mix-blend-mode:${blend}" opacity="${L.opacity}">`;
     for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue; const [cx,cy]=cellCenter(c,r);
       const col=cell.col||L.color, tr=`translate(${cx.toFixed(2)},${cy.toFixed(2)})`;
-      const subs=(cell.sub&&cell.sub.length)?stampsSVGList(cell.sub,'#000'):'';
-      const hexWhite=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#fff"/></g>`;
-      let cellG;
-      if(cell.inv){   // complemento: esagono pieno meno figure (e meno sottrazioni)
-        const mid='m'+(mN++);
-        defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${cellFiguresSVG(cell,'#000')}${subs}</g></mask>`;
-        cellG=`<g transform="${tr}" mask="url(#${mid})"><g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="${col}"/></g></g>`;
-      } else if(subs){   // sottrazioni: mask bianca con le forme sub in nero
-        const mid='m'+(mN++);
-        defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${subs}</g></mask>`;
-        cellG=`<g transform="${tr}" mask="url(#${mid})">${cellFiguresSVG(cell,col)}</g>`;
-      } else {
-        cellG=`<g transform="${tr}">${cellFiguresSVG(cell,col)}</g>`;
-      }
-      if(cell.iso&&cell.iso.length){   // interseca: visibile solo sotto le forme iso
-        const mid='m'+(mN++);
-        defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${stampsSVGList(cell.iso,'#fff')}</g></mask>`;
-        cellG=`<g mask="url(#${mid})">${cellG}</g>`;
-      }
-      if(cell.xor&&cell.xor.length){   // escludi: contenuto − forme, più forme − silhouette ESATTA del contenuto (inv/sub/iso inclusi)
-        const m1='m'+(mN++), m2='m'+(mN++);
-        defs+=`<mask id="${m1}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${stampsSVGList(cell.xor,'#000')}</g></mask>`;
-        let sil;
-        if(cell.inv){   // contenuto = esagono meno figure meno sottrazioni
-          sil=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#000"/></g>`+stampsSVGList(cellStamps(cell),'#fff')+(cell.sub&&cell.sub.length?stampsSVGList(cell.sub,'#fff'):'');
-        } else {        // contenuto = figure meno sottrazioni, eventualmente ∩ iso
-          sil=stampsSVGList(cellStamps(cell),'#000')+(cell.sub&&cell.sub.length?stampsSVGList(cell.sub,'#fff'):'');
-          if(cell.iso&&cell.iso.length){ const mi='m'+(mN++);
-            defs+=`<mask id="${mi}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${stampsSVGList(cell.iso,'#fff')}</g></mask>`;
-            sil=`<g mask="url(#${mi})">${sil}</g>`; }
+      const hexW=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#fff"/></g>`;
+      const hexB=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#000"/></g>`;
+      const MR=`x="${(-R*1.3).toFixed(1)}" y="${(-R*1.3).toFixed(1)}" width="${(R*2.6).toFixed(1)}" height="${(R*2.6).toFixed(1)}"`;
+      const mk=body=>{ const id='m'+(mN++); defs+=`<mask id="${id}" maskUnits="userSpaceOnUse" ${MR}>${body}</mask>`; return id; };
+      const wrap=(frag,mid)=>`<g mask="url(#${mid})">${frag}</g>`;
+      let content, silW, silB;
+      if(cell.inv){ content=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="${col}"/></g>`; silW=hexW; silB=hexW+hexB; }
+      else if(cell.t!=null){ const p=[{t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw}];
+        content=stampsSVGList(p,col); silW=stampsSVGList(p,'#fff'); silB=hexW+stampsSVGList(p,'#000'); }
+      else { content=''; silW=''; silB=hexW; }
+      for(const o of orderedOps(cell)){
+        let op=o.op; if(cell.inv&&op==='add') op='sub';   // nell'inverso le aggiunte scavano il pieno (come su canvas)
+        const st=[o.st];
+        const figC=stampsSVGList(st,col), figW=stampsSVGList(st,'#fff'), figB=stampsSVGList(st,'#000');
+        if(op==='add'){ content+=figC; silW+=figW; silB+=figB; }
+        else if(op==='sub'){ const m=mk(hexW+figB);   // tieni fuori dalla forma
+          content=wrap(content,m); silW=wrap(silW,m); silB+=figW; }
+        else if(op==='iso'){ const m=mk(figW);        // tieni dentro la forma
+          content=wrap(content,m); silW=wrap(silW,m); silB=hexW+wrap(silB,m); }
+        else { // xor: (contenuto − forma) + (forma − contenuto)
+          const mOut=mk(hexW+figB), mNC=mk(silB);
+          const nc=wrap(content,mOut)+wrap(figC,mNC);
+          const nw=wrap(silW,mOut)+wrap(figW,mNC);
+          silB=hexW+wrap(silB,mOut)+wrap(figB,mNC);
+          content=nc; silW=nw;
         }
-        defs+=`<mask id="${m2}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><g transform="${tr}">${hexWhite}${sil}</g></mask>`;
-        cellG=`<g mask="url(#${m1})">${cellG}</g><g transform="${tr}" mask="url(#${m2})">${stampsSVGList(cell.xor,col)}</g>`;
       }
-      g+=cellG;
+      g+=`<g transform="${tr}">${content}</g>`;
     }
     layersSvg+=g+'</g>';
   });
