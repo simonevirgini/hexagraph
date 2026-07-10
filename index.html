@@ -42,6 +42,7 @@
   #topbar .slot .slotx:hover{color:#ff7a7a;border-color:#ff7a7a}
   .brushprev{flex:0 0 auto;width:42px;height:42px;border:1px solid var(--line);border-radius:4px;background:var(--panel2);overflow:hidden;display:grid;place-items:center;margin-left:auto}
   .brushprev svg{width:100%;height:100%;display:block;transform:rotate(var(--boardRot,0deg))}
+  .brushprev.b{margin-left:4px;border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2);cursor:pointer}
   /* zona centrale: barre laterali + canvas */
   #main{flex:1;display:flex;min-height:0}
   .bar{width:300px;min-width:300px;background:var(--panel);overflow-y:auto;position:relative;flex:0 0 auto}
@@ -88,6 +89,7 @@
   .tile{aspect-ratio:1;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:0;cursor:pointer;display:grid;place-items:center;overflow:hidden}
   .tile svg{width:100%;height:100%;display:block;transform:rotate(var(--boardRot,0deg))}
   .tile.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .tile.selB{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
   /* hilite (blu) = la tessera/slot corrispondente alla cella selezionata sulla tela · cur = slot uguale al pennello */
   .tile.hilite{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
   .slot.hilite{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
@@ -123,6 +125,7 @@
   body.preview #status{display:none}
   body.anim #status{bottom:78px}   /* sopra la timeline quando è aperta */
   #status b{color:var(--accent)}
+  #status.warn{color:var(--accent);border-color:var(--accent)}
   .layerRow{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:5px 6px;margin-bottom:5px}
   .layerRow .lhandle{cursor:grab;color:var(--muted);font-size:13px;line-height:1;flex:0 0 auto;width:11px;text-align:center;user-select:none;letter-spacing:-2px}
   .layerRow .lhandle:active{cursor:grabbing}
@@ -167,6 +170,12 @@
     <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
+    <button class="btn ic" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
+    <select id="ditherPatSel" title="trama del dithering (come sceglie tra A e B cella per cella)" hidden>
+      <option value="b4">Bayer 4×4</option>
+      <option value="b2">Bayer 2×2</option>
+      <option value="rnd">casuale</option>
+    </select>
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- fusioni (stile pathfinder): come il timbro/il gruppo trascinato si fonde con ciò che trova -->
@@ -202,6 +211,7 @@
     <button class="btn ic" id="redo" title="ripeti (⇧z)">↪</button>
   </div>
   <div class="brushprev" id="brushPrev" title="Tessera attiva con orientazione corrente — r ruota · f specchia · i inverti"></div>
+  <div class="brushprev b" id="brushPrevB" hidden title="Tessera B del dither (⇧+clic in libreria per cambiarla) — clic qui: rimuovi"></div>
   <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · 0-9 piazza"></div>
 </header>
 
@@ -445,7 +455,7 @@ let patBounds=localStorage.getItem('hexagraph.patbounds')!=='0';   // confine de
 let stampMode=null;                // null (sostituisci) | 'merge' ⊕ | 'sub' ⊖ | 'iso' ∩ | 'xor' ⊻ — vale per timbro E rilascio del trascinamento
 /* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
-const brush={ tile:TILES[0]?TILES[0].id:null, rot:0, flip:false, inv:false, sw:0.34, col:null };   // sw = spessore tratto per-timbro · col = colore cella (null = colore del livello)
+const brush={ tile:TILES[0]?TILES[0].id:null, tileB:null, rot:0, flip:false, inv:false, sw:0.34, col:null };   // sw = spessore tratto per-timbro · col = colore cella (null = colore del livello) · tileB = seconda tessera del dither (⇧+clic in libreria)
 const cursor={c:0,r:0};
 const view={zoom:1,x:0,y:0};   // vista: zoom + traslazione (px) applicati via CSS transform sulla tavola
 let selection=null;                // Set di chiavi "c,r" (null = nessuna selezione)
@@ -777,6 +787,16 @@ function render(hoverC,hoverR){
     ctx.restore();
     for(const [nc,nr] of dests) outline(nc,nr,2);
   }
+  // indicatore del gradiente dither: cerchio vuoto = A (punto di pressione), pieno = B (rilascio)
+  if(ditherDrag){
+    const [ax,ay]=ditherDrag.start, [bx,by]=ditherDrag.cur;
+    const z=Math.max(0.05,view.zoom);
+    ctx.save(); ctx.strokeStyle=acc2; ctx.fillStyle=acc2; ctx.lineWidth=1.5/z;
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ax,ay,4.5/z,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx,by,4.5/z,0,7); ctx.fill();
+    ctx.restore();
+  }
   // hover: contorno sottile
   if(hoverC!=null && !(hoverC===cursor.c&&hoverR===cursor.r)) outline(hoverC,hoverR,2);
   // cursore: contorno molto spesso
@@ -1017,13 +1037,12 @@ function mergeCellInto(c,r,src){
 /* firma di una cella: due celle propagano solo se identiche in tessera,
    orientazione, specchiatura, inversione E tessere sommate (extra). Vuoto = 'empty'. */
 function cellSig(cell){ return cell ? JSON.stringify([cell.t,cell.rot,!!cell.flip,!!cell.inv,cell.sw??null,cell.col??null,cell.extra||null,cell.sub||null,cell.iso||null,cell.xor||null]) : 'empty'; }
-function bucketFill(sc,sr){
+/* zona del flood fill dal punto (sc,sr): celle contigue con la stessa firma;
+   partendo da una cella SELEZIONATA resta dentro la selezione (regole del secchiello) */
+function floodRegion(sc,sr){
   const target=cellSig(cells.get(key(sc,sr)));
-  if(target===cellSig(brushCell())) return;   // niente da cambiare
-  // se si parte da una cella SELEZIONATA, il riempimento resta dentro la selezione
   const limit=(selection && selection.size && selection.has(key(sc,sr))) ? selection : null;
-  snapshot();
-  const seen=new Set(), stack=[[sc,sr]];
+  const seen=new Set(), out=[], stack=[[sc,sr]];
   while(stack.length){
     const [c,r]=stack.pop();
     if(c<0||c>=cols||r<0||r>=rows||!inDomain(c,r)) continue;
@@ -1031,12 +1050,54 @@ function bucketFill(sc,sr){
     if(seen.has(k)) continue;
     if(limit && !limit.has(k)) continue;
     if(cellSig(cells.get(k))!==target) continue;
-    seen.add(k);
-    cells.set(k,brushCell());
+    seen.add(k); out.push([c,r]);
     for(const n of hexNeighbors(c,r)) stack.push(n);
   }
+  return out;
+}
+function bucketFill(sc,sr){
+  const target=cellSig(cells.get(key(sc,sr)));
+  if(target===cellSig(brushCell())) return;   // niente da cambiare
+  snapshot();
+  for(const [c,r] of floodRegion(sc,sr)) cells.set(key(c,r),brushCell());
   render();
 }
+/* ---- DITHER (§8.3): gradiente A→B a tessere, stile Aseprite ----
+   La zona è quella del secchiello (flood dal punto di pressione, confinata alla selezione).
+   Trascinando si definiscono direzione e lunghezza del gradiente: al punto di pressione 100% A,
+   al punto di rilascio 100% B; l'anteprima è il risultato VERO scritto sulle celle e ripristinato
+   a ogni movimento (saved). Clic secco (drag < ~R/3) = riempimento uniforme 50/50.
+   Ogni cella confronta la sua posizione t sul gradiente con una soglia: Bayer 4×4 / 2×2
+   (indicizzate in coordinate CUBICHE → stabili rispetto a colPhase e allo sfalsamento)
+   o rumore deterministico per cella (stabile durante il drag). Con una simmetria attiva
+   il risultato passa per symTargets come la matita (gradiente specchiato). */
+let ditherPat=localStorage.getItem('hexagraph.dither')||'b4';
+const BAYER4=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+const BAYER2=[[0,2],[3,1]];
+function ditherThreshold(c,r){
+  const [x,,z]=toCube(c,r);
+  if(ditherPat==='rnd'){ const h=Math.sin(x*127.1+z*311.7)*43758.5453; return h-Math.floor(h); }
+  if(ditherPat==='b2') return (BAYER2[((x%2)+2)%2][((z%2)+2)%2]+0.5)/4;
+  return (BAYER4[((x%4)+4)%4][((z%4)+4)%4]+0.5)/16;
+}
+let ditherDrag=null;   // {start:[x,y], cur:[x,y], region:[[c,r],…], saved:Map (celle del livello attivo)}
+function ditherApply(){
+  const [sx,sy]=ditherDrag.start, [ex,ey]=ditherDrag.cur;
+  const dx=ex-sx, dy=ey-sy, L2=dx*dx+dy*dy;
+  const flat=L2<(R*R)/9;                     // clic secco: gradiente piatto 50/50
+  for(const [c,r] of ditherDrag.region){
+    let t=0.5;
+    if(!flat){ const [cx,cy]=cellCenter(c,r); t=Math.max(0,Math.min(1,((cx-sx)*dx+(cy-sy)*dy)/L2)); }
+    const tb=(t>=ditherThreshold(c,r));
+    for(const s of symTargets(c,r)){
+      if(s.c<0||s.c>=cols||s.r<0||s.r>=rows||!inDomain(s.c,s.r)) continue;
+      const nc=brushCell(); nc.t=tb?brush.tileB:brush.tile; nc.rot=s.rot; nc.flip=s.flip;
+      cells.set(key(s.c,s.r),nc);
+    }
+  }
+}
+function ditherRestore(){ cells.clear(); for(const [k,v] of ditherDrag.saved) cells.set(k,v); }
+function ditherCancel(){ if(!ditherDrag) return; ditherRestore(); ditherDrag=null; render(); }
 function advance(){ cursor.c++; if(cursor.c>=cols){cursor.c=0;cursor.r=Math.min(rows-1,cursor.r+1);} }
 function retreat(){ cursor.c--; if(cursor.c<0){cursor.c=cols-1;cursor.r=Math.max(0,cursor.r-1);} }
 /* ←/→ su esagoni flat-top: non esiste il "dritto di lato", i vicini sono a ±30°.
@@ -1079,7 +1140,7 @@ function fitView(){ const [W,H]=boardSize(); const swap=(boardRot%180!==0); cons
   const r=stageEl.getBoundingClientRect(); const pad=40;
   view.zoom=Math.max(0.12,Math.min(8,Math.min((r.width-pad)/cw,(r.height-pad)/ch)));
   view.x=(r.width-cw*view.zoom)/2; view.y=(r.height-ch*view.zoom)/2; applyView(); }
-function updateCursor(){ board.style.cursor = tool==='bucket'?'cell' : tool==='select'?'pointer' : 'crosshair'; }
+function updateCursor(){ board.style.cursor = (tool==='bucket'||tool==='dither')?'cell' : tool==='select'?'pointer' : 'crosshair'; }
 
 /* ---- input mouse ---- */
 let painting=false, selecting=false, mode='stamp', lastKey=null, selStartPt=null, baseSel=null, selAnchorKey=null;
@@ -1155,6 +1216,13 @@ board.addEventListener('pointerdown',e=>{
   if(!hit) return;
   if(tool==='bucket' && e.button!==2){   // secchiello: riempi la zona connessa
     cursor.c=hit[0]; cursor.r=hit[1]; bucketFill(hit[0],hit[1]); updateStatus(); return; }
+  if(tool==='dither' && e.button!==2){   // dither: zona del secchiello, trascina = gradiente A→B
+    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria'); return; }
+    if(!brush.tile) return;
+    cursor.c=hit[0]; cursor.r=hit[1];
+    ditherDrag={start:pt, cur:pt, region:floodRegion(hit[0],hit[1]), saved:new Map(cells)};
+    ditherApply(); render(); updateStatus(); board.setPointerCapture(e.pointerId); return;
+  }
   selection=null; snapshot(); painting=true; mode=(e.button===2||tool==='erase')?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
   cursor.c=hit[0]; cursor.r=hit[1]; applyAt(hit); render(hit[0],hit[1]); updateStatus(); board.setPointerCapture(e.pointerId);
 });
@@ -1174,6 +1242,7 @@ board.addEventListener('pointermove',e=>{
   if(panning) return;   // pan gestito a livello di stage
   const pt=localXY(e); hoverPt=pt;
   if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; render(); return; }
+  if(ditherDrag){ ditherDrag.cur=pt; ditherRestore(); ditherApply(); render(); return; }
   const hit=cellAt(...pt);
   if(selecting){ selection=rectSelect(selStartPt,pt); render(); return; }
   if(painting){
@@ -1185,6 +1254,9 @@ board.addEventListener('pointermove',e=>{
   render(hit?hit[0]:null, hit?hit[1]:null);
 });
 board.addEventListener('pointerup',e=>{
+  if(ditherDrag){   // applica il dither: torna all'originale, snapshot per l'undo, riapplica
+    ditherRestore(); snapshot(); ditherApply(); ditherDrag=null; render(); updateStatus(); return;
+  }
   if(dragMove){
     const target=cellAt(...dragMove.curPt);
     const moved=Math.hypot(dragMove.curPt[0]-dragMove.startPt[0],dragMove.curPt[1]-dragMove.startPt[1])>4;
@@ -1293,8 +1365,18 @@ function stampPreviewSVG(p, uid){
   const tr=`rotate(${(p.rot||0)*60}) scale(${p.flip?-1:1},1)`;
   return `<svg viewBox="-1.15 -1.15 2.3 2.3"><clipPath id="sp_${uid}"><path d="${HEX_UNIT_D}"/></clipPath><path d="${HEX_UNIT_D}" fill="${hexFill}"/><g clip-path="url(#sp_${uid})"><g transform="${tr}">${tileFigSVG(t,figFill,p.sw??connSW,uid)}</g></g></svg>`;
 }
-/* anteprima della tessera attiva con rot/flip/inv correnti (riflette r/f/i) */
-function updateBrushPreview(){ const box=document.getElementById('brushPrev'); if(box) box.innerHTML=stampPreviewSVG(brushCell(),'brush'); }
+/* anteprima della tessera attiva con rot/flip/inv correnti (riflette r/f/i) + tessera B del dither */
+function updateBrushPreview(){ const box=document.getElementById('brushPrev'); if(box) box.innerHTML=stampPreviewSVG(brushCell(),'brush');
+  const bb=document.getElementById('brushPrevB');
+  if(bb){ const t=brush.tileB&&tileById(brush.tileB); bb.hidden=!t;
+    if(t){ const p=brushCell(); p.t=brush.tileB; bb.innerHTML=stampPreviewSVG(p,'brushB'); } } }
+/* imposta/toglie la tessera B del dither (⇧+clic in libreria; ⇧+clic sulla stessa o clic sull'anteprima = rimuovi).
+   Scegliere B attiva lo strumento dither: il gesto dichiara l'intenzione. */
+function setTileB(id){
+  brush.tileB=(brush.tileB===id)?null:id;
+  if(brush.tileB && tool!=='dither') setTool('dither');
+  buildPalette(); buildQuickTiles(); updateBrushPreview();
+}
 /* applica un preset di slot al pennello (tessera + rotazione + specchio + inversione) */
 function applyPreset(p){
   brush.tile=p.t; brush.rot=p.rot||0; brush.flip=!!p.flip; brush.inv=!!p.inv;
@@ -1325,9 +1407,10 @@ function buildPalette(){
         localStorage.setItem('hexagraph.palclosed',JSON.stringify([...closed])); buildPalette(); };
       pal.appendChild(h); }
     if(closed.has(t.cat)) return;
-    const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':''); b.dataset.id=t.id; b.title=t.name||t.id;
+    const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':'')+(t.id===brush.tileB?' selB':''); b.dataset.id=t.id; b.title=t.name||t.id;
     b.innerHTML=tileSVG(t);
     b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }   // ⌥+clic = preferita
+      if(e.shiftKey){ setTileB(t.id); return; }               // ⇧+clic = tessera B del dither
       selectTile(t.id); if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };   // in seleziona senza selezione: deposita nella cella del cursore
     b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
       if(cell&&cell.t!=null) cell.t=t.id;                              // piena: sostituisce la tessera (tiene rot/flip/colore)
@@ -1348,9 +1431,10 @@ function toggleFav(id){ favTiles=favTiles.includes(id)?favTiles.filter(x=>x!==id
 /* stesso comportamento delle tessere di libreria: clic seleziona (e deposita in modalità seleziona),
    doppio clic sostituisce nella selezione, ⌥+clic = preferita */
 function quickTileButton(t){
-  const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':''); b.dataset.id=t.id; b.title=(t.name||t.id)+' — ⌥+clic: preferita';
+  const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':'')+(t.id===brush.tileB?' selB':''); b.dataset.id=t.id; b.title=(t.name||t.id)+' — ⌥+clic: preferita · ⇧+clic: tessera B del dither';
   b.innerHTML=tileSVG(t);
   b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }
+    if(e.shiftKey){ setTileB(t.id); return; }
     selectTile(t.id); if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };
   b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
     if(cell&&cell.t!=null) cell.t=t.id; else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } }); } };
@@ -1433,6 +1517,7 @@ function deleteForged(id){ const i=FORGED.findIndex(f=>f.id===id); if(i<0)return
   FORGED.splice(i,1); saveForged();
   const ti=tileIndex[id]; if(ti!=null) TILES.splice(ti,1); rebuildTileIndex();
   if(brush.tile===id) brush.tile=TILES[0]?TILES[0].id:null;
+  if(brush.tileB===id) brush.tileB=null;
   buildPalette(); updateBrushPreview(); render(); }
 
 /* forgia la cella sotto il cursore: primaria+extra → add, sub → sub, inv → pieno meno figure */
@@ -1511,12 +1596,14 @@ $('merge').onclick=()=>setStampMode('merge');
 $('sub').onclick=()=>setStampMode('sub');
 $('iso').onclick=()=>setStampMode('iso');
 $('xor').onclick=()=>setStampMode('xor');
-function setTool(t){ tool=t; lassoPts.length=0;
+function setTool(t){ tool=t; lassoPts.length=0; ditherCancel();
   $('toolDraw').classList.toggle('on',t==='draw');
   $('toolErase').classList.toggle('on',t==='erase');
   $('toolSelect').classList.toggle('on',t==='select');
   $('toolLasso').classList.toggle('on',t==='lasso');
   $('bucket').classList.toggle('on',t==='bucket');
+  $('dither').classList.toggle('on',t==='dither');
+  $('ditherPatSel').hidden=(t!=='dither');
   updateCursor(); render(); }
 $('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); render(); };
 $('symAxes').onclick=()=>{ showAxes=!showAxes; $('symAxes').classList.toggle('on',showAxes);
@@ -1527,6 +1614,10 @@ $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
 $('toolDraw').onclick=()=>setTool(tool==='draw'?'select':'draw');
 $('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
 $('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
+$('dither').onclick=()=>setTool(tool==='dither'?'select':'dither');
+$('ditherPatSel').value=ditherPat;
+$('ditherPatSel').onchange=()=>{ ditherPat=$('ditherPatSel').value; localStorage.setItem('hexagraph.dither',ditherPat); };
+$('brushPrevB').onclick=()=>{ if(brush.tileB) setTileB(brush.tileB); };   // clic sull'anteprima B = rimuovi
 $('grid').onclick=()=>{showGrid=!showGrid;$('grid').classList.toggle('on',!showGrid);render();};
 /* ---- ridimensionamento CENTRATO ----
    Crescendo, il contenuto si sposta per restare al centro: in pratica una riga si aggiunge
@@ -1979,7 +2070,12 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
   }catch(err){alert('File non valido');} };
   rd.readAsText(f); e.target.value=''; };
 
-function updateStatus(){ $('curText').textContent=cursor.c+','+cursor.r; $('rotText').textContent=(brush.rot*60)+'°'; $('flipText').textContent=brush.flip?'specchiato':'dritto'; $('invText').textContent=brush.inv?'· inv':''; updateBrushPreview(); updateSlotCur(); updateHilites(); }
+function updateStatus(){ if(flashT) return; $('curText').textContent=cursor.c+','+cursor.r; $('rotText').textContent=(brush.rot*60)+'°'; $('flipText').textContent=brush.flip?'specchiato':'dritto'; $('invText').textContent=brush.inv?'· inv':''; updateBrushPreview(); updateSlotCur(); updateHilites(); }
+/* avviso transitorio nella status bar (poi torna alle info normali) */
+const statusHTML=$('status').innerHTML;
+let flashT=null;
+function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.innerHTML=msg;
+  clearTimeout(flashT); flashT=setTimeout(()=>{ flashT=null; st.classList.remove('warn'); st.innerHTML=statusHTML; updateStatus(); },2600); }
 
 /* ---- tastiera (mappa copiata da glyphdrawing.club) ---- */
 window.addEventListener('keydown',e=>{
@@ -2043,11 +2139,12 @@ window.addEventListener('keydown',e=>{
     case 'r': xformRot(1); break;       // selezione se c'è, altrimenti pennello (vedi anteprima in alto a destra)
     case 'f': xformFlip(); break;
     case 'i': xformInv(); break;
-    case 'Escape': lassoPts.length=0; selection=null; break;
+    case 'Escape': if(ditherDrag){ ditherCancel(); break; } lassoPts.length=0; selection=null; break;
     case 'h': showGrid=!showGrid; $('grid').classList.toggle('on',!showGrid); break;
     case 'u': $('merge').click(); break;
     case 'x': $('sub').click(); break;
     case 'g': $('bucket').click(); break;
+    case 't': $('dither').click(); break;
     case 'z': if(e.metaKey||e.ctrlKey){doUndo();} else doUndo(); break;
     case 'v': paste(); break;
     case 'm': setAssign(!assignMode); break;
