@@ -2439,7 +2439,9 @@ window.addEventListener('keydown',e=>{
       syncBrushUI(); } break;
     case 'p': previewing=true; document.body.classList.add('preview'); break;
     case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': case '0':
-      { const idx=(k==='0')?9:(+k-1); if(slots[idx]){ applyPreset(slots[idx]); snapshot(); stamp(cursor.c,cursor.r); } } break;
+      // slot 0-9: seleziona sempre il preset · DEPOSITA solo in modalità Seleziona (in matita tiene solo selezionato)
+      { const idx=(k==='0')?9:(+k-1); if(slots[idx]){ applyPreset(slots[idx]);
+        if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); } } } break;
     default: handled=false;
   }
   if(handled){ e.preventDefault(); updateStatus(); render(); }
