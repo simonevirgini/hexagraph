@@ -358,7 +358,7 @@
           <button class="btn" id="grid" title="mostra/nascondi le linee della griglia (h)">▦ griglia sì/no</button>
         </div>
         <label class="toggle"><input type="checkbox" id="pageDark"> sfondo pagina nero</label>
-        <label class="toggle"><input type="checkbox" id="outBlack" checked> fuori dalla griglia nero</label>
+        <label class="toggle"><input type="checkbox" id="outBlack"> fuori dalla griglia nero (invece del colore UI)</label>
         <div class="legend" style="margin-top:2px">Muoviti: rotella scorre · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
       </div>
 
@@ -512,7 +512,7 @@ let cols=21, rows=21, R=36;   // 21×21: dispari, così gli assi di simmetria ca
 let colPhase=0;
 let colFlip=false, rowFlip=false;   // alternanza del lato (dx/sx, giù/su) per i delta DISPARI del resize
 const colPar=c=>(((c+colPhase)%2)+2)%2;
-let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=true;
+let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=false;
 let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'erase' | 'bucket'
 /* MODALITÀ PATTERN: null = tela normale · {shape:'rect'|'strip'|'hexa'|'rhomb'} — le dimensioni
    della forma derivano SEMPRE da cols/rows (hexa: raggio dal lato minore · rhomb: lato B dalle righe) */
@@ -775,7 +775,8 @@ function gridClipPath(){ const p=new Path2D();
   return p; }
 function render(hoverC,hoverR){
   const paper=pageDark?'#000':'#fff';
-  const [W,H]=setupBoard(pattern?null:(outsideBlack?'#000':paper));   // fuori dalla griglia
+  const uibg=(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#2b2e35').trim();
+  const [W,H]=setupBoard(pattern?null:(outsideBlack?'#000':uibg));   // fuori dalla griglia = colore sfondo UI (nero solo se attivato)
   // PATTERN: la tavola ripetuta attorno all'originale (copie identiche: si giudica il pattern vero)
   if(pattern){
     // TUTTO il viewport è carta: i filetti di antialiasing tra le copie devono cadere su carta, non sul fondo scuro
