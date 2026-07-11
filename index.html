@@ -37,12 +37,12 @@
   .sw.sel{outline:2px solid var(--accent);outline-offset:1px}
   .sw.auto{display:grid;place-items:center;font-size:11px;font-weight:700}
   /* colori rapidi (in cima, vicino alle tessere rapide) */
-  #topbar .rcluster{display:flex;align-items:center;gap:8px;flex:0 0 auto}
-  #topbar .qcolors{display:grid;grid-template-rows:1fr 1fr;grid-auto-flow:column;gap:3px;align-content:center;flex:0 0 auto}
-  .qsw{width:18px;height:18px;border-radius:4px;border:1px solid var(--line);cursor:pointer;padding:0}
+  #topbar .rcluster{display:flex;align-items:center;gap:10px;flex:0 0 auto;margin-left:auto}
+  #topbar .qcolors{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+  .qsw{width:18px;height:18px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:0 0 0 1px rgba(255,255,255,.16)}
   .qsw.sel{box-shadow:0 0 0 2px var(--accent)}
   .qsw.auto{display:grid;place-items:center;font-size:9px;font-weight:700}
-  .qsw.empty{background:var(--panel2);color:var(--muted);display:grid;place-items:center;font-size:12px;line-height:1;border-style:dashed}
+  .qsw.empty{background:var(--panel2);color:var(--muted);display:grid;place-items:center;font-size:12px;line-height:1;box-shadow:none;border:1px dashed var(--line)}
   /* selettore palette a tema */
   .palsel{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
   .palsel button{flex:1 1 auto;min-width:48px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:5px 4px;cursor:pointer;font-size:11px;font-family:inherit}
@@ -249,7 +249,6 @@
     <button class="btn ic" id="undo" title="annulla (z)">↩</button>
     <button class="btn ic" id="redo" title="ripeti (⇧z)">↪</button>
   </div>
-  <div class="brushprev" id="brushPrev" title="Tessera attiva con orientazione corrente — r ruota · f specchia · i inverti"></div>
   <div class="brushprev b" id="brushPrevB" hidden title="Tessera B del dither (⇧+clic in libreria per cambiarla) — clic qui: rimuovi"></div>
   <div class="rcluster">
     <div class="qcolors" id="quickcols" title="colori rapidi — clic usa · +/doppio clic cambia col picker · destro toglie"></div>
@@ -1725,7 +1724,8 @@ const RISO_COLORS=['#111111','#0078bf','#ff665e','#00a95c','#ffe800','#ff48b0','
 const PALETTES={
   'Riso':RISO_COLORS,
   'Terra':['#2e2a24','#5b4636','#8a6244','#b3855b','#d9b487','#7d854e','#556036','#a8432a','#d98a45','#c9b79c'],
-  'Pastello':['#f7a8b8','#f5c6a8','#ffe5a8','#c3e6cb','#a8e6cf','#a8d5e2','#b8c8f7','#d5c3e6','#e6a8c3','#f0efe6'],
+  'Primari':['#111111','#ffffff','#e53935','#1e88e5','#fdd835','#43a047','#fb8c00','#8e24aa'],
+  'Freddi/caldi':['#c1121f','#e63946','#f3722c','#f9a03f','#ffca3a','#457b9d','#2a9d8f','#118ab2','#5e60ce','#1d3557'],
   'Fluo':['#ff2079','#ff5d2e','#ffd500','#37ff8b','#00e5ff','#2b7fff','#b14dff','#ff48b0','#00ffc6','#eaff00'],
   'Mono':['#111111','#2f2f2f','#4d4d4d','#6b6b6b','#8a8a8a','#a8a8a8','#c9c9c9','#ffffff'],
 };
