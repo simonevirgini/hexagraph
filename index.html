@@ -249,7 +249,6 @@
     <button class="btn ic" id="undo" title="annulla (z)">↩</button>
     <button class="btn ic" id="redo" title="ripeti (⇧z)">↪</button>
   </div>
-  <div class="brushprev b" id="brushPrevB" hidden title="Tessera B del dither (⇧+clic in libreria per cambiarla) — clic qui: rimuovi"></div>
   <div class="rcluster">
     <div class="qcolors" id="quickcols" title="colori rapidi — clic usa · +/doppio clic cambia col picker · destro toglie"></div>
     <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · 0-9 piazza"></div>
@@ -1497,14 +1496,10 @@ function cellPreviewNode(cell, s){
   g.drawImage(fig,0,0);                                    // figure sopra
   return cv;
 }
-function updateBrushPreview(){ const box=document.getElementById('brushPrev');
-  if(box){ if(brush.cell){ box.innerHTML=''; box.appendChild(cellPreviewNode(brush.cell)); }
-    else box.innerHTML=stampPreviewSVG(brushCell(),'brush'); }
-  const big=document.getElementById('stagePrev');   // anteprima GRANDE sulla tela (composita o singola)
+function updateBrushPreview(){
+  const big=document.getElementById('stagePrev');   // anteprima GRANDE del pennello sulla tela (composita o singola)
   if(big){ big.innerHTML=''; big.appendChild(cellPreviewNode(brushCell(),96)); }
-  const bb=document.getElementById('brushPrevB');
-  if(bb){ const t=brush.tileB&&tileById(brush.tileB); bb.hidden=!t;
-    if(t){ const p={t:brush.tileB,rot:brush.rot,flip:brush.flip,inv:brush.inv,sw:brush.sw,col:brush.col}; bb.innerHTML=stampPreviewSVG(p,'brushB'); } } }
+}
 /* imposta/toglie la tessera B del dither (⇧+clic in libreria; ⇧+clic sulla stessa o clic sull'anteprima = rimuovi).
    Scegliere B attiva lo strumento dither: il gesto dichiara l'intenzione. */
 function setTileB(id){
@@ -1827,7 +1822,6 @@ document.addEventListener('click',e=>{   // clic fuori dal pannello (e non sull'
   if($('ditherPop').hidden) return;
   if($('ditherPop').contains(e.target)||$('dither').contains(e.target)) return;
   $('ditherPop').hidden=true; });
-$('brushPrevB').onclick=()=>{ if(brush.tileB) setTileB(brush.tileB); };   // clic sull'anteprima B = rimuovi
 $('grid').onclick=()=>{showGrid=!showGrid;$('grid').classList.toggle('on',!showGrid);render();};
 /* ---- ridimensionamento CENTRATO ----
    Crescendo, il contenuto si sposta per restare al centro: in pratica una riga si aggiunge
