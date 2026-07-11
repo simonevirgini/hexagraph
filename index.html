@@ -32,6 +32,7 @@
   #symSel.on{border-color:var(--accent);color:var(--accent)}
   .swgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
   .sw{aspect-ratio:1;border:1px solid var(--line);border-radius:3px;cursor:pointer;padding:0}
+  .swlabel{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:5px 0 1px}
   .sw.sel{outline:2px solid var(--accent);outline-offset:1px}
   .sw.auto{display:grid;place-items:center;font-size:11px;font-weight:700}
   #topbar .slots{display:flex;gap:3px;margin-left:8px;grid-template-columns:none}
@@ -128,6 +129,10 @@
   .vbtn.on{background:var(--accent);color:var(--onink);border-color:var(--accent)}
   #zPct{padding:0 8px;font:12px 'Ahamono',ui-monospace,monospace;min-width:48px}
   body.preview #viewbar{display:none}
+  /* anteprima GRANDE del pennello, in alto a destra della tela */
+  #stagePrev{position:absolute;right:12px;top:12px;width:96px;height:96px;background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:4;box-shadow:0 4px 14px rgba(0,0,0,.35);overflow:hidden;display:grid;place-items:center;pointer-events:none}
+  #stagePrev canvas,#stagePrev svg{width:100%;height:100%;display:block}
+  body.preview #stagePrev{display:none}
   #status{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;max-width:min(94vw,940px);display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:12px 'Ahamono',ui-monospace,monospace;color:var(--muted);pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.3)}
   body.preview #status{display:none}
   body.anim #status{bottom:78px}   /* sopra la timeline quando è aperta */
@@ -274,6 +279,7 @@
   </aside>
 
   <main id="stage"><canvas id="board"></canvas>
+    <div id="stagePrev" title="Pennello attivo — r ruota · f specchia · i inverti"></div>
     <div id="viewbar">
       <button class="vbtn" id="zOut" title="Zoom − (−)">−</button>
       <button class="vbtn" id="zPct" title="Adatta la vista alla tavola">100%</button>
@@ -298,7 +304,7 @@
         <div class="swgrid" id="swatches"></div>
         <div class="row" style="align-items:center">
           <input type="color" id="cellCol" title="colore personalizzato">
-          <span class="legend" style="flex:1">personalizzato (finisce nei recenti)</span>
+          <span class="legend" style="flex:1">colore personalizzato — finisce qui sotto nei <b>Recenti</b></span>
         </div>
         <div class="legend">Vale per i prossimi timbri. <b>A</b> = colore del livello attivo.</div>
       </div>
@@ -635,25 +641,32 @@ function drawStamp(g,st){
   g.restore();
   return true;
 }
+/* operazioni di una cella in ordine, come lista unificata {op,st}. La PRIMARIA è la prima
+   operazione: normalmente un'aggiunta, ma in una cella INVERTITA è una sottrazione dal pieno
+   (il complemento = esagono pieno MENO la primaria). Le fusioni (extra/sub/iso/xor) seguono in
+   ordine cronologico e restano SEMPRE positive/normali → combinare (⊕) una forma su una cella
+   invertita ora la AGGIUNGE sopra (prima invece scavava tutto: bug segnalato da Simone). */
+function cellOps(cell){
+  const ops=[];
+  if(cell.t!=null) ops.push({op: cell.inv?'sub':'add', st:{t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw}});
+  for(const o of orderedOps(cell)) ops.push(o);
+  return ops;
+}
 /* disegna le FIGURE di una cella nel colore del livello (negativo trasparente).
-   inv = colora il complemento (esagono pieno meno le figure). g = contesto (anche offscreen).
-   Le fusioni si applicano in ORDINE CRONOLOGICO (orderedOps): add=source-over, sub=destination-out,
-   iso=destination-in (sicuro grazie al clip esagonale), xor='xor'. Con inv l'add scava il pieno
-   come prima (mappa legacy: il complemento si costruisce per sottrazione). */
+   inv = base = esagono pieno; la primaria lo scava (complemento). add=source-over, sub=destination-out,
+   iso=destination-in (sicuro grazie al clip esagonale), xor='xor'. */
 function drawCellFigures(g, cell, color){
   g.save(); g.scale(R,R); g.clip(HEX_UNIT_PATH);
   g.lineCap='round'; g.lineJoin='round';
   const OPMODE={add:'source-over', sub:'destination-out', iso:'destination-in', xor:'xor'};
   const draw=(st,op)=>{
-    if(cell.inv && op==='add') op='sub';                       // nell'inverso le aggiunte scavano il pieno
     g.globalCompositeOperation=OPMODE[op];
     const col=(op==='sub'||op==='iso')?'#000':color;           // per scavare/ritagliare basta una forma opaca
     g.fillStyle=col; g.strokeStyle=col;
     drawStamp(g,st);
   };
   if(cell.inv){ g.fillStyle=color; g.fill(HEX_UNIT_PATH); }    // base del complemento: esagono pieno
-  if(cell.t!=null || !cell.inv) draw({t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw},'add');   // primaria
-  for(const {op,st} of orderedOps(cell)) draw(st,op);
+  for(const {op,st} of cellOps(cell)) draw(st,op);
   g.globalCompositeOperation='source-over';
   g.restore();
 }
@@ -1455,8 +1468,8 @@ function stampPreviewSVG(p, uid){
    Le figure vanno su un canvas TRASPARENTE a parte e poi composte sopra la carta (come fa
    la tela con l'offscreen dei livelli): disegnarle direttamente sopra la carta faceva sì che
    destination-out/in (sub, iso, inv) bucassero anche la carta bianca → anteprima incasinata. */
-function cellPreviewNode(cell){
-  const dpr=window.devicePixelRatio||1, s=42, w=Math.round(s*dpr);
+function cellPreviewNode(cell, s){
+  const dpr=window.devicePixelRatio||1; s=s||42; const w=Math.round(s*dpr);
   const fig=document.createElement('canvas'); fig.width=fig.height=w;
   const fg=fig.getContext('2d'); fg.translate(w/2,w/2);
   const k=(w*0.46)/R; fg.scale(k,k);                       // raggio esagono ≈ 0.46·lato
@@ -1471,6 +1484,8 @@ function cellPreviewNode(cell){
 function updateBrushPreview(){ const box=document.getElementById('brushPrev');
   if(box){ if(brush.cell){ box.innerHTML=''; box.appendChild(cellPreviewNode(brush.cell)); }
     else box.innerHTML=stampPreviewSVG(brushCell(),'brush'); }
+  const big=document.getElementById('stagePrev');   // anteprima GRANDE sulla tela (composita o singola)
+  if(big){ big.innerHTML=''; big.appendChild(cellPreviewNode(brushCell(),96)); }
   const bb=document.getElementById('brushPrevB');
   if(bb){ const t=brush.tileB&&tileById(brush.tileB); bb.hidden=!t;
     if(t){ const p={t:brush.tileB,rot:brush.rot,flip:brush.flip,inv:brush.inv,sw:brush.sw,col:brush.col}; bb.innerHTML=stampPreviewSVG(p,'brushB'); } } }
@@ -1709,13 +1724,18 @@ function setBrushCol(col, live){
 const colLum=c=>{ const n=parseInt(c.slice(1),16); return 0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255); };
 function buildSwatches(){
   const el=$('swatches'); if(!el)return; el.innerHTML='';
+  const sel=brush.col?brush.col.toLowerCase():null;
+  const addSw=c=>{ const b=document.createElement('button'); b.className='sw'+(sel===c?' sel':'');
+    b.style.background=c; b.title=c; b.onclick=()=>setBrushCol(c); el.appendChild(b); };
   const auto=document.createElement('button'); auto.className='sw auto'+(brush.col?'':' sel');
   auto.style.background=layers[active].color; auto.style.color=colLum(layers[active].color)>140?'#111':'#fff';
   auto.textContent='A'; auto.title='automatico: colore del livello attivo';
   auto.onclick=()=>setBrushCol(null); el.appendChild(auto);
-  for(const c of RISO_COLORS.concat(recentCols)){
-    const b=document.createElement('button'); b.className='sw'+(brush.col&&brush.col.toLowerCase()===c?' sel':'');
-    b.style.background=c; b.title=c; b.onclick=()=>setBrushCol(c); el.appendChild(b); }
+  for(const c of RISO_COLORS) addSw(c);
+  if(recentCols.length){   // i colori personalizzati scelti col picker finiscono qui, con la loro etichetta
+    const lab=document.createElement('div'); lab.className='swlabel'; lab.textContent='Recenti'; el.appendChild(lab);
+    for(const c of recentCols) addSw(c);
+  }
 }
 $('cellCol').onpointerdown=()=>{ if(selection&&selection.size) snapshot(); };   // un solo snapshot per l'intera scelta col picker nativo
 $('cellCol').oninput=()=>setBrushCol($('cellCol').value, true);                  // live: niente snapshot ad ogni movimento
@@ -2257,7 +2277,6 @@ const COACH=[
  {t:'3 · Orienta il pennello',b:'<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.',sel:'#brushPrev'},
  {t:'4 · Combina le forme',b:'In alto scegli <b>⊕ unisci</b>, <b>⊖ sottrai</b>, <b>∩ interseca</b> o <b>⊻ escludi</b>, poi timbra sopra una cella: più forme nella stessa casella.',sel:'#merge'},
  {t:'5 · Colore e livelli',b:'Nella barra destra dai un <b>colore</b> ai timbri e usa i <b>livelli</b> per sovrapporli (fusioni tipo risograph).',sel:'[data-sec="color"]'},
- {t:'6 · Simmetria e pattern',b:'Attiva una <b>simmetria</b> per disegnare specchiato, oppure crea una tela <b>pattern</b> da “Nuovo…”.',sel:'#symSel'},
  {t:'Tutto qui',b:'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria. Buon divertimento! 🌸',sel:'#status'},
 ];
 let coachI=-1;
@@ -2408,13 +2427,12 @@ function svgLayersBody(W,H){
       const MR=`x="${(-R*1.3).toFixed(1)}" y="${(-R*1.3).toFixed(1)}" width="${(R*2.6).toFixed(1)}" height="${(R*2.6).toFixed(1)}"`;
       const mk=body=>{ const id='m'+(mN++); defs+=`<mask id="${id}" maskUnits="userSpaceOnUse" ${MR}>${body}</mask>`; return id; };
       const wrap=(frag,mid)=>`<g mask="url(#${mid})">${frag}</g>`;
+      // base: inv = esagono pieno (la primaria lo scava, vedi cellOps); normale = vuoto
       let content, silW, silB;
       if(cell.inv){ content=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="${col}"/></g>`; silW=hexW; silB=hexW+hexB; }
-      else if(cell.t!=null){ const p=[{t:cell.t,rot:cell.rot,flip:cell.flip,sw:cell.sw}];
-        content=stampsSVGList(p,col); silW=stampsSVGList(p,'#fff'); silB=hexW+stampsSVGList(p,'#000'); }
       else { content=''; silW=''; silB=hexW; }
-      for(const o of orderedOps(cell)){
-        let op=o.op; if(cell.inv&&op==='add') op='sub';   // nell'inverso le aggiunte scavano il pieno (come su canvas)
+      for(const o of cellOps(cell)){
+        const op=o.op;
         const st=[o.st];
         const figC=stampsSVGList(st,col), figW=stampsSVGList(st,'#fff'), figB=stampsSVGList(st,'#000');
         if(op==='add'){ content+=figC; silW+=figW; silB+=figB; }
