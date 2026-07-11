@@ -36,6 +36,16 @@
   .swlabel{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:5px 0 1px}
   .sw.sel{outline:2px solid var(--accent);outline-offset:1px}
   .sw.auto{display:grid;place-items:center;font-size:11px;font-weight:700}
+  /* colori rapidi (in cima, vicino alle tessere rapide) */
+  .qcolors{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 9px}
+  .qsw{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);cursor:pointer;padding:0;flex:0 0 auto}
+  .qsw.sel{box-shadow:0 0 0 2px var(--accent)}
+  .qsw.auto{display:grid;place-items:center;font-size:11px;font-weight:700}
+  .qsw.empty{background:var(--panel2);color:var(--muted);display:grid;place-items:center;font-size:14px;line-height:1;border-style:dashed}
+  /* selettore palette a tema */
+  .palsel{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+  .palsel button{flex:1 1 auto;min-width:48px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:5px 4px;cursor:pointer;font-size:11px;font-family:inherit}
+  .palsel button.on{color:var(--text);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   #topbar .slots{display:flex;gap:3px;margin-left:8px;grid-template-columns:none}
   #topbar .slot{width:42px;height:42px;aspect-ratio:auto}
   #topbar .slot .n{font-size:9px}
@@ -255,6 +265,7 @@
     <div class="barbody">
       <div class="group" data-sec="tiles">
         <div class="glabel">Tessere <span id="tcount" style="color:var(--muted)"></span> <span style="color:var(--muted)">— <kbd>,</kbd>/<kbd>.</kbd></span><span class="palzoom"><button class="pz" id="palMinus" title="tessere più piccole">−</button><button class="pz" id="palPlus" title="tessere più grandi">+</button></span></div>
+        <div class="qcolors" id="quickcols" title="colori rapidi — clic usa · doppio clic/+ cambia col picker · destro toglie"></div>
         <div class="palette" id="palfav"></div>
         <div class="palette" id="palette"></div>
         <div class="legend"><kbd>⌥</kbd>+clic su una tessera = aggiungi/togli dalle <b>Preferite</b>; le <b>Recenti</b> si aggiornano da sole. <b>Contagocce</b>: <kbd>c</kbd> sulla cella del cursore, o <kbd>⌥</kbd>+clic sulla tela, copia la tessera con il suo aspetto nel pennello.</div>
@@ -301,13 +312,15 @@
       </div>
 
       <div class="group" data-sec="color">
-        <div class="glabel">Colore</div>
+        <div class="glabel">Colore <span style="color:var(--muted)">— palette</span></div>
+        <div class="palsel" id="palsel"></div>
         <div class="swgrid" id="swatches"></div>
         <div class="row" style="align-items:center">
           <input type="color" id="cellCol" title="colore personalizzato">
-          <span class="legend" style="flex:1">colore personalizzato — finisce qui sotto nei <b>Recenti</b></span>
+          <span class="legend" style="flex:1">colore libero — si aggiunge ai <b>rapidi</b> in alto</span>
         </div>
-        <div class="legend">Vale per i prossimi timbri. <b>A</b> = colore del livello attivo.</div>
+        <div class="legend"><b>A</b> = colore del livello. Clic su un colore = prossimi timbri (e la selezione, se c'è). Doppio clic su uno swatch = aggiungilo ai <b>rapidi</b>.</div>
+        <input type="color" id="quickPicker" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
       </div>
 
       <div class="group" data-sec="anim">
@@ -1513,7 +1526,7 @@ function syncBrushUI(){
   $('flip').classList.toggle('on',brush.flip); $('inv').classList.toggle('on',brush.inv);
   $('connSW').value=brush.sw; $('swVal').textContent=(+brush.sw).toFixed(2);
   const cc=$('cellCol'); if(cc) cc.value=brush.col||layers[active].color;
-  buildSwatches();
+  buildSwatches(); buildQuickCols();
 }
 /* CONTAGOCCE (§ round 21, esteso round 22): preleva la cella sotto (c,r) con TUTTO il suo aspetto e la
    mette nel pennello. Se la cella è COMPOSTA (più forme unite/sottratte/intersecate/escluse) preleva
@@ -1705,9 +1718,44 @@ $('flip').onclick=()=>xformFlip();
 $('inv').onclick=()=>xformInv();
 /* ---- COLORE: swatch riso + recenti + auto (A = colore del livello) ---- */
 const RISO_COLORS=['#111111','#0078bf','#ff665e','#00a95c','#ffe800','#ff48b0','#ff6c2f','#765ba7','#00838a','#914e72','#62a8e5','#928d88'];
+/* PALETTE a tema mostrate nella colonna Colore (il selettore #palsel le cambia) */
+const PALETTES={
+  'Riso':RISO_COLORS,
+  'Terra':['#2e2a24','#5b4636','#8a6244','#b3855b','#d9b487','#7d854e','#556036','#a8432a','#d98a45','#c9b79c'],
+  'Pastello':['#f7a8b8','#f5c6a8','#ffe5a8','#c3e6cb','#a8e6cf','#a8d5e2','#b8c8f7','#d5c3e6','#e6a8c3','#f0efe6'],
+  'Fluo':['#ff2079','#ff5d2e','#ffd500','#37ff8b','#00e5ff','#2b7fff','#b14dff','#ff48b0','#00ffc6','#eaff00'],
+  'Mono':['#111111','#2f2f2f','#4d4d4d','#6b6b6b','#8a8a8a','#a8a8a8','#c9c9c9','#ffffff'],
+};
+let curPalette=localStorage.getItem('hexagraph.palette')||'Riso'; if(!PALETTES[curPalette]) curPalette='Riso';
+function buildPalsel(){ const el=$('palsel'); if(!el)return; el.innerHTML='';
+  for(const name of Object.keys(PALETTES)){ const b=document.createElement('button'); b.textContent=name;
+    b.className=(name===curPalette?'on':''); b.onclick=()=>{ curPalette=name; localStorage.setItem('hexagraph.palette',name); buildPalsel(); buildSwatches(); };
+    el.appendChild(b); } }
 let recentCols=[]; try{ recentCols=JSON.parse(localStorage.getItem('hexagraph.recentcols')||'[]'); }catch(e){}
 function pushRecentCol(col){ col=col.toLowerCase(); if(RISO_COLORS.includes(col))return;
   recentCols=[col,...recentCols.filter(c=>c!==col)].slice(0,8); localStorage.setItem('hexagraph.recentcols',JSON.stringify(recentCols)); }
+/* ---- COLORI RAPIDI (in cima, vicino alle tessere rapide): slot editabili col picker ---- */
+let quickCols=null; try{ quickCols=JSON.parse(localStorage.getItem('hexagraph.quickcols')||'null'); }catch(e){}
+if(!Array.isArray(quickCols)) quickCols=['#111111','#ff48b0','#0078bf','#00a95c','#ffe800','#ff6c2f',null,null];
+function saveQuick(){ localStorage.setItem('hexagraph.quickcols',JSON.stringify(quickCols)); }
+function addQuick(v){ v=(v||'').toLowerCase(); if(!v||quickCols.some(c=>c&&c.toLowerCase()===v))return;
+  const e=quickCols.indexOf(null); if(e>=0) quickCols[e]=v; else quickCols=[...quickCols.slice(1),v]; saveQuick(); }
+let quickTarget=-1;
+function buildQuickCols(){ const el=$('quickcols'); if(!el)return; el.innerHTML='';
+  const cur=brush.col?brush.col.toLowerCase():null;
+  const auto=document.createElement('button'); auto.className='qsw auto'+(brush.col?'':' sel');
+  auto.style.background=layers[active].color; auto.style.color=colLum(layers[active].color)>140?'#111':'#fff';
+  auto.textContent='A'; auto.title='colore del livello attivo'; auto.onclick=()=>setBrushCol(null); el.appendChild(auto);
+  quickCols.forEach((c,i)=>{ const b=document.createElement('button'); b.dataset.i=i;
+    if(c){ b.className='qsw'+(cur===c.toLowerCase()?' sel':''); b.style.background=c;
+      b.title=c+' — clic: usa · doppio clic: cambia · destro: togli';
+      b.onclick=()=>setBrushCol(c); b.ondblclick=()=>openQuickPicker(i);
+      b.oncontextmenu=e=>{ e.preventDefault(); quickCols[i]=null; saveQuick(); buildQuickCols(); };
+    } else { b.className='qsw empty'; b.textContent='+'; b.title='scegli un colore col picker'; b.onclick=()=>openQuickPicker(i); }
+    el.appendChild(b); }); }
+function openQuickPicker(i){ quickTarget=i; const p=$('quickPicker'); p.value=quickCols[i]||brush.col||'#ff48b0'; p.click(); }
+$('quickPicker').oninput=()=>{ if(quickTarget<0)return; const v=$('quickPicker').value; quickCols[quickTarget]=v; saveQuick(); setBrushCol(v); buildQuickCols(); };
+$('quickPicker').onchange=()=>{ quickTarget=-1; };
 /* colora le celle selezionate su TUTTI i livelli attivi (A/null = torna al colore del livello) —
    NIENTE snapshot qui dentro: lo gestisce il chiamante (uno solo per gesto). */
 function colorSelection(col){ const cs=selCells().filter(([c,r])=>inDomain(c,r));
@@ -1726,21 +1774,19 @@ const colLum=c=>{ const n=parseInt(c.slice(1),16); return 0.299*(n>>16&255)+0.58
 function buildSwatches(){
   const el=$('swatches'); if(!el)return; el.innerHTML='';
   const sel=brush.col?brush.col.toLowerCase():null;
-  const addSw=c=>{ const b=document.createElement('button'); b.className='sw'+(sel===c?' sel':'');
-    b.style.background=c; b.title=c; b.onclick=()=>setBrushCol(c); el.appendChild(b); };
+  const addSw=c=>{ const b=document.createElement('button'); b.className='sw'+(sel===c.toLowerCase()?' sel':'');
+    b.style.background=c; b.title=c+' — clic: usa · doppio clic: aggiungi ai rapidi';
+    b.onclick=()=>setBrushCol(c); b.ondblclick=()=>{ addQuick(c); buildQuickCols(); };
+    el.appendChild(b); };
   const auto=document.createElement('button'); auto.className='sw auto'+(brush.col?'':' sel');
   auto.style.background=layers[active].color; auto.style.color=colLum(layers[active].color)>140?'#111':'#fff';
   auto.textContent='A'; auto.title='automatico: colore del livello attivo';
   auto.onclick=()=>setBrushCol(null); el.appendChild(auto);
-  for(const c of RISO_COLORS) addSw(c);
-  if(recentCols.length){   // i colori personalizzati scelti col picker finiscono qui, con la loro etichetta
-    const lab=document.createElement('div'); lab.className='swlabel'; lab.textContent='Recenti'; el.appendChild(lab);
-    for(const c of recentCols) addSw(c);
-  }
+  for(const c of (PALETTES[curPalette]||[])) addSw(c);
 }
 $('cellCol').onpointerdown=()=>{ if(selection&&selection.size) snapshot(); };   // un solo snapshot per l'intera scelta col picker nativo
 $('cellCol').oninput=()=>setBrushCol($('cellCol').value, true);                  // live: niente snapshot ad ogni movimento
-$('cellCol').onchange=()=>{ const v=$('cellCol').value; if(v){ pushRecentCol(v); buildSwatches(); } };
+$('cellCol').onchange=()=>{ const v=$('cellCol').value; if(v){ pushRecentCol(v); addQuick(v); buildQuickCols(); buildSwatches(); } };
 /* modalità timbro/fusione mutuamente esclusive (clic sulla stessa = torna a "sostituisci") */
 function setStampMode(m){ stampMode=(stampMode===m)?null:m;
   ['merge','sub','iso','xor'].forEach(id=>$(id).classList.toggle('on',stampMode===id)); updateStatus(); }
@@ -2599,7 +2645,7 @@ $('peSvg').onclick=()=>{
 /* ---- init ---- */
 layers=[newLayer()]; setActive(0);
 initSections(); loadForged(); applyPalCols();
-buildPalette(); buildQuickTiles(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
+buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
 /* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
 let didFit=false;
 new ResizeObserver(()=>{ const r=stageEl.getBoundingClientRect(); if(r.width<2||r.height<2) return;
