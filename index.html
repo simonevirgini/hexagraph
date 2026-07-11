@@ -1201,6 +1201,13 @@ function ditherApply(){
 }
 function ditherRestore(){ cells.clear(); for(const [k,v] of ditherDrag.saved) cells.set(k,v); }
 function ditherCancel(){ if(!ditherDrag) return; ditherRestore(); ditherDrag=null; render(); }
+/* con ⇧ premuto la direzione del gradiente scatta ad angoli di 45° (come Photoshop) */
+function ditherSnap(start, pt){
+  const dx=pt[0]-start[0], dy=pt[1]-start[1], len=Math.hypot(dx,dy);
+  if(len<0.001) return pt;
+  const step=Math.PI/4, a=Math.round(Math.atan2(dy,dx)/step)*step;
+  return [start[0]+Math.cos(a)*len, start[1]+Math.sin(a)*len];
+}
 function advance(){ cursor.c++; if(cursor.c>=cols){cursor.c=0;cursor.r=Math.min(rows-1,cursor.r+1);} }
 function retreat(){ cursor.c--; if(cursor.c<0){cursor.c=cols-1;cursor.r=Math.max(0,cursor.r-1);} }
 /* ←/→ su esagoni flat-top: non esiste il "dritto di lato", i vicini sono a ±30°.
@@ -1351,7 +1358,7 @@ board.addEventListener('pointermove',e=>{
   if(panning) return;   // pan gestito a livello di stage
   const pt=localXY(e); hoverPt=pt;
   if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; render(); return; }
-  if(ditherDrag){ ditherDrag.cur=pt; ditherRestore(); ditherApply(); render(); return; }
+  if(ditherDrag){ ditherDrag.cur=e.shiftKey?ditherSnap(ditherDrag.start,pt):pt; ditherRestore(); ditherApply(); render(); return; }
   const hit=cellAt(...pt);
   if(selecting){ selection=rectSelect(selStartPt,pt); render(); return; }
   if(painting){
@@ -1608,7 +1615,8 @@ function buildSlots(){
   for(let i=0;i<10;i++){ const d=document.createElement('div'); d.className='slot'; d.dataset.i=i;
     const lbl=(i+1)%10; d.innerHTML=`<span class="n">${lbl}</span>`+(slots[i]?stampPreviewSVG(slots[i],'slot'+i)+`<span class="slotx" title="togli dallo slot">×</span>`:'');
     const xb=d.querySelector('.slotx'); if(xb) xb.onclick=e=>{ e.stopPropagation(); slots[i]=null; buildSlots(); };
-    d.onclick=()=>{
+    d.onclick=(e)=>{
+      if(e.shiftKey && slots[i] && slots[i].t){ setTileB(slots[i].t); return; }   // ⇧+clic = tessera B del dither (come in libreria)
       if(assignMode){ slots[i]=brushCell(); setAssign(false); buildSlots(); }   // m + click: assegna il preset attivo (anche sovrascrive)
       else if(slots[i]){ applyPreset(slots[i]);                                 // slot pieno: applica il preset (con trasformazioni)
         if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } }   // come la libreria: deposita al cursore
@@ -2283,7 +2291,7 @@ function hintHTML(){
   if(tool==='dither'){
     h = !brush.tileB
       ? `<b>Dither</b> · ${kb('⇧')}+clic su una tessera in libreria = <b>tessera B</b>`
-      : `<b>Dither A→B</b> · <b>trascina</b> = gradiente · clic secco = 50/50 · 2° clic sull'icona = trama · ${kb('Esc')} annulla`;
+      : `<b>Dither A→B</b> · <b>trascina</b> = gradiente (${kb('⇧')} blocca a 45°) · clic secco = 50/50 · 2° clic sull'icona = trama · ${kb('Esc')} annulla`;
   } else if(tool==='bucket'){
     h = `<b>Secchiello</b> · clic riempie la zona connessa`+(hasSel?' (dentro la selezione)':'');
   } else if(tool==='lasso'){
