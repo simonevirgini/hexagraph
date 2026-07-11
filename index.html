@@ -128,11 +128,31 @@
   .vbtn.on{background:var(--accent);color:var(--onink);border-color:var(--accent)}
   #zPct{padding:0 8px;font:12px 'Ahamono',ui-monospace,monospace;min-width:48px}
   body.preview #viewbar{display:none}
-  #status{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 11px;font:12px 'Ahamono',ui-monospace,monospace;color:var(--muted);pointer-events:none}
+  #status{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;max-width:min(94vw,940px);display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:12px 'Ahamono',ui-monospace,monospace;color:var(--muted);pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.3)}
   body.preview #status{display:none}
   body.anim #status{bottom:78px}   /* sopra la timeline quando è aperta */
-  #status b{color:var(--accent)}
-  #status.warn{color:var(--accent);border-color:var(--accent)}
+  #status .hint{color:var(--text);line-height:1.5}
+  #status .hint b{color:var(--accent)}
+  #status .cur{margin-left:auto;color:var(--muted);white-space:nowrap;flex:0 0 auto}
+  #status .cur b{color:var(--text)}
+  #status kbd{min-width:11px;padding:0 4px;font-size:10px;border-bottom-width:1px}
+  #status.warn{border-color:var(--accent)}
+  #status.warn .hint,#status.warn .hint b{color:var(--accent)}
+  /* ---- tutorial coach (§8.11) ---- */
+  #coach{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;width:min(370px,88vw);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.5);z-index:70}
+  body.anim #coach{bottom:118px}
+  #coachStep{font:400 11px/1 'Ahamono',ui-monospace,monospace;letter-spacing:1.2px;color:var(--muted)}
+  #coachTitle{font-size:14px;margin:6px 0 4px;color:var(--text)}
+  #coachBody{font-size:12px;line-height:1.55;color:var(--muted)}
+  #coachBody b{color:var(--text)}
+  #coachDots{display:flex;gap:5px;margin:11px 0}
+  #coachDots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+  #coachDots i.on{background:var(--accent)}
+  .coachbtns{display:flex;align-items:center;gap:6px}
+  .coachbtns .grow{margin-left:auto}
+  #coachSpot{position:fixed;border:2px solid var(--accent);border-radius:10px;box-shadow:0 0 0 4px rgba(255,72,176,.25);z-index:65;pointer-events:none;transition:all .18s ease;animation:cpulse 1.4s ease-in-out infinite}
+  @keyframes cpulse{0%,100%{box-shadow:0 0 0 4px rgba(255,72,176,.28)}50%{box-shadow:0 0 0 9px rgba(255,72,176,.08)}}
+  body.preview #coach,body.preview #coachSpot{display:none}
   .layerRow{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:5px 6px;margin-bottom:5px}
   .layerRow .lhandle{cursor:grab;color:var(--muted);font-size:13px;line-height:1;flex:0 0 auto;width:11px;text-align:center;user-select:none;letter-spacing:-2px}
   .layerRow .lhandle:active{cursor:grabbing}
@@ -244,6 +264,11 @@
         <div class="glabel">Forgia</div>
         <button class="btn" id="forgeCell">⬡ Forgia la cella selezionata <kbd>⇧G</kbd></button>
         <div class="legend">Componi una figura in una cella (timbra, poi <b>⊕ unisci</b> e <b>⊖ sottrai</b>), <b>selezionala</b> (strumento ⬚) e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
+      </div>
+      <div class="group" data-sec="info">
+        <div class="glabel">Info</div>
+        <button class="btn" id="replayTut">▶ Rivedi il tutorial</button>
+        <div class="legend" style="margin-top:8px"><b>Hexagraph</b> è gratuito per uso <b>personale e commerciale</b>. Se lo usi, una citazione è gradita — grazie! 🌸</div>
       </div>
     </div>
   </aside>
@@ -398,7 +423,19 @@
     </div>
   </div>
 </div>
-<div id="status">cur <b id="curText">0,0</b> · rot <b id="rotText">0°</b> · <span id="flipText">dritto</span> <span id="invText"></span></div>
+<div id="status"></div>
+<div id="coach" hidden>
+  <div id="coachStep">1 / 8</div>
+  <div id="coachTitle"></div>
+  <div id="coachBody"></div>
+  <div id="coachDots"></div>
+  <div class="coachbtns">
+    <button class="btn" id="coachSkip">Salta</button>
+    <button class="btn grow" id="coachPrev">Indietro</button>
+    <button class="btn primary" id="coachNext">Avanti</button>
+  </div>
+</div>
+<div id="coachSpot" hidden></div>
 
 <script src="tiles.js?v=3"></script>
 <script>
@@ -1312,7 +1349,8 @@ board.addEventListener('pointerup',e=>{
 });
 board.addEventListener('pointerleave',()=>{painting=false;lastPaintPt=null;render();});
 function applyAt([c,r]){ const k=key(c,r); if(k===lastKey)return; lastKey=k; cursor.c=c;cursor.r=r;
-  for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r); else stamp(t.c,t.r,t); } }
+  for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r); else stamp(t.c,t.r,t); }
+  if(mode!=='erase' && typeof coachEvent==='function') coachEvent('stamp'); }
 /* dipinge fino a pt INTERPOLANDO dal punto precedente: campiona il segmento ogni ~mezzo esagono,
    così anche i tratti velocissimi non saltano celle */
 let lastPaintPt=null;
@@ -1441,7 +1479,7 @@ function updateBrushPreview(){ const box=document.getElementById('brushPrev');
 function setTileB(id){
   brush.tileB=(brush.tileB===id)?null:id;
   if(brush.tileB && tool!=='dither') setTool('dither');
-  buildPalette(); buildQuickTiles(); updateBrushPreview();
+  buildPalette(); buildQuickTiles(); updateBrushPreview(); updateStatus();
 }
 /* applica un preset di slot al pennello (tessera + rotazione + specchio + inversione) */
 function applyPreset(p){
@@ -1537,7 +1575,7 @@ function buildQuickTiles(){
 }
 function selectTile(id){ brush.cell=null; brush.tile=id; noteRecentTile(id);   // scegliere una tessera esce dal pennello composito
   document.querySelectorAll('#palette .tile, #palfav .tile').forEach(x=>x.classList.toggle('sel',x.dataset.id===id));
-  updateBrushPreview(); render(); }
+  updateBrushPreview(); render(); if(typeof coachEvent==='function') coachEvent('tile'); }
 function cycleTile(dir){ let i=tileIndex[brush.tile]||0; i=(i+dir+TILES.length)%TILES.length; selectTile(TILES[i].id); }
 function buildSlots(){
   const el=document.getElementById('slots'); el.innerHTML=''; lastHilite='';
@@ -1684,7 +1722,7 @@ $('cellCol').oninput=()=>setBrushCol($('cellCol').value, true);                 
 $('cellCol').onchange=()=>{ const v=$('cellCol').value; if(v){ pushRecentCol(v); buildSwatches(); } };
 /* modalità timbro/fusione mutuamente esclusive (clic sulla stessa = torna a "sostituisci") */
 function setStampMode(m){ stampMode=(stampMode===m)?null:m;
-  ['merge','sub','iso','xor'].forEach(id=>$(id).classList.toggle('on',stampMode===id)); }
+  ['merge','sub','iso','xor'].forEach(id=>$(id).classList.toggle('on',stampMode===id)); updateStatus(); }
 $('merge').onclick=()=>setStampMode('merge');
 $('sub').onclick=()=>setStampMode('sub');
 $('iso').onclick=()=>setStampMode('iso');
@@ -1697,8 +1735,8 @@ function setTool(t){ tool=t; lassoPts.length=0; ditherCancel();
   $('bucket').classList.toggle('on',t==='bucket');
   $('dither').classList.toggle('on',t==='dither');
   if(t!=='dither') $('ditherPop').hidden=true;   // uscendo dal dither chiudi il pannello trama
-  updateCursor(); render(); }
-$('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); render(); };
+  updateCursor(); updateStatus(); render(); }
+$('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); updateStatus(); render(); };
 $('symAxes').onclick=()=>{ showAxes=!showAxes; $('symAxes').classList.toggle('on',showAxes);
   localStorage.setItem('hexagraph.showaxes',showAxes?'1':'0'); render(); };
 $('symAxes').classList.toggle('on',showAxes);
@@ -2172,12 +2210,82 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
   }catch(err){alert('File non valido');} };
   rd.readAsText(f); e.target.value=''; };
 
-function updateStatus(){ if(flashT) return; $('curText').textContent=cursor.c+','+cursor.r; $('rotText').textContent=(brush.rot*60)+'°'; $('flipText').textContent=brush.flip?'specchiato':'dritto'; $('invText').textContent=brush.inv?'· inv':''; updateBrushPreview(); updateSlotCur(); updateHilites(); }
-/* avviso transitorio nella status bar (poi torna alle info normali) */
-const statusHTML=$('status').innerHTML;
+/* GUIDA CONTESTUALE (§8.12): dice sempre cosa puoi fare con lo strumento/modalità/selezione correnti */
+function hintHTML(){
+  const kb=s=>'<kbd>'+s+'</kbd>';
+  const hasSel=selection&&selection.size;
+  const fus={merge:'⊕ unisci',sub:'⊖ sottrai',iso:'∩ interseca',xor:'⊻ escludi'}[stampMode];
+  let h;
+  if(tool==='dither'){
+    h = !brush.tileB
+      ? `<b>Dither</b> · ${kb('⇧')}+clic su una tessera in libreria = <b>tessera B</b>`
+      : `<b>Dither A→B</b> · <b>trascina</b> = gradiente · clic secco = 50/50 · 2° clic sull'icona = trama · ${kb('Esc')} annulla`;
+  } else if(tool==='bucket'){
+    h = `<b>Secchiello</b> · clic riempie la zona connessa`+(hasSel?' (dentro la selezione)':'');
+  } else if(tool==='lasso'){
+    h = `<b>Lazo</b> · clic = punto · riclicca il <b>primo esagono</b> (o doppio clic / ${kb('↵')}) chiude · ${kb('Esc')} annulla`;
+  } else if(tool==='erase'){
+    h = `<b>Gomma</b> · clic o trascina cancella · ${kb('c')} / ${kb('⌥')}+clic = contagocce`;
+  } else if(tool==='draw'){
+    h = `<b>Matita</b> · clic timbra · trascina dipinge · destro cancella · ${kb('r')} ${kb('f')} ${kb('i')} orienta · ${kb('c')} contagocce`;
+  } else if(hasSel){
+    h = `<b>Selezione</b> (${selection.size}) · trascina sposta (${kb('⌥')} copia) · ${kb('r')}${kb('f')} gruppo · ${kb('⇧R')}${kb('⇧F')} singole · ${kb('i')} inverti · swatch colora · ${kb('⇧G')} forgia · ${kb('Canc')} svuota`;
+  } else {
+    h = `<b>Seleziona</b> · clic una cella · trascina un rettangolo (${kb('⇧')} aggiunge) · doppio clic = tutte le identiche · tessera in libreria = deposita al cursore`;
+  }
+  if(fus && (tool==='draw'||tool==='bucket'||hasSel)) h+=` · fusione <b>${fus}</b>`;
+  if(symMode!=='none') h+=' · <b>simmetria</b>';
+  if(pattern) h+=' · <b>pattern</b>';
+  return h;
+}
+function updateStatus(){
+  updateBrushPreview(); updateSlotCur(); updateHilites();
+  if(flashT) return;   // durante un avviso lampeggiante non sovrascrivere il testo
+  const cur=`<span class="cur">cur <b>${cursor.c},${cursor.r}</b> · <b>${brush.rot*60}°</b> · ${brush.flip?'specchiato':'dritto'}${brush.inv?' · inv':''}</span>`;
+  $('status').innerHTML=`<span class="hint">${hintHTML()}</span>${cur}`;
+}
+/* avviso transitorio nella status bar (poi torna alla guida contestuale) */
 let flashT=null;
-function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.innerHTML=msg;
-  clearTimeout(flashT); flashT=setTimeout(()=>{ flashT=null; st.classList.remove('warn'); st.innerHTML=statusHTML; updateStatus(); },2600); }
+function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.innerHTML='<span class="hint">'+msg+'</span>';
+  clearTimeout(flashT); flashT=setTimeout(()=>{ flashT=null; st.classList.remove('warn'); updateStatus(); },2600); }
+
+/* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ---- */
+const COACH=[
+ {t:'Benvenuto in Hexagraph',b:'Si disegna posando <b>tessere esagonali</b> b/n su una griglia a nido d\'ape. Poche mosse, un minuto.',sel:null},
+ {t:'1 · Scegli una tessera',b:'Nella <b>libreria</b> a sinistra scegli una forma: diventa il tuo pennello.',sel:'[data-sec="tiles"]',ev:'tile'},
+ {t:'2 · Matita e timbra',b:'Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.',sel:'#toolDraw',ev:'stamp'},
+ {t:'3 · Orienta il pennello',b:'<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.',sel:'#brushPrev'},
+ {t:'4 · Combina le forme',b:'In alto scegli <b>⊕ unisci</b>, <b>⊖ sottrai</b>, <b>∩ interseca</b> o <b>⊻ escludi</b>, poi timbra sopra una cella: più forme nella stessa casella.',sel:'#merge'},
+ {t:'5 · Colore e livelli',b:'Nella barra destra dai un <b>colore</b> ai timbri e usa i <b>livelli</b> per sovrapporli (fusioni tipo risograph).',sel:'[data-sec="color"]'},
+ {t:'6 · Simmetria e pattern',b:'Attiva una <b>simmetria</b> per disegnare specchiato, oppure crea una tela <b>pattern</b> da “Nuovo…”.',sel:'#symSel'},
+ {t:'Tutto qui',b:'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria. Buon divertimento! 🌸',sel:'#status'},
+];
+let coachI=-1;
+function coachSpot(sel){ const sp=$('coachSpot'); const el=sel&&document.querySelector(sel);
+  if(!el){ sp.hidden=true; return; } const r=el.getBoundingClientRect();
+  sp.style.left=(r.left-5)+'px'; sp.style.top=(r.top-5)+'px'; sp.style.width=(r.width+10)+'px'; sp.style.height=(r.height+10)+'px'; sp.hidden=false; }
+function coachShow(i){ coachI=i; const s=COACH[i];
+  $('coachStep').textContent=(i+1)+' / '+COACH.length;
+  $('coachTitle').textContent=s.t; $('coachBody').innerHTML=s.b;
+  $('coachDots').innerHTML=COACH.map((_,k)=>'<i class="'+(k===i?'on':'')+'"></i>').join('');
+  $('coachPrev').style.visibility=i>0?'visible':'hidden';
+  const n=$('coachNext');
+  if(s.ev){ n.disabled=true; n.classList.remove('primary'); n.textContent='Prova tu…'; }
+  else { n.disabled=false; n.classList.add('primary'); n.textContent=(i===COACH.length-1)?'Fine':'Avanti'; }
+  $('coach').hidden=false; coachSpot(s.sel); }
+function coachEnd(){ coachI=-1; $('coach').hidden=true; $('coachSpot').hidden=true; try{ localStorage.setItem('hexagraph.tutdone','1'); }catch(e){} }
+function coachNext(){ if(coachI<COACH.length-1) coachShow(coachI+1); else coachEnd(); }
+/* avanza automaticamente quando l'utente compie l'azione del passo corrente */
+function coachEvent(tag){ if(coachI>=0 && COACH[coachI] && COACH[coachI].ev===tag){ const n=$('coachNext');
+  if(n.disabled){ n.disabled=false; n.classList.add('primary'); n.textContent='Avanti ✓'; } } }
+function coachStart(){ coachShow(0); }
+$('coachNext').onclick=coachNext;
+$('coachPrev').onclick=()=>{ if(coachI>0) coachShow(coachI-1); };
+$('coachSkip').onclick=coachEnd;
+$('replayTut').onclick=coachStart;
+window.addEventListener('resize',()=>{ if(coachI>=0) coachSpot(COACH[coachI].sel); });
+window.addEventListener('scroll',()=>{ if(coachI>=0) coachSpot(COACH[coachI].sel); },true);
+try{ if(!localStorage.getItem('hexagraph.tutdone')) setTimeout(coachStart,500); }catch(e){}
 
 /* ---- tastiera (mappa copiata da glyphdrawing.club) ---- */
 window.addEventListener('keydown',e=>{
