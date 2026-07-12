@@ -93,13 +93,24 @@
   #frames{display:flex;gap:5px;overflow-x:auto;flex:1;padding:2px;min-height:52px;align-items:center}
   .fthumb{position:relative;flex:0 0 auto;border:0;border-radius:2px;cursor:pointer;background:#fff;padding:0;overflow:hidden}
   .fthumb.act{box-shadow:0 0 0 2px var(--accent)}
+  /* drag & drop: sorgente smorzata + barra rosa nel punto di inserimento */
+  .dragsrc{opacity:.35}
+  .fthumb.insL::before,.fthumb.insR::after{content:'';position:absolute;top:0;bottom:0;width:3px;background:var(--accent);z-index:3}
+  .fthumb.insL::before{left:0}
+  .fthumb.insR::after{right:0}
+  .layerRow.insT::before,.layerRow.insB::after{content:'';position:absolute;left:0;right:0;height:3px;background:var(--accent);z-index:3}
+  .layerRow.insT::before{top:0}
+  .layerRow.insB::after{bottom:0}
+  .group.insT::before,.group.insB::after{content:'';position:absolute;left:0;right:0;height:3px;background:var(--accent);z-index:3}
+  .group.insT::before{top:-10px}
+  .group.insB::after{bottom:-10px}
   .fthumb .fn{position:absolute;left:2px;top:1px;font-size:9px;color:#333;background:rgba(255,255,255,.75);padding:0 3px;border-radius:2px;pointer-events:none}
   .fthumb .fx{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;font-size:11px;color:#333;background:rgba(255,255,255,.9);border:1px solid #aaa;border-radius:50%;cursor:pointer;opacity:0;transition:opacity .1s}
   .fthumb:hover .fx{opacity:1}
   .fthumb .fx:hover{color:#fff;background:#ff5a3c;border-color:#ff5a3c}
   .fthumb canvas{display:block}
   #onPast,#onNext{width:26px;height:26px;padding:2px;border:0;border-radius:var(--rad);background:var(--bg);cursor:pointer;flex:0 0 auto}
-  .group{display:flex;flex-direction:column;gap:9px}
+  .group{position:relative;display:flex;flex-direction:column;gap:9px}
   .glabel{font-size:10px;text-transform:uppercase;letter-spacing:1.6px;color:var(--muted)}
   .glabel span{letter-spacing:.4px;text-transform:none;opacity:.75}
   .glabel span .pz{opacity:1}
@@ -113,14 +124,17 @@
   .shandle:active{cursor:grabbing}
   .scaret{color:var(--muted);font-size:10px}
   .group.closed>*:not(.sechdr){display:none}
-  .group.dragover{outline:1px dashed var(--accent);outline-offset:3px;border-radius:4px}
   .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
   .palzoom{float:right;display:inline-flex;gap:3px;margin-left:6px}
   .pz{width:19px;height:19px;background:var(--panel2);border:0;color:var(--text);border-radius:var(--rad);cursor:pointer;font-size:12px;line-height:1;padding:0}
   .pz:hover{background:var(--panel3)}
   .grouphdr{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-top:5px;border-top:1px solid var(--line);padding-top:6px;display:flex;justify-content:space-between;cursor:pointer;user-select:none}
   .grouphdr:hover{color:var(--text)}
-  .tile{aspect-ratio:1;background:var(--panel2);border:0;border-radius:2px;padding:0;cursor:pointer;display:grid;place-items:center;overflow:hidden}
+  .tile{position:relative;aspect-ratio:1;background:var(--panel2);border:0;border-radius:2px;padding:0;cursor:pointer;display:grid;place-items:center;overflow:hidden}
+  /* × per eliminare le tessere FORGIATE (compare al passaggio, come negli slot) */
+  .tilex{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:50%;cursor:pointer;opacity:0;transition:opacity .1s;z-index:2}
+  .tile:hover .tilex{opacity:1}
+  .tilex:hover{color:#ff7a7a;border-color:#ff7a7a}
   .tile:hover{background:var(--panel3)}
   .tile svg{width:100%;height:100%;display:block;transform:rotate(var(--boardRot,0deg))}
   .tile.sel{box-shadow:inset 0 0 0 2px var(--accent)}
@@ -188,12 +202,11 @@
   #coachSpot{position:fixed;border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 4px rgba(255,72,176,.25);z-index:65;pointer-events:none;transition:all .18s ease;animation:cpulse 1.4s ease-in-out infinite}
   @keyframes cpulse{0%,100%{box-shadow:0 0 0 4px rgba(255,72,176,.28)}50%{box-shadow:0 0 0 9px rgba(255,72,176,.08)}}
   body.preview #coach,body.preview #coachSpot{display:none}
-  .layerRow{display:flex;align-items:center;gap:6px;background:var(--panel2);border:0;border-radius:var(--rad);padding:6px 7px;margin-bottom:5px}
+  .layerRow{position:relative;display:flex;align-items:center;gap:6px;background:var(--panel2);border:0;border-radius:var(--rad);padding:6px 7px;margin-bottom:5px}
   .layerRow .lhandle{cursor:grab;color:var(--muted);font-size:13px;line-height:1;flex:0 0 auto;width:11px;text-align:center;user-select:none;letter-spacing:-2px}
   .layerRow .lhandle:active{cursor:grabbing}
   .layerRow.active{box-shadow:inset 2.5px 0 0 var(--accent);background:var(--panel3)}
   .layerRow.multisel{box-shadow:inset 2.5px 0 0 var(--accent2)}   /* nel set multi-selezione ma non il livello di disegno */
-  .layerRow.dragover{outline:1px dashed var(--accent);outline-offset:1px}
   .layerRow .lvis,.layerRow .ldel{cursor:pointer;font-size:12px;color:var(--muted);width:15px;text-align:center;flex:0 0 auto}
   .layerRow .ldel:hover{color:#ff7a7a}
   .layerRow input[type=color]{width:22px;height:22px;padding:0;border:0;border-radius:2px;flex:0 0 auto;background:none}
@@ -354,6 +367,18 @@
         <label class="field">Opacità sfondo <span id="bgOpVal">100%</span>
           <input type="range" id="bgOpacity" min="0" max="100" value="100">
         </label>
+        <div class="row">
+          <label class="field">Scala <span id="bgScVal">100%</span>
+            <input type="range" id="bgScale" min="10" max="400" value="100">
+          </label>
+          <label class="field">Rotazione <span id="bgRotVal">0°</span>
+            <input type="range" id="bgRot" min="-180" max="180" value="0">
+          </label>
+        </div>
+        <div class="row">
+          <button class="btn" id="bgMove" title="attiva e trascina sulla tela per spostare l'immagine (Esc esce)">✥ Sposta</button>
+          <button class="btn" id="bgReset" title="riporta posizione, scala e rotazione a zero">Reset</button>
+        </div>
         <input type="file" id="bgFile" accept="image/*" style="display:none">
       </div>
 
@@ -376,7 +401,6 @@
           <button class="btn" id="grid" title="mostra/nascondi le linee della griglia (h)">▦ griglia sì/no</button>
         </div>
         <label class="toggle"><input type="checkbox" id="pageDark"> sfondo pagina nero</label>
-        <label class="toggle"><input type="checkbox" id="outBlack"> fuori dalla griglia nero (invece del colore UI)</label>
         <div class="legend" style="margin-top:2px">Muoviti: rotella scorre · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
       </div>
 
@@ -510,7 +534,8 @@ let layers=[]; let active=0;
    specchia/colora/cancella/inverti) agiscono su TUTTI i livelli del set insieme. */
 let activeSet=new Set([0]);
 let cells;                         // riferimento alla Map del livello attivo (= più in alto del set)
-function newLayer(){ return {name:'Livello '+(layers.length+1), color:LAYER_COLORS[layers.length%LAYER_COLORS.length], cells:new Map(), blend:'multiply', opacity:1, visible:true}; }
+function newLayer(){ return {name:'Livello '+(layers.length+1), color:LAYER_COLORS[layers.length%LAYER_COLORS.length], cells:new Map(),
+  blend:layers.length?'multiply':'source-over', opacity:1, visible:true}; }   // il PRIMO livello nasce Normale, i successivi Multiply (sovrapposizioni riso)
 function setActive(i){ active=Math.max(0,Math.min(layers.length-1,i)); cells=layers[active].cells; activeSet=new Set([active]); }
 /* livelli su cui agiscono le operazioni di gruppo: il set (ordinato), filtrato agli indici validi */
 function activeLayers(){ const a=[...activeSet].filter(i=>i>=0&&i<layers.length).sort((x,y)=>x-y); return a.length?a:[active]; }
@@ -521,6 +546,8 @@ function toggleLayerSel(i){
   active=Math.max(...activeSet); cells=layers[active].cells;
 }
 let bgImage=null, bgOpacity=1;
+let bgT={x:0,y:0,s:1,rot:0};   // trasformazione dello sfondo: offset (px tavola), scala relativa al "cover", rotazione in gradi
+let bgMoveMode=false, bgDrag=null;
 /* canvas offscreen per compositare i livelli */
 const lc=document.createElement('canvas'); const lctx=lc.getContext('2d');
 let cols=21, rows=21, R=36;   // 21×21: dispari, così gli assi di simmetria cadono sulle celle
@@ -530,7 +557,7 @@ let cols=21, rows=21, R=36;   // 21×21: dispari, così gli assi di simmetria ca
 let colPhase=0;
 let colFlip=false, rowFlip=false;   // alternanza del lato (dx/sx, giù/su) per i delta DISPARI del resize
 const colPar=c=>(((c+colPhase)%2)+2)%2;
-let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0, outsideBlack=false;
+let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0;
 let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'erase' | 'bucket'
 /* MODALITÀ PATTERN: null = tela normale · {shape:'rect'|'strip'|'hexa'|'rhomb'} — le dimensioni
    della forma derivano SEMPRE da cols/rows (hexa: raggio dal lato minore · rhomb: lato B dalle righe) */
@@ -541,6 +568,7 @@ let stampMode=null;                // null (sostituisci) | 'merge' ⊕ | 'sub' �
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
 const brush={ tile:TILES[0]?TILES[0].id:null, tileB:null, cell:null, rot:0, flip:false, inv:false, sw:0.34, col:null };   // sw = spessore tratto per-timbro · col = colore cella (null = colore del livello) · tileB = seconda tessera del dither (⇧+clic in libreria) · cell = pennello COMPOSITO (contagocce su una cella con più forme: si timbra l'intera combinazione)
 const cursor={c:0,r:0};
+let cursorPlaced=false;   // finché l'utente non piazza il cursore (clic sulla tela o frecce), il clic in libreria/slot NON deposita
 const view={zoom:1,x:0,y:0};   // vista: zoom + traslazione (px) applicati via CSS transform sulla tavola
 let selection=null;                // Set di chiavi "c,r" (null = nessuna selezione)
 let clipboard=null;                // {w,h, data:[{dc,dr,c,r,cell}]} — dc/dr = offset (incolla al cursore) · c/r = posizione assoluta (incolla sul posto)
@@ -721,8 +749,10 @@ function compositeLayers(Ls,alpha){
   }
 }
 function drawBgImage(W,H,g){ if(!bgImage)return; g=g||ctx; g.save(); g.globalAlpha=bgOpacity;
-  const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
-  g.drawImage(bgImage,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s); g.restore(); }
+  const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height;
+  const s=Math.max(W/iw,H/ih)*bgT.s;   // base = "cover" della tavola, poi la scala utente
+  g.translate(W/2+bgT.x, H/2+bgT.y); g.rotate(bgT.rot*Math.PI/180);
+  g.drawImage(bgImage,-iw*s/2,-ih*s/2,iw*s,ih*s); g.restore(); }
 /* ---- unità del pattern: la tavola (carta+immagine+livelli, solo dominio) su un offscreen
    a risoluzione q, pronta per essere timbrata come copia ---- */
 const puC=document.createElement('canvas'); const puG=puC.getContext('2d');
@@ -794,7 +824,7 @@ function gridClipPath(){ const p=new Path2D();
 function render(hoverC,hoverR){
   const paper=pageDark?'#000':'#fff';
   const uibg=(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#2b2e35').trim();
-  const [W,H]=setupBoard(pattern?null:(outsideBlack?'#000':uibg));   // fuori dalla griglia = colore sfondo UI (nero solo se attivato)
+  const [W,H]=setupBoard(pattern?null:uibg);   // fuori dalla griglia = sempre il colore dello sfondo UI
   // PATTERN: la tavola ripetuta attorno all'originale (copie identiche: si giudica il pattern vero)
   if(pattern){
     // TUTTO il viewport è carta: i filetti di antialiasing tra le copie devono cadere su carta, non sul fondo scuro
@@ -1234,6 +1264,7 @@ function retreat(){ cursor.c--; if(cursor.c<0){cursor.c=cols-1;cursor.r=Math.max
    e il movimento netto è orizzontale — niente più sorprese. ↑/↓ restano puri. */
 let zigBias=1;
 function moveCursor(dc,dr){
+  cursorPlaced=true;
   if(dc!==0 && dr===0){
     const dir=Math.sign(dc);
     const c=cursor.c, nc=Math.max(0,Math.min(cols-1,c+dir));
@@ -1318,10 +1349,17 @@ const localXY=e=>{ const b=board.getBoundingClientRect();
   return [ x*co-y*si + W/2, x*si+y*co + H/2 ];   // coordinate contenuto (de-ruotate)
 };
 board.addEventListener('contextmenu',e=>e.preventDefault());
+board.addEventListener('pointerleave',()=>{ hoverPt=null; });   // col mouse fuori dalla tela, `c` torna al cursore tastiera
 let dragMove=null;   // {startPt, anchor:[c,r], curPt} — trascinamento della selezione
 board.addEventListener('pointerdown',e=>{
   if(spaceDown || e.button===1) return;   // pan: gestito a livello di stage
   const pt=localXY(e); const hit=cellAt(...pt);
+  // modalità ✥ sposta sfondo: il trascinamento muove l'immagine, non disegna
+  if(bgMoveMode && bgImage && e.button===0){
+    bgDrag={sx:pt[0],sy:pt[1],x0:bgT.x,y0:bgT.y};
+    board.setPointerCapture(e.pointerId); return;
+  }
+  if(hit) cursorPlaced=true;
   if(tool==='lasso'){
     if(e.button===2){ lassoPts.length=0; render(); return; }   // destro = annulla il lazo
     // clic di nuovo sul PRIMO esagono = chiudi (oltre a doppio clic e Invio)
@@ -1376,6 +1414,7 @@ board.addEventListener('dblclick',e=>{
 board.addEventListener('pointermove',e=>{
   if(panning) return;   // pan gestito a livello di stage
   const pt=localXY(e); hoverPt=pt;
+  if(bgDrag){ bgT.x=bgDrag.x0+(pt[0]-bgDrag.sx); bgT.y=bgDrag.y0+(pt[1]-bgDrag.sy); render(); return; }
   if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; render(); return; }
   if(ditherDrag){ ditherDrag.cur=e.shiftKey?ditherSnap(ditherDrag.start,pt):pt; ditherRestore(); ditherApply(); render(); return; }
   const hit=cellAt(...pt);
@@ -1389,6 +1428,7 @@ board.addEventListener('pointermove',e=>{
   render(hit?hit[0]:null, hit?hit[1]:null);
 });
 board.addEventListener('pointerup',e=>{
+  if(bgDrag){ bgDrag=null; return; }
   if(ditherDrag){   // applica il dither: torna all'originale, snapshot per l'undo, riapplica
     ditherRestore(); snapshot(); ditherApply(); ditherDrag=null; render(); updateStatus(); return;
   }
@@ -1585,12 +1625,15 @@ function buildPalette(){
     b.innerHTML=tileSVG(t);
     b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }   // ⌥+clic = preferita
       if(e.shiftKey){ setTileB(t.id); return; }               // ⇧+clic = tessera B del dither
-      selectTile(t.id); if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };   // in seleziona senza selezione: deposita nella cella del cursore
+      if(e.target.classList.contains('tilex')) return;        // il clic sulla × non seleziona
+      selectTile(t.id); if(tool==='select'&&cursorPlaced&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };   // deposita al cursore SOLO se è stato piazzato davvero (niente timbro fantasma in 0,0)
     b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
       if(cell&&cell.t!=null) cell.t=t.id;                              // piena: sostituisce la tessera (tiene rot/flip/colore)
       else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } // vuota: riempie con l'orientazione corrente del pennello
     }); } };   // doppio clic = applica la tessera a TUTTA la selezione
-    if(t.cat==='Forgiate') b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
+    if(t.cat==='Forgiate'){ b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
+      const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title='elimina questa tessera forgiata';
+      x.onclick=e=>{ e.stopPropagation(); deleteForged(t.id); }; b.appendChild(x); }
     pal.appendChild(b);
   });
 }
@@ -1609,9 +1652,13 @@ function quickTileButton(t){
   b.innerHTML=tileSVG(t);
   b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }
     if(e.shiftKey){ setTileB(t.id); return; }
-    selectTile(t.id); if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };
+    if(e.target.classList.contains('tilex')) return;
+    selectTile(t.id); if(tool==='select'&&cursorPlaced&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };
   b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
     if(cell&&cell.t!=null) cell.t=t.id; else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } }); } };
+  if(t.cat==='Forgiate'){ b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
+    const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title='elimina questa tessera forgiata';
+    x.onclick=e=>{ e.stopPropagation(); deleteForged(t.id); }; b.appendChild(x); }
   return b;
 }
 function buildQuickTiles(){
@@ -1638,7 +1685,7 @@ function buildSlots(){
       if(e.shiftKey && slots[i] && slots[i].t){ setTileB(slots[i].t); return; }   // ⇧+clic = tessera B del dither (come in libreria)
       if(assignMode){ slots[i]=brushCell(); setAssign(false); buildSlots(); }   // m + click: assegna il preset attivo (anche sovrascrive)
       else if(slots[i]){ applyPreset(slots[i]);                                 // slot pieno: applica il preset (con trasformazioni)
-        if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } }   // come la libreria: deposita al cursore
+        if(tool==='select'&&cursorPlaced&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } }   // come la libreria: deposita solo a cursore piazzato
       else { slots[i]=brushCell(); buildSlots(); }                              // slot vuoto: click = assegna il preset attivo
     };
     d.ondblclick=()=>{ const p=slots[i]; if(p&&selection&&selection.size){   // doppio clic = applica il preset a tutta la selezione
@@ -1920,7 +1967,6 @@ $('pageDark').oninput=()=>{pageDark=$('pageDark').checked;render();};
 $('zIn').onclick=()=>zoomByCenter(1.2);
 $('zOut').onclick=()=>zoomByCenter(1/1.2);
 $('zPct').onclick=()=>fitView();
-$('outBlack').oninput=()=>{outsideBlack=$('outBlack').checked;render();};
 function rotateBoard(delta){ snapshot(); boardRot=((boardRot+delta)%360+360)%360; document.documentElement.style.setProperty('--boardRot',boardRot+'deg'); render(); }
 $('gridRotL').onclick=()=>rotateBoard(-90);
 $('gridRotR').onclick=()=>rotateBoard(90);
@@ -1957,13 +2003,28 @@ function buildLayers(){
     row.onclick=e=>{ if(e.shiftKey) toggleLayerSel(i); else setActive(i); syncBrushUI(); buildLayers(); };
     const handle=row.querySelector('.lhandle'); handle.draggable=true;
     handle.onclick=e=>e.stopPropagation();
-    handle.ondragstart=e=>{dragI=i;};
-    row.ondragover=e=>{e.preventDefault();row.classList.add('dragover');};
-    row.ondragleave=()=>row.classList.remove('dragover');
-    row.ondrop=e=>{e.preventDefault();row.classList.remove('dragover');moveLayer(dragI,i);};
+    handle.ondragstart=e=>{ dragI=i; setTimeout(()=>row.classList.add('dragsrc'),0); };
+    handle.ondragend=()=>{ dragI=null; clearLayerIns(); row.classList.remove('dragsrc'); };
     el.appendChild(row);
   });
 }
+/* drop dei livelli sul CONTENITORE con indice di inserimento dalla Y del mouse
+   (la lista è mostrata invertita: riga in cima = cima dello stack) */
+const layersEl=$('layers');
+function layerInsIndex(y){ const rws=[...layersEl.querySelectorAll('.layerRow')];
+  for(let j=0;j<rws.length;j++){ const r=rws[j].getBoundingClientRect(); if(y<r.top+r.height/2) return j; }
+  return rws.length; }
+function clearLayerIns(){ layersEl.querySelectorAll('.insT,.insB').forEach(x=>x.classList.remove('insT','insB')); }
+function markLayerIns(idx){ clearLayerIns(); const rws=layersEl.querySelectorAll('.layerRow'); if(!rws.length) return;
+  if(idx>=rws.length) rws[rws.length-1].classList.add('insB'); else rws[idx].classList.add('insT'); }
+layersEl.addEventListener('dragover',e=>{ if(dragI==null) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+  markLayerIns(layerInsIndex(e.clientY)); });
+layersEl.addEventListener('dragleave',e=>{ if(!layersEl.contains(e.relatedTarget)) clearLayerIns(); });
+layersEl.addEventListener('drop',e=>{ if(dragI==null) return; e.preventDefault();
+  const li=layerInsIndex(e.clientY), from=dragI; dragI=null; clearLayerIns();
+  let to=layers.length-li;                    // slot di lista (0 = cima) → posizione nello stack (0 = fondo)
+  if(from<to) to--;                           // l'indice è calcolato PRIMA della rimozione
+  if(to!==from) moveLayer(from,to); else buildLayers(); });
 function addLayer(){ snapshot(); layers.push(newLayer()); setActive(layers.length-1); buildLayers(); render(); }
 /* duplica il livello attivo (tessere comprese) e lo mette SOPRA l'originale, come livello attivo */
 function duplicateLayer(){ snapshot();
@@ -1978,9 +2039,17 @@ $('addLayer').onclick=addLayer;
 $('dupLayer').onclick=duplicateLayer;
 /* ---- SFONDO IMMAGINE ---- */
 $('bgLoad').onclick=()=>$('bgFile').click();
-$('bgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const img=new Image(); img.onload=()=>{ bgImage=img; render(); }; img.src=URL.createObjectURL(f); e.target.value=''; };
-$('bgClear').onclick=()=>{ bgImage=null; render(); };
+$('bgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const img=new Image(); img.onload=()=>{ bgImage=img; bgT={x:0,y:0,s:1,rot:0}; syncBgUI(); render(); }; img.src=URL.createObjectURL(f); e.target.value=''; };
+$('bgClear').onclick=()=>{ bgImage=null; bgT={x:0,y:0,s:1,rot:0}; setBgMove(false); syncBgUI(); render(); };
 $('bgOpacity').oninput=()=>{ bgOpacity=+$('bgOpacity').value/100; $('bgOpVal').textContent=$('bgOpacity').value+'%'; render(); };
+/* trasformazione dello sfondo: scala/rotazione dagli slider, spostamento trascinando sulla tela (✥) */
+$('bgScale').oninput=()=>{ bgT.s=+$('bgScale').value/100; $('bgScVal').textContent=$('bgScale').value+'%'; render(); };
+$('bgRot').oninput=()=>{ bgT.rot=+$('bgRot').value; $('bgRotVal').textContent=$('bgRot').value+'°'; render(); };
+$('bgReset').onclick=()=>{ bgT={x:0,y:0,s:1,rot:0}; syncBgUI(); render(); };
+function setBgMove(v){ bgMoveMode=!!v; $('bgMove').classList.toggle('on',bgMoveMode); board.style.cursor=bgMoveMode?'move':''; updateStatus(); }
+$('bgMove').onclick=()=>{ if(!bgImage){ flashStatus('carica prima un\'immagine di sfondo'); return; } setBgMove(!bgMoveMode); };
+function syncBgUI(){ $('bgScale').value=Math.round(bgT.s*100); $('bgScVal').textContent=Math.round(bgT.s*100)+'%';
+  $('bgRot').value=Math.round(bgT.rot); $('bgRotVal').textContent=Math.round(bgT.rot)+'°'; }
 /* ---- sezioni delle barre: collassabili (clic sull'header) e spostabili (maniglia ⠿) ---- */
 let dragSec=null;
 function saveSections(bar){
@@ -2004,11 +2073,18 @@ function initSections(){
         const car=document.createElement('span'); car.className='scaret'; car.textContent='▾'; hdr.appendChild(car);
         hdr.onclick=e=>{ if(e.target===h)return; sec.classList.toggle('closed'); car.textContent=sec.classList.contains('closed')?'▸':'▾'; saveSections(bar); };
         h.draggable=true;
-        h.ondragstart=()=>{ dragSec=sec; };
-        sec.ondragover=e=>{ if(dragSec&&dragSec.parentElement===body){ e.preventDefault(); sec.classList.add('dragover'); } };
-        sec.ondragleave=()=>sec.classList.remove('dragover');
-        sec.ondrop=e=>{ e.preventDefault(); sec.classList.remove('dragover');
-          if(dragSec&&dragSec!==sec&&dragSec.parentElement===body){ body.insertBefore(dragSec,sec); saveSections(bar); } dragSec=null; };
+        h.ondragstart=()=>{ dragSec=sec; setTimeout(()=>sec.classList.add('dragsrc'),0); };
+        h.ondragend=()=>{ dragSec=null; sec.classList.remove('dragsrc');
+          body.querySelectorAll('.insT,.insB').forEach(x=>x.classList.remove('insT','insB')); };
+        sec.ondragover=e=>{ if(!(dragSec&&dragSec.parentElement===body)) return; e.preventDefault();
+          const r=sec.getBoundingClientRect(), after=e.clientY>r.top+r.height/2;   // metà alta = sopra, metà bassa = sotto
+          body.querySelectorAll('.insT,.insB').forEach(x=>x.classList.remove('insT','insB'));
+          sec.classList.add(after?'insB':'insT'); };
+        sec.ondragleave=()=>sec.classList.remove('insT','insB');
+        sec.ondrop=e=>{ e.preventDefault(); sec.classList.remove('insT','insB');
+          if(dragSec&&dragSec!==sec&&dragSec.parentElement===body){
+            const r=sec.getBoundingClientRect(), after=e.clientY>r.top+r.height/2;
+            body.insertBefore(dragSec, after?sec.nextSibling:sec); saveSections(bar); } dragSec=null; };
       }
       if(st.closed && st.closed.includes(sec.dataset.sec)){ sec.classList.add('closed'); const c=sec.querySelector('.scaret'); if(c)c.textContent='▸'; }
     });
@@ -2093,18 +2169,33 @@ function buildTimeline(){
       x.onclick=ev=>{ ev.stopPropagation(); deleteFrame(i); }; d.appendChild(x); }
     d.onclick=()=>{ stopPlay(); if(i!==anim.cur) animGoto(i); };
     d.draggable=true;
-    d.ondragstart=e=>{ dragFrame=i; e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; };   // setData: serve a Firefox/Safari per avviare il drag
-    d.ondragover=e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; };
-    d.ondrop=e=>{ e.preventDefault(); if(dragFrame==null||dragFrame===i){ dragFrame=null; return; }
-      stopPlay(); snapshot(); animCommit(); const curData=anim.frames[anim.cur];
-      const [f]=anim.frames.splice(dragFrame,1); anim.frames.splice(i,0,f);
-      anim.cur=anim.frames.indexOf(curData);
-      updateOnionLayers();
-      dragFrame=null; buildTimeline(); render(); };
+    d.ondragstart=e=>{ dragFrame=i; e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move';   // setData: serve a Firefox/Safari per avviare il drag
+      setTimeout(()=>d.classList.add('dragsrc'),0); };   // dopo lo snapshot dell'immagine di drag
+    d.ondragend=()=>{ dragFrame=null; clearFrameIns(); d.classList.remove('dragsrc'); };
     el.appendChild(d);
   });
   updFrLabel();
 }
+/* drop dei frame gestito sul CONTENITORE con indice di inserimento dalla X del mouse:
+   così si può mollare anche all'inizio, alla fine e negli spazi tra le miniature */
+const framesEl=$('frames');
+function frameInsIndex(x){ const ths=[...framesEl.querySelectorAll('.fthumb')];
+  for(let j=0;j<ths.length;j++){ const r=ths[j].getBoundingClientRect(); if(x<r.left+r.width/2) return j; }
+  return ths.length; }
+function clearFrameIns(){ framesEl.querySelectorAll('.insL,.insR').forEach(x=>x.classList.remove('insL','insR')); }
+function markFrameIns(idx){ clearFrameIns(); const ths=framesEl.querySelectorAll('.fthumb'); if(!ths.length) return;
+  if(idx>=ths.length) ths[ths.length-1].classList.add('insR'); else ths[idx].classList.add('insL'); }
+framesEl.addEventListener('dragover',e=>{ if(dragFrame==null) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+  markFrameIns(frameInsIndex(e.clientX)); });
+framesEl.addEventListener('dragleave',e=>{ if(!framesEl.contains(e.relatedTarget)) clearFrameIns(); });
+framesEl.addEventListener('drop',e=>{ if(dragFrame==null) return; e.preventDefault();
+  const idx=frameInsIndex(e.clientX), from=dragFrame; dragFrame=null; clearFrameIns();
+  let to=idx; if(from<to) to--;               // l'indice di inserimento è calcolato PRIMA della rimozione
+  if(to===from){ buildTimeline(); return; }
+  stopPlay(); snapshot(); animCommit(); const curData=anim.frames[anim.cur];
+  const [f]=anim.frames.splice(from,1); anim.frames.splice(to,0,f);
+  anim.cur=anim.frames.indexOf(curData);
+  updateOnionLayers(); buildTimeline(); render(); });
 function updateTimelineAct(){ document.querySelectorAll('#frames .fthumb').forEach(d=>d.classList.toggle('act',+d.dataset.i===anim.cur)); }
 function updateThumb(i){ const d=document.querySelector('#frames .fthumb[data-i="'+i+'"]'); if(!d)return;
   drawFrameOn(d.querySelector('canvas'), i===anim.cur?layers:anim.frames[i]); }
@@ -2272,7 +2363,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={cols,rows,pageDark,outsideBlack,boardRot,bgOpacity, pattern, colPhase, slots, forged:FORGED,
+  const blob={cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED,
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur, pingpong:anim.pingpong} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -2288,7 +2379,7 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     colPhase=o.colPhase||0;
     pattern=o.pattern||null; patCache.key=''; updatePatternUI();
     if(o.pageDark!=null){pageDark=o.pageDark;$('pageDark').checked=pageDark;}
-    if(o.outsideBlack!=null){outsideBlack=o.outsideBlack;$('outBlack').checked=outsideBlack;}
+    bgT = o.bgT ? {x:+o.bgT.x||0, y:+o.bgT.y||0, s:+o.bgT.s||1, rot:+o.bgT.rot||0} : {x:0,y:0,s:1,rot:0}; syncBgUI();   // o.outsideBlack dei salvataggi vecchi: ignorato (toggle rimosso)
     if(o.bgOpacity!=null){bgOpacity=o.bgOpacity;$('bgOpacity').value=Math.round(bgOpacity*100);$('bgOpVal').textContent=Math.round(bgOpacity*100)+'%';}
     bgImage=null; if(o.bg){ const img=new Image(); img.onload=()=>render(); img.src=o.bg; bgImage=img; }
     if(o.forged){ o.forged.forEach(f=>{ if(!FORGED.some(x=>x.id===f.id)) FORGED.push(f); registerForged(f); }); saveForged(); buildPalette(); }
@@ -2304,6 +2395,7 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
 /* GUIDA CONTESTUALE (§8.12): dice sempre cosa puoi fare con lo strumento/modalità/selezione correnti */
 function hintHTML(){
   const kb=s=>'<kbd>'+s+'</kbd>';
+  if(bgMoveMode) return `<b>✥ Sposta sfondo</b> · trascina sulla tela per muovere l'immagine · scala e rotazione nella sezione Sfondo · ${kb('Esc')} esce`;
   const hasSel=selection&&selection.size;
   const fus={merge:'⊕ unisci',sub:'⊖ sottrai',iso:'∩ interseca',xor:'⊻ escludi'}[stampMode];
   let h;
@@ -2439,13 +2531,17 @@ window.addEventListener('keydown',e=>{
     case 'r': xformRot(1); break;       // selezione se c'è, altrimenti pennello (vedi anteprima in alto a destra)
     case 'f': xformFlip(); break;
     case 'i': xformInv(); break;
-    case 'Escape': if(ditherDrag){ ditherCancel(); break; } lassoPts.length=0; selection=null; break;
+    case 'Escape': if(ditherDrag){ ditherCancel(); break; } if(bgMoveMode){ setBgMove(false); break; } lassoPts.length=0; selection=null; break;
     case 'h': showGrid=!showGrid; $('grid').classList.toggle('on',!showGrid); break;
     case 'u': $('merge').click(); break;
     case 'x': $('sub').click(); break;
     case 'g': $('bucket').click(); break;
     case 't': $('dither').click(); break;
-    case 'c': if(!pickBrush(cursor.c,cursor.r)) flashStatus('cella vuota: niente da prelevare'); break;   // contagocce
+    case 'c': { // contagocce: preleva la cella SOTTO IL MOUSE (fallback: cursore tastiera)
+      const h=hoverPt?cellAt(...hoverPt):null;
+      const tc=h?h[0]:cursor.c, tr=h?h[1]:cursor.r;
+      if(h){ cursor.c=tc; cursor.r=tr; }
+      if(!pickBrush(tc,tr)) flashStatus('cella vuota: niente da prelevare'); } break;
     case 'z': if(e.metaKey||e.ctrlKey){doUndo();} else doUndo(); break;
     case 'v': paste(); break;
     case 'm': setAssign(!assignMode); break;
@@ -2462,7 +2558,7 @@ window.addEventListener('keydown',e=>{
     case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': case '0':
       // slot 0-9: seleziona sempre il preset · DEPOSITA solo in modalità Seleziona (in matita tiene solo selezionato)
       { const idx=(k==='0')?9:(+k-1); if(slots[idx]){ applyPreset(slots[idx]);
-        if(tool==='select'&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); } } } break;
+        if(tool==='select'&&cursorPlaced&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); } } } break;
     default: handled=false;
   }
   if(handled){ e.preventDefault(); updateStatus(); render(); }
@@ -2529,8 +2625,10 @@ function svgLayersBody(W,H){
 }
 function svgBgImage(W,H){
   if(!bgImage) return '';
-  const url=bgToDataURL(); const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height; const s=Math.max(W/iw,H/ih);
-  return `<image href="${url}" x="${((W-iw*s)/2).toFixed(1)}" y="${((H-ih*s)/2).toFixed(1)}" width="${(iw*s).toFixed(1)}" height="${(ih*s).toFixed(1)}" opacity="${bgOpacity}"/>`;
+  const url=bgToDataURL(); const iw=bgImage.naturalWidth||bgImage.width, ih=bgImage.naturalHeight||bgImage.height;
+  const s=Math.max(W/iw,H/ih)*bgT.s;   // stessa trasformazione del canvas (drawBgImage)
+  return `<g transform="translate(${(W/2+bgT.x).toFixed(1)} ${(H/2+bgT.y).toFixed(1)}) rotate(${(+bgT.rot).toFixed(1)})">`
+    +`<image href="${url}" x="${(-iw*s/2).toFixed(1)}" y="${(-ih*s/2).toFixed(1)}" width="${(iw*s).toFixed(1)}" height="${(ih*s).toFixed(1)}" opacity="${bgOpacity}"/></g>`;
 }
 function svgWrap(cw,ch,body){
   // dimensioni FISICHE in mm (lato lungo = 280mm): senza, Illustrator legge i px della tavola e l'artboard viene enorme
@@ -2595,9 +2693,9 @@ function createProject(){
   cols=nc; rows=nr; $('cols').value=cols; $('rows').value=rows;
   colPhase=0; colFlip=false; rowFlip=false;
   pattern=pat; patCache.key=''; axisCache.key='';
-  selection=null; lassoPts.length=0; bgImage=null;
+  selection=null; lassoPts.length=0; bgImage=null; bgT={x:0,y:0,s:1,rot:0}; setBgMove(false); syncBgUI();
   boardRot=0; document.documentElement.style.setProperty('--boardRot','0deg');
-  cursor.c=Math.round((cols-1)/2); cursor.r=Math.round((rows-1)/2);
+  cursor.c=Math.round((cols-1)/2); cursor.r=Math.round((rows-1)/2); cursorPlaced=false;
   undoStack.length=0; redoStack.length=0; refreshUndo();   // progetto nuovo = storia nuova
   buildLayers(); updatePatternUI(); updateStatus(); fitView(); render();
   $('newDlg').hidden=true;
