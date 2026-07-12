@@ -242,7 +242,7 @@
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- disegno -->
-    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella">✎</button>
+    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita)">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
     <button class="btn ic" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
@@ -285,6 +285,11 @@
     <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · 0-9 piazza"></div>
   </div>
 </header>
+<div id="pencilPop" class="pop" hidden>
+  <div class="pophdr">Modalità della matita</div>
+  <button class="popitem" data-mode="free">Libera <span>timbra tutto il passaggio</span></button>
+  <button class="popitem" data-mode="line">Linea pulita <span>niente grumi (pixel-perfect)</span></button>
+</div>
 <div id="ditherPop" class="pop" hidden>
   <div class="pophdr">Trama del dither</div>
   <button class="popitem" data-pat="b4">Bayer 4×4 <span>morbido</span></button>
@@ -1397,6 +1402,7 @@ board.addEventListener('pointerdown',e=>{
     ditherApply(); render(); updateStatus(); board.setPointerCapture(e.pointerId); return;
   }
   selection=null; snapshot(); painting=true; mode=(e.button===2||tool==='erase')?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
+  ppChain=(tool==='draw' && mode==='stamp' && pencilMode==='line')?[]:null;   // linea pulita: parte la catena del tratto
   cursor.c=hit[0]; cursor.r=hit[1]; applyAt(hit); render(hit[0],hit[1]); updateStatus(); board.setPointerCapture(e.pointerId);
 });
 board.addEventListener('dblclick',e=>{
@@ -1438,13 +1444,36 @@ board.addEventListener('pointerup',e=>{
     if(moved && target) dropSelection(dragMove.anchor,target,e.altKey);   // Alt = copia
     dragMove=null; render();
   }
-  painting=false;selecting=false;baseSel=null;selAnchorKey=null;lastPaintPt=null;
+  painting=false;selecting=false;baseSel=null;selAnchorKey=null;lastPaintPt=null;ppChain=null;
   if(spaceDown)board.style.cursor='grab'; else updateCursor();
 });
-board.addEventListener('pointerleave',()=>{painting=false;lastPaintPt=null;render();});
+board.addEventListener('pointerleave',()=>{painting=false;lastPaintPt=null;ppChain=null;render();});
 function applyAt([c,r]){ const k=key(c,r); if(k===lastKey)return; lastKey=k; cursor.c=c;cursor.r=r;
-  for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r); else stamp(t.c,t.r,t); }
+  const rec=ppChain?{c,r,writes:[]}:null;   // matita "linea pulita": ricorda cosa scrive questo punto (con le copie simmetriche) per poterlo togliere se è un gomito
+  for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r);
+    else { if(rec){ const kk=key(t.c,t.r); const prev=cells.get(kk);
+        rec.writes.push({k:kk, had:!!prev, prev:prev?JSON.parse(JSON.stringify(prev)):null}); }
+      stamp(t.c,t.r,t); } }
+  if(rec){ ppChain.push(rec); ppTrim(); }
   if(mode!=='erase' && typeof coachEvent==='function') coachEvent('stamp'); }
+/* ---- matita LINEA PULITA (pixel-perfect di Aseprite, adattato agli esagoni) ----
+   Aseprite: nel freehand, se gli ultimi 3 pixel formano una L, il pixel d'angolo si toglie.
+   Su esagoni: se le ultime 3 celle del tratto sono TUTTE vicine tra loro (triangolo compatto),
+   la cella di mezzo è un grumo — si toglie ripristinando ciò che c'era prima, e la linea resta
+   connessa perché prima e terza sono già vicine. Iterato finché ci sono gomiti (come Aseprite). */
+let ppChain=null;   // attiva solo durante un tratto di matita in modalità 'line'
+function hexAdj(a,b){ const A=toCube(a.c,a.r), B=toCube(b.c,b.r);
+  return (Math.abs(A[0]-B[0])+Math.abs(A[1]-B[1])+Math.abs(A[2]-B[2]))===2; }   // distanza cubica 1
+function ppTrim(){
+  while(ppChain.length>=3){
+    const a=ppChain[ppChain.length-3], b=ppChain[ppChain.length-2], p=ppChain[ppChain.length-1];
+    if(!(hexAdj(a,p)&&hexAdj(a,b)&&hexAdj(b,p))) break;   // niente triangolo compatto: nessun gomito
+    const lastKeys=new Set(p.writes.map(w=>w.k));         // non toccare ciò che l'ULTIMO punto ha riscritto
+    for(const w of b.writes){ if(lastKeys.has(w.k)) continue;
+      if(w.had) cells.set(w.k,w.prev); else cells.delete(w.k); }
+    ppChain.splice(ppChain.length-2,1);
+  }
+}
 /* dipinge fino a pt INTERPOLANDO dal punto precedente: campiona il segmento ogni ~mezzo esagono,
    così anche i tratti velocissimi non saltano celle */
 let lastPaintPt=null;
@@ -1874,6 +1903,7 @@ function setTool(t){ tool=t; lassoPts.length=0; ditherCancel();
   $('bucket').classList.toggle('on',t==='bucket');
   $('dither').classList.toggle('on',t==='dither');
   if(t!=='dither') $('ditherPop').hidden=true;   // uscendo dal dither chiudi il pannello trama
+  if(t!=='draw') $('pencilPop').hidden=true;     // uscendo dalla matita chiudi il pannello modalità
   updateCursor(); updateStatus(); render(); }
 $('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); updateStatus(); render(); };
 $('symAxes').onclick=()=>{ showAxes=!showAxes; $('symAxes').classList.toggle('on',showAxes);
@@ -1881,11 +1911,24 @@ $('symAxes').onclick=()=>{ showAxes=!showAxes; $('symAxes').classList.toggle('on
 $('symAxes').classList.toggle('on',showAxes);
 $('toolSelect').onclick=()=>setTool('select');
 $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
-$('toolDraw').onclick=()=>setTool(tool==='draw'?'select':'draw');
+// matita come il dither: 1º clic attiva lo strumento · 2º clic (già attiva) apre/chiude il pannello modalità (libera / linea pulita, stile Aseprite)
+$('toolDraw').onclick=()=>{ if(tool!=='draw') setTool('draw'); else togglePencilPop(); };
 $('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
 $('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
 // dither: 1º clic attiva lo strumento · 2º clic (già attivo) apre/chiude sotto l'icona il pannello con le trame
 $('dither').onclick=()=>{ if(tool!=='dither') setTool('dither'); else toggleDitherPop(); };
+/* pannello modalità matita (libera / linea pulita) — stesso pattern del dither */
+let pencilMode=localStorage.getItem('hexagraph.pencil')==='line'?'line':'free';
+function markPencilPop(){ $('pencilPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===pencilMode)); }
+function togglePencilPop(){ const p=$('pencilPop');
+  if(p.hidden){ const r=$('toolDraw').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markPencilPop(); p.hidden=false; }
+  else p.hidden=true; }
+$('pencilPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
+  pencilMode=b.dataset.mode; localStorage.setItem('hexagraph.pencil',pencilMode); markPencilPop(); $('pencilPop').hidden=true; updateStatus(); }; });
+document.addEventListener('click',e=>{   // clic fuori dal pannello (e non sull'icona) = chiudi
+  if($('pencilPop').hidden) return;
+  if($('pencilPop').contains(e.target)||$('toolDraw').contains(e.target)) return;
+  $('pencilPop').hidden=true; });
 function markDitherPop(){ $('ditherPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.pat===ditherPat)); }
 function toggleDitherPop(){ const p=$('ditherPop');
   if(p.hidden){ const r=$('dither').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markDitherPop(); p.hidden=false; }
@@ -2410,7 +2453,7 @@ function hintHTML(){
   } else if(tool==='erase'){
     h = `<b>Gomma</b> · clic o trascina cancella · ${kb('c')} / ${kb('⌥')}+clic = contagocce`;
   } else if(tool==='draw'){
-    h = `<b>Matita</b> · clic timbra · trascina dipinge · destro cancella · ${kb('r')} ${kb('f')} ${kb('i')} orienta · ${kb('c')} contagocce`;
+    h = `<b>Matita${pencilMode==='line'?' · linea pulita':''}</b> · clic timbra · trascina dipinge · destro cancella · ${kb('r')} ${kb('f')} ${kb('i')} orienta · ${kb('c')} contagocce · clic sull'icona = modalità`;
   } else if(hasSel){
     h = `<b>Selezione</b> (${selection.size}) · trascina sposta (${kb('⌥')} copia) · ${kb('r')}${kb('f')} gruppo · ${kb('⇧R')}${kb('⇧F')} singole · ${kb('i')} inverti · swatch colora · ${kb('⇧G')} forgia · ${kb('Canc')} svuota`;
   } else {
