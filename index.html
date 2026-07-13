@@ -308,14 +308,14 @@
         <div class="glabel">Tessere <span id="tcount" style="color:var(--muted)"></span> <span style="color:var(--muted)">— <kbd>,</kbd>/<kbd>.</kbd></span><span class="palzoom"><button class="pz" id="palMinus" title="tessere più piccole">−</button><button class="pz" id="palPlus" title="tessere più grandi">+</button></span></div>
         <div class="palette" id="palfav"></div>
         <div class="palette" id="palette"></div>
-        <div class="legend"><kbd>⌥</kbd>+clic su una tessera = aggiungi/togli dalle <b>Preferite</b>; le <b>Recenti</b> si aggiornano da sole. <b>Contagocce</b>: <kbd>c</kbd> sulla cella del cursore, o <kbd>⌥</kbd>+clic sulla tela, copia la tessera con il suo aspetto nel pennello.</div>
+        <div class="legend" data-i18n="lib-legend"><kbd>⌥</kbd>+clic su una tessera = aggiungi/togli dalle <b>Preferite</b>; le <b>Recenti</b> si aggiornano da sole. <b>Contagocce</b>: <kbd>c</kbd> sulla cella del cursore, o <kbd>⌥</kbd>+clic sulla tela, copia la tessera con il suo aspetto nel pennello.</div>
       </div>
       <div class="group" data-sec="conn">
         <div class="glabel">Tratto</div>
         <label class="field">Spessore linea <span id="swVal">0.34</span>
           <input type="range" id="connSW" min="0.10" max="0.70" step="0.02" value="0.34">
         </label>
-        <div class="legend">Vale per i <b>prossimi</b> timbri (ogni linea ricorda il suo). <kbd>[</kbd>/<kbd>]</kbd> regolano la cella sotto il cursore.</div>
+        <div class="legend" data-i18n="stroke-legend">Vale per i <b>prossimi</b> timbri (ogni linea ricorda il suo). <kbd>[</kbd>/<kbd>]</kbd> regolano la cella sotto il cursore.</div>
       </div>
       <div class="group" data-sec="forge">
         <div class="glabel">Forgia</div>
@@ -324,6 +324,10 @@
       </div>
       <div class="group" data-sec="info">
         <div class="glabel">Info</div>
+        <div class="segrow" style="margin-bottom:8px">
+          <button class="seg" id="langIt">Italiano</button>
+          <button class="seg" id="langEn">English</button>
+        </div>
         <button class="btn" id="replayTut">▶ Rivedi il tutorial</button>
         <div class="legend" style="margin-top:8px"><b>Hexagraph</b> è gratuito per uso <b>personale e commerciale</b>. Se lo usi, una citazione è gradita, grazie :)</div>
         <div class="legend" style="margin-top:6px">Un progetto di <b>Simone Virgini</b></div>
@@ -367,7 +371,7 @@
       <div class="group" data-sec="anim">
         <div class="glabel">Timeline</div>
         <button class="btn" id="animBtn">▶ Timeline</button>
-        <div class="legend">Frame in basso: clic = vai · trascina = riordina · ⧉ duplica · + vuoto · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> scorrono · fps modificabile durante il play · ◎ onion skin (coi suoi due colori: frame prima / frame dopo) · export WEBM (video) o sequenza PNG.</div>
+        <div class="legend" data-i18n="anim-legend">Frame in basso: clic = vai · trascina = riordina · ⧉ duplica · + vuoto · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> scorrono · fps modificabile durante il play · ◎ onion skin (coi suoi due colori: frame prima / frame dopo) · export WEBM (video) o sequenza PNG.</div>
       </div>
 
       <div class="group" data-sec="bgimg">
@@ -410,7 +414,7 @@
           <button class="btn" id="grid" title="mostra/nascondi le linee della griglia (h)">▦ griglia sì/no</button>
         </div>
         <label class="toggle"><input type="checkbox" id="pageDark"> sfondo pagina nero</label>
-        <div class="legend" style="margin-top:2px">Muoviti: rotella scorre · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
+        <div class="legend" style="margin-top:2px" data-i18n="move-legend">Muoviti: rotella scorre · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
       </div>
 
       <div class="group" data-sec="saveexp">
@@ -528,6 +532,223 @@ const TILES=(window.TILE_DATA||[]).map(t=>({
 const tileIndex=Object.fromEntries(TILES.map((t,i)=>[t.id,i]));
 function tileById(id){ const i=tileIndex[id]; return i==null?null:TILES[i]; }
 
+/* ==== i18n (§8.14) ====================================================================
+   L'ITALIANO resta la lingua del codice: le stringhe inline sono le chiavi. t(s) le
+   traduce quando LANG è 'en'. Il DOM statico è tradotto da translateDOM() (text node +
+   title/placeholder, con gli originali salvati per poter tornare a IT); le stringhe
+   dinamiche passano per t() nel punto in cui nascono. Lingua iniziale: localStorage
+   'hexagraph.lang', altrimenti navigator.language (it→IT, tutto il resto→EN).
+   NB: la funzione si chiama tt() e non t() perché mezza app usa `t` come variabile-tessera. */
+let LANG=(()=>{ try{ const s=localStorage.getItem('hexagraph.lang'); if(s==='it'||s==='en') return s; }catch(e){}
+  return ((navigator.language||'en').toLowerCase().startsWith('it'))?'it':'en'; })();
+function tt(s){ return LANG==='en' ? (I18N[s]??s) : s; }
+const I18N={
+/* — topbar: tooltip strumenti — */
+'Hexagraph — tessere esagonali':'Hexagraph — hexagonal tiles',
+'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo':'Select: click = one cell · drag = rectangle · double-click a tile = all identical ones (⇧ adds) · drag a selected cell = move the group',
+'Lazo a esagoni: ogni clic aggiunge un punto e si evidenziano gli esagoni del percorso · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla':'Hex lasso: each click adds a point and the hexagons along the path light up · click the FIRST hexagon again (or double-click / Enter) to close · right-click/Esc cancels',
+'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita)':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line)',
+'Cancellina: clic o trascina per cancellare le tessere':'Eraser: click or drag to erase tiles',
+'Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione':'Bucket (g): fill connected empty areas or identical tiles — inside a selection it fills only the selection',
+'Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull\'icona = scegli la trama':'Dither (t): pattern-blend from tile A to tile B — ⇧+click in the library picks B · area works like the bucket · drag = gradient direction and length · single click = 50/50 · Esc cancels · click the icon again = choose the pattern',
+'Unisci (u): la forma si SOMMA a quella presente':'Unite (u): the shape is ADDED to the existing one',
+'Sottrai (x): la forma SCAVA quella presente':'Subtract (x): the shape CARVES the existing one',
+'Interseca: resta SOLO dove le forme si sovrappongono':'Intersect: ONLY where the shapes overlap remains',
+'Escludi: restano solo le parti che NON si sovrappongono':'Exclude: only the parts that do NOT overlap remain',
+'Simmetria: ogni timbro si ripete specchiato/ruotato attorno al centro della tela — nessun asse disegnato, la simmetria la vedi dalle tessere (e dal ghost del pennello)':'Symmetry: every stamp repeats mirrored/rotated around the canvas centre — no axes are drawn, you see the symmetry from the tiles (and the brush ghost)',
+'mostra/nascondi le celle-guida degli assi di simmetria':'show/hide the guide cells of the symmetry axes',
+'ruota -60° (gruppo selezionato o pennello)':'rotate −60° (selected group or brush)',
+'ruota +60° (r) — con ⇧R ruotano le SINGOLE tessere selezionate':'rotate +60° (r) — ⇧R rotates the selected tiles INDIVIDUALLY',
+'specchia (f) — con ⇧F si specchiano le SINGOLE tessere selezionate':'mirror (f) — ⇧F mirrors the selected tiles INDIVIDUALLY',
+'inverti colore (i)':'invert color (i)',
+'annulla (z)':'undo (z)','ripeti (⇧z)':'redo (⇧z)',
+'colori rapidi — clic usa · +/doppio clic cambia col picker · destro toglie':'quick colors — click to use · +/double-click changes via the picker · right-click removes',
+'slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · in Seleziona, clic/0-9 deposita al cursore (dopo averlo piazzato)':'quick slots — click an empty slot to assign the active tile · m + 0-9 (or m + click) reassigns · right-click clears · in Select, click/0-9 drops at the cursor (once placed)',
+'no':'off','specchio ↔':'mirror ↔','specchio ↕':'mirror ↕','croce ↔+↕':'cross ↔+↕','ruota ×2':'rotate ×2','ruota ×3':'rotate ×3','ruota ×6':'rotate ×6',
+/* — popup matita/dither — */
+'Modalità della matita':'Pencil mode','Libera':'Freehand','Linea':'Line',
+'Trama del dither':'Dither pattern','Casuale':'Random','morbido':'soft','grezzo':'coarse','granuloso':'grainy',
+/* — barra sinistra — */
+'comprimi libreria':'collapse the library','comprimi pannello':'collapse the panel',
+'Tessere':'Tiles','tessere più piccole':'smaller tiles','tessere più grandi':'larger tiles',
+'Tratto':'Stroke','Spessore linea':'Line width',
+'Forgia':'Forge','⬡ Forgia la cella selezionata':'⬡ Forge the selected cell',
+'Componi una figura in una cella (timbra, poi':'Compose a figure in one cell (stamp, then',
+'unisci':'unite','sottrai':'subtract','interseca':'intersect','o':'or','escludi':'exclude',
+'selezionala':'select it','con la freccia':'with the arrow',
+'e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).':'and press Forge: it becomes your own tile, at the bottom of the palette (right-click = delete).',
+'Info':'About','▶ Rivedi il tutorial':'▶ Replay the tutorial',
+'è gratuito per uso':'is free for','personale e commerciale':'personal and commercial use',
+'. Se lo usi, una citazione è gradita, grazie :)':'. If you use it, a credit is appreciated — thank you :)',
+'Un progetto di':'A project by',
+/* — tela / viewbar — */
+'Pennello attivo — r ruota · f specchia · i inverti':'Active brush — r rotates · f mirrors · i inverts',
+'Adatta la vista alla tavola':'Fit the view to the board',
+/* — barra destra — */
+'Livelli':'Layers','— trascina per riordinare · ⇧-clic = più livelli':'— drag to reorder · ⇧-click = multiple layers',
+'+ Nuovo livello':'+ New layer','⧉ Duplica':'⧉ Duplicate',
+'duplica il livello attivo (con tutte le sue tessere)':'duplicate the active layer (with all its tiles)',
+'Colore':'Color','colore personalizzato':'custom color',
+'colore libero — si aggiunge ai':'free color — it is added to the','rapidi':'quick colors','in alto':'at the top',
+'Clic su un colore = prossimi timbri (e la selezione, se c\'è). Doppio clic su uno swatch = aggiungilo ai':'Click a color = next stamps (and the selection, if any). Double-click a swatch = add it to the',
+'Sfondo immagine':'Background image','Carica JPG/PNG':'Load JPG/PNG','Rimuovi':'Remove',
+'Opacità sfondo':'Background opacity','Scala':'Scale','Rotazione':'Rotation','✥ Sposta':'✥ Move',
+'attiva e trascina sulla tela per spostare l\'immagine (Esc esce)':'toggle, then drag on the canvas to move the image (Esc exits)',
+'riporta posizione, scala e rotazione a zero':'reset position, scale and rotation',
+'Colonne':'Columns','Righe':'Rows',
+'⬡ confine':'⬡ boundary','mostra/nascondi il confine della tavola dentro il pattern':'show/hide the board boundary inside the pattern',
+'esci dal pattern':'exit the pattern','torna alla tela normale (il disegno resta)':'back to a normal canvas (the drawing stays)',
+'⟲ ruota tela':'⟲ rotate board','ruota tela ⟳':'rotate board ⟳',
+'ruota tutta la tela di -90°':'rotate the whole board by −90°','ruota tutta la tela di +90°':'rotate the whole board by +90°',
+'▦ griglia sì/no':'▦ grid on/off','mostra/nascondi le linee della griglia (h)':'show/hide the grid lines (h)',
+'sfondo pagina nero':'black page background',
+'Salva / Carica & Export':'Save / Load & Export','Nuovo…':'New…','Svuota':'Clear',
+'nuovo progetto: tela normale o tela per pattern':'new project: normal canvas or pattern canvas',
+'esporta il pattern ripetuto alla dimensione che vuoi (PNG o SVG)':'export the repeated pattern at any size (PNG or SVG)',
+'Salva':'Save','Carica':'Load',
+/* — timeline — */
+'clic = vai al frame · trascina = riordina':'click = go to a frame · drag = reorder',
+'duplica il frame corrente':'duplicate the current frame','nuovo frame vuoto':'new empty frame','elimina il frame corrente':'delete the current frame',
+'play / stop — ⇧< ⇧> scorrono i frame':'play / stop — ⇧< ⇧> step through the frames',
+'loop ping-pong: riproduce avanti e poi indietro (come Procreate)':'ping-pong loop: plays forward, then backward (like Procreate)',
+'fotogrammi al secondo (modificabile anche durante il play)':'frames per second (can be changed while playing)',
+'onion skin: frame precedente e successivo in trasparenza, ognuno col suo colore':'onion skin: previous and next frame as tinted silhouettes',
+'colore onion skin del frame PRECEDENTE':'onion-skin color of the PREVIOUS frame','colore onion skin del frame SUCCESSIVO':'onion-skin color of the NEXT frame',
+'esporta una GIF animata in loop (fps correnti, lato lungo max 800px)':'export a looping animated GIF (current fps, long side max 800px)',
+'esporta un video .webm (2 giri di loop, fps correnti)':'export a .webm video (2 loops, current fps)',
+'scarica tutti i frame come sequenza PNG':'download all frames as a PNG sequence',
+'elimina questo frame':'delete this frame',
+/* — dialoghi — */
+'Nuovo progetto':'New project','tela normale':'normal canvas','tela per pattern':'pattern canvas',
+'rettangolo':'rectangle','striscia':'strip','esagono':'hexagon','rombo':'rhombus',
+'Annulla':'Cancel','Crea (il disegno attuale va perso)':'Create (the current drawing is lost)',
+'ripetizioni':'repetitions','dimensione px':'size in px','Ripetizioni ↔':'Repetitions ↔','Ripetizioni ↕':'Repetitions ↕',
+'Larghezza px':'Width px','Altezza px':'Height px',
+'Larghezza di UNA ripetizione in px (scala del PNG)':'Width of ONE repetition in px (PNG scale)',
+'Tela classica, nessuna ripetizione.':'Classic canvas, no repetition.',
+'Colonne PARI = ripetizione dritta · DISPARI = a mattoncino (le copie a fianco scendono di mezza riga).':'EVEN columns = straight repetition · ODD = brick-like (side copies drop by half a row).',
+'Colonne (lunghezza)':'Columns (length)','Righe (altezza fascia)':'Rows (band height)',
+'La striscia si ripete solo in ORIZZONTALE: per bordi e fregi.':'The strip repeats HORIZONTALLY only: for borders and friezes.',
+'Raggio (celle)':'Radius (cells)',
+'Tela a esagono che tassella a nido d’ape: le copie circondano su 6 lati.':'A hexagon canvas that tessellates like a honeycomb: copies surround it on 6 sides.',
+'Lato A (colonne)':'Side A (columns)','Lato B':'Side B',
+'Parallelogramma sugli assi esagonali: la ripetizione scende in obliquo.':'A parallelogram on the hex axes: the repetition steps down obliquely.',
+'Dimensione finale = ripetizioni × larghezza di una ripetizione.':'Final size = repetitions × width of one repetition.',
+'Il pattern riempie l’area data; la scala la decide «larghezza di una ripetizione».':'The pattern fills the given area; the scale is set by “width of one repetition”.',
+'Uscirebbe più grande di 8192px: riduci ripetizioni o scala.':'It would come out larger than 8192px: reduce the repetitions or the scale.',
+/* — palette / livelli / colori dinamici — */
+'Pieni':'Solids','Tondi':'Rounds','Cornici':'Frames','Linee':'Lines','Curve':'Curves','Forgiate':'Forged',
+'Preferite ★':'Favorites ★','Recenti':'Recent',
+'clic per aprire/chiudere la categoria':'click to open/close the category',
+' — ⌥+clic: preferita · ⇧+clic: tessera B del dither':' — ⌥+click: favorite · ⇧+click: dither tile B',
+'elimina questa tessera forgiata':'delete this forged tile','togli dallo slot':'remove from the slot',
+' — clic: usa · doppio clic: cambia · destro: togli':' — click: use · double-click: change · right-click: remove',
+'scegli un colore col picker':'pick a color with the picker',
+' — clic: usa · doppio clic: aggiungi ai rapidi':' — click: use · double-click: add to the quick colors',
+'trascina per spostare la sezione':'drag to move the section','trascina per riordinare':'drag to reorder',
+'mostra/nascondi':'show/hide','opacità':'opacity','elimina':'delete',
+'colore-etichetta del livello (solo per riconoscerlo, non colora le tessere)':'layer label color (just to recognise it — it does not color the tiles)',
+'Normale':'Normal','Scurisci':'Darken','Schiarisci':'Lighten',
+'Livello':'Layer',' copia':' copy',
+'Terra':'Earth','Primari':'Primary','Freddi/caldi':'Cool/warm',
+/* — pattern UI — */
+' · a mattoncino (colonne dispari)':' · brick-like (odd columns)',' · dritto (colonne pari)':' · straight (even columns)',' · raggio ':' · radius ',
+/* — avvisi e prompt — */
+'cella vuota: niente da prelevare':'empty cell: nothing to pick up',
+'scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria':'choose tile B: <b>⇧+click</b> a tile in the library',
+'carica prima un\'immagine di sfondo':'load a background image first',
+'Eliminare la tessera forgiata':'Delete the forged tile','Le celle che la usano resteranno vuote.':'Cells using it will become empty.',
+'Seleziona UNA sola cella da forgiare.':'Select ONE single cell to forge.',
+'Seleziona una cella con una figura (anche composta con ⊕/⊖/∩/⊻), poi forgia.':'Select a cell with a figure (composites with ⊕/⊖/∩/⊻ work too), then forge.',
+'La cella contiene una tessera forgiata dentro uno scavo, un ritaglio ∩/⊻ o un inverso: ricomponila con forme base e riprova.':'The cell contains a forged tile inside a carve, an ∩/⊻ cut or an inverse: rebuild it with base shapes and try again.',
+'La cella non ha figure che aggiungono.':'The cell has no adding shapes.',
+'Nome della nuova tessera forgiata:':'Name of the new forged tile:','forgiata':'forged',
+'Servono almeno 2 frame.':'You need at least 2 frames.',
+'Questo browser non sa registrare video: usa "PNG ×n".':'This browser cannot record video: use "PNG ×n".',
+'La registrazione è uscita vuota su questo browser: usa "PNG ×n" (i singoli fotogrammi) e monta il video altrove.':'The recording came out empty in this browser: use "PNG ×n" (the individual frames) and assemble the video elsewhere.',
+'File non valido':'Invalid file',
+/* — tutorial (coach) — */
+'Benvenuto in Hexagraph':'Welcome to Hexagraph',
+'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Poche mosse, un minuto.':'You draw by laying <b>hexagonal tiles</b> on a honeycomb grid. A few moves, one minute.',
+'1 · Scegli una tessera':'1 · Pick a tile',
+'Nella <b>libreria</b> a sinistra scegli una forma: diventa il tuo pennello.':'Pick a shape from the <b>library</b> on the left: it becomes your brush.',
+'2 · Matita e timbra':'2 · Pencil and stamp',
+'Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.':'Grab the <b>pencil</b> ✎ and <b>click the grid</b> to lay the tile down. Drag to paint a run.',
+'3 · Orienta il pennello':'3 · Orient the brush',
+'<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.':'<kbd>r</kbd> rotates · <kbd>f</kbd> mirrors · <kbd>i</kbd> inverts. The preview at the top right always shows the active brush.',
+'4 · Combina le forme':'4 · Combine shapes',
+'In alto ci sono quattro modi di combinare le forme —':'At the top there are four ways to combine shapes —',
+'Scegline uno e timbra sopra una cella.':'Pick one and stamp over a cell.',
+'5 · Colori e livelli':'5 · Colors and layers',
+'Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.':'The bar on the right holds the <b>colors</b> and the <b>layers</b>.',
+'Tutto qui':'That\'s it',
+'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.':'The <b>bottom bar</b> always tells you what you can do. Reopen this guide from <b>About</b>, at the bottom of the library.',
+'Salta':'Skip','Indietro':'Back','Avanti':'Next','Avanti ✓':'Next ✓','Prova tu…':'Your turn…','Fine':'Done',
+/* — guida contestuale (status bar) — */
+'✥ Sposta sfondo':'✥ Move background',
+'trascina sulla tela per muovere l\'immagine · scala e rotazione nella sezione Sfondo':'drag on the canvas to move the image · scale and rotation live in the Background section',
+'esce':'exits','annulla':'cancels','chiude':'closes',
+'Dither A→B':'Dither A→B','tessera B':'tile B',
+'+clic su una tessera in libreria =':'+click a tile in the library =',
+'trascina':'drag','= gradiente (':'= gradient (',
+'blocca a 45°) · clic secco = 50/50 · 2° clic sull\'icona = trama ·':'locks to 45°) · single click = 50/50 · 2nd click on the icon = pattern ·',
+'Secchiello':'Bucket','clic riempie la zona connessa':'click fills the connected area',' (dentro la selezione)':' (inside the selection)',
+'Lazo':'Lasso','clic = punto · riclicca il':'click = point · re-click the','primo esagono':'first hexagon','(o doppio clic /':'(or double-click /',') ':') ',
+'Gomma':'Eraser','clic o trascina cancella ·':'click or drag erases ·','+clic = contagocce':'+click = eyedropper',
+'Matita':'Pencil',' · linea pulita':' · clean line',
+'clic timbra · trascina dipinge · destro cancella ·':'click stamps · drag paints · right-click erases ·',
+'orienta ·':'orients ·','contagocce · clic sull\'icona = modalità':'eyedropper · click the icon = mode',
+'Selezione':'Selection','trascina sposta (':'drag moves (','copia) ·':'copies) ·','gruppo ·':'group ·','singole ·':'individually ·',
+'inverti · swatch colora ·':'inverts · swatch colors ·','forgia ·':'forges ·','svuota':'clears',
+'Seleziona':'Select',
+'clic una cella · trascina un rettangolo (':'click a cell · drag a rectangle (',
+'aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)':'adds) · double-click = all identical · click in the library = brush (cursor placed: drops)',
+' · fusione ':' · merge mode ','simmetria':'symmetry',
+'specchiato':'mirrored','dritto':'straight','Canc':'Del',
+};
+/* traduzioni a BLOCCO (innerHTML intero) per le legende con markup misto <kbd>/<b> */
+const I18N_HTML={
+'lib-legend':'<kbd>⌥</kbd>+click a tile = add to/remove from <b>Favorites</b>; <b>Recent</b> updates by itself. <b>Eyedropper</b>: <kbd>c</kbd> on the cursor cell, or <kbd>⌥</kbd>+click on the canvas, copies the tile with its look into the brush.',
+'stroke-legend':'Applies to the <b>next</b> stamps (each line remembers its own). <kbd>[</kbd>/<kbd>]</kbd> adjust the cell under the cursor.',
+'anim-legend':'Frames at the bottom: click = go · drag = reorder · ⧉ duplicate · + empty · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> step · fps adjustable during play · ◎ onion skin (with its two colors: previous / next frame) · export WEBM (video) or a PNG sequence.',
+'move-legend':'Get around: wheel scrolls · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+wheel zooms · <kbd>alt</kbd>+wheel rotates the brush · <kbd>space</kbd> or middle button = drag',
+};
+const i18nTextOrig=new Map(), i18nHtmlOrig=new Map();
+function translateDOM(){
+  for(const el of document.querySelectorAll('[data-i18n]')){
+    if(!i18nHtmlOrig.has(el)) i18nHtmlOrig.set(el, el.innerHTML);
+    el.innerHTML=(LANG==='en'&&I18N_HTML[el.dataset.i18n]) ? I18N_HTML[el.dataset.i18n] : i18nHtmlOrig.get(el);
+  }
+  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT); const nodes=[];
+  for(let n=w.nextNode();n;n=w.nextNode()){
+    const p=n.parentElement; if(!p||p.closest('script,style,[data-i18n]')) continue; nodes.push(n);
+  }
+  for(const n of nodes){
+    const orig=i18nTextOrig.get(n)??n.nodeValue, k=orig.trim();
+    if(!k||I18N[k]==null) continue;
+    if(!i18nTextOrig.has(n)) i18nTextOrig.set(n,orig);
+    n.nodeValue=(LANG==='en') ? orig.replace(k,I18N[k]) : orig;
+  }
+  for(const el of document.querySelectorAll('[title],[placeholder]')){
+    for(const a of ['title','placeholder']){
+      const v=el.getAttribute(a); if(v==null) continue;
+      const orig=el.getAttribute('data-i18n-'+a)??v;
+      if(I18N[orig]==null) continue;
+      el.setAttribute('data-i18n-'+a,orig);
+      el.setAttribute(a,(LANG==='en')?I18N[orig]:orig);
+    }
+  }
+  document.documentElement.lang=LANG;
+}
+function setLang(l){ if(l===LANG) return; LANG=l; try{ localStorage.setItem('hexagraph.lang',l); }catch(e){}
+  translateDOM(); COACH=buildCoach();
+  buildPalette(); buildQuickTiles(); buildPalsel(); buildSwatches(); buildQuickCols(); buildSlots(); buildLayers();
+  buildTimeline(); updatePatternUI(); syncNewDlg(); syncPeDlg(); markLang(); updateStatus();
+  if(coachI>=0) coachShow(coachI);
+}
+function markLang(){ const a=$('langIt'),b=$('langEn'); if(!a)return; a.classList.toggle('on',LANG==='it'); b.classList.toggle('on',LANG==='en'); }
+/* ==== fine i18n ==== */
+
 /* ---- stato ---- */
 const board=document.getElementById('board');
 const stageEl=document.getElementById('stage');
@@ -543,7 +764,7 @@ let layers=[]; let active=0;
    specchia/colora/cancella/inverti) agiscono su TUTTI i livelli del set insieme. */
 let activeSet=new Set([0]);
 let cells;                         // riferimento alla Map del livello attivo (= più in alto del set)
-function newLayer(){ return {name:'Livello '+(layers.length+1), color:LAYER_COLORS[layers.length%LAYER_COLORS.length], cells:new Map(),
+function newLayer(){ return {name:tt('Livello')+' '+(layers.length+1), color:LAYER_COLORS[layers.length%LAYER_COLORS.length], cells:new Map(),
   blend:layers.length?'multiply':'source-over', opacity:1, visible:true}; }   // il PRIMO livello nasce Normale, i successivi Multiply (sovrapposizioni riso)
 function setActive(i){ active=Math.max(0,Math.min(layers.length-1,i)); cells=layers[active].cells; activeSet=new Set([active]); }
 /* livelli su cui agiscono le operazioni di gruppo: il set (ordinato), filtrato agli indici validi */
@@ -1418,13 +1639,13 @@ board.addEventListener('pointerdown',e=>{
   // ⌥+clic negli strumenti di disegno = CONTAGOCCE: preleva la tessera sotto il puntatore (stile Aseprite)
   if(e.altKey && e.button!==2 && (tool==='draw'||tool==='erase'||tool==='bucket'||tool==='dither')){
     cursor.c=hit[0]; cursor.r=hit[1];
-    if(!pickBrush(hit[0],hit[1])) flashStatus('cella vuota: niente da prelevare');
+    if(!pickBrush(hit[0],hit[1])) flashStatus(tt('cella vuota: niente da prelevare'));
     render(); updateStatus(); return;
   }
   if(tool==='bucket' && e.button!==2){   // secchiello: riempi la zona connessa
     cursor.c=hit[0]; cursor.r=hit[1]; bucketFill(hit[0],hit[1]); updateStatus(); return; }
   if(tool==='dither' && e.button!==2){   // dither: zona del secchiello, trascina = gradiente A→B
-    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria'); return; }
+    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus(tt('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria')); return; }
     if(!brush.tile) return;
     cursor.c=hit[0]; cursor.r=hit[1];
     ditherDrag={start:pt, cur:pt, region:floodRegion(hit[0],hit[1]), saved:new Map(cells)};
@@ -1690,8 +1911,8 @@ function buildPalette(){
   let lastG=null;
   TILES.forEach(t=>{
     if(t.cat!==lastG){ lastG=t.cat; const cat=t.cat, n=TILES.filter(x=>x.cat===cat).length;
-      const h=document.createElement('div'); h.className='grouphdr'; h.title='clic per aprire/chiudere la categoria';
-      h.innerHTML=`<span>${cat} <span style="opacity:.6">${n}</span></span><span>${closed.has(cat)?'▸':'▾'}</span>`;
+      const h=document.createElement('div'); h.className='grouphdr'; h.title=tt('clic per aprire/chiudere la categoria');
+      h.innerHTML=`<span>${tt(cat)} <span style="opacity:.6">${n}</span></span><span>${closed.has(cat)?'▸':'▾'}</span>`;
       h.onclick=()=>{ closed.has(cat)?closed.delete(cat):closed.add(cat);
         localStorage.setItem('hexagraph.palclosed',JSON.stringify([...closed])); buildPalette(); };
       pal.appendChild(h); }
@@ -1707,7 +1928,7 @@ function buildPalette(){
       else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } // vuota: riempie con l'orientazione corrente del pennello
     }); } };   // doppio clic = applica la tessera a TUTTA la selezione
     if(t.cat==='Forgiate'){ b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
-      const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title='elimina questa tessera forgiata';
+      const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title=tt('elimina questa tessera forgiata');
       x.onclick=e=>{ e.stopPropagation(); deleteForged(t.id); }; b.appendChild(x); }
     pal.appendChild(b);
   });
@@ -1723,7 +1944,7 @@ function toggleFav(id){ favTiles=favTiles.includes(id)?favTiles.filter(x=>x!==id
 /* stesso comportamento delle tessere di libreria: clic seleziona (e deposita in modalità seleziona),
    doppio clic sostituisce nella selezione, ⌥+clic = preferita */
 function quickTileButton(t){
-  const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':'')+(t.id===brush.tileB?' selB':''); b.dataset.id=t.id; b.title=(t.name||t.id)+' — ⌥+clic: preferita · ⇧+clic: tessera B del dither';
+  const b=document.createElement('button'); b.className='tile'+(t.id===brush.tile?' sel':'')+(t.id===brush.tileB?' selB':''); b.dataset.id=t.id; b.title=(t.name||t.id)+tt(' — ⌥+clic: preferita · ⇧+clic: tessera B del dither');
   b.innerHTML=tileSVG(t);
   b.onclick=e=>{ if(e.altKey){ toggleFav(t.id); return; }
     if(e.shiftKey){ setTileB(t.id); return; }
@@ -1732,13 +1953,13 @@ function quickTileButton(t){
   b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
     if(cell&&cell.t!=null) cell.t=t.id; else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } }); } };
   if(t.cat==='Forgiate'){ b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
-    const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title='elimina questa tessera forgiata';
+    const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title=tt('elimina questa tessera forgiata');
     x.onclick=e=>{ e.stopPropagation(); deleteForged(t.id); }; b.appendChild(x); }
   return b;
 }
 function buildQuickTiles(){
   const el=$('palfav'); if(!el) return; el.innerHTML=''; lastHilite='';
-  const rows=[['Preferite ★',favTiles],['Recenti',recTiles.filter(id=>!favTiles.includes(id))]];
+  const rows=[[tt('Preferite ★'),favTiles],[tt('Recenti'),recTiles.filter(id=>!favTiles.includes(id))]];
   for(const [label,ids] of rows){
     const list=ids.map(tileById).filter(Boolean);
     if(!list.length) continue;
@@ -1754,7 +1975,7 @@ function cycleTile(dir){ let i=tileIndex[brush.tile]||0; i=(i+dir+TILES.length)%
 function buildSlots(){
   const el=document.getElementById('slots'); el.innerHTML=''; lastHilite='';
   for(let i=0;i<10;i++){ const d=document.createElement('div'); d.className='slot'; d.dataset.i=i;
-    const lbl=(i+1)%10; d.innerHTML=`<span class="n">${lbl}</span>`+(slots[i]?stampPreviewSVG(slots[i],'slot'+i)+`<span class="slotx" title="togli dallo slot">×</span>`:'');
+    const lbl=(i+1)%10; d.innerHTML=`<span class="n">${lbl}</span>`+(slots[i]?stampPreviewSVG(slots[i],'slot'+i)+`<span class="slotx" title="${tt('togli dallo slot')}">×</span>`:'');
     const xb=d.querySelector('.slotx'); if(xb) xb.onclick=e=>{ e.stopPropagation(); slots[i]=null; buildSlots(); };
     d.onclick=(e)=>{
       if(e.shiftKey && slots[i] && slots[i].t){ setTileB(slots[i].t); return; }   // ⇧+clic = tessera B del dither (come in libreria)
@@ -1812,7 +2033,7 @@ function loadForged(){ try{ FORGED=JSON.parse(localStorage.getItem('hexagraph.fo
 function saveForged(){ localStorage.setItem('hexagraph.forged',JSON.stringify(FORGED)); }
 function nextForgedId(){ let n=1; while(tileIndex['fx_'+n]!=null) n++; return 'fx_'+n; }
 function deleteForged(id){ const i=FORGED.findIndex(f=>f.id===id); if(i<0)return;
-  if(!confirm('Eliminare la tessera forgiata "'+(FORGED[i].name||id)+'"? Le celle che la usano resteranno vuote.')) return;
+  if(!confirm(tt('Eliminare la tessera forgiata')+' "'+(FORGED[i].name||id)+'"? '+tt('Le celle che la usano resteranno vuote.'))) return;
   FORGED.splice(i,1); saveForged();
   const ti=tileIndex[id]; if(ti!=null) TILES.splice(ti,1); rebuildTileIndex();
   if(brush.tile===id) brush.tile=TILES[0]?TILES[0].id:null;
@@ -1825,10 +2046,10 @@ function deleteForged(id){ const i=FORGED.findIndex(f=>f.id===id); if(i<0)return
 function forgeFromCell(){
   let cc=cursor.c, cr=cursor.r;
   if(selection && selection.size===1){ [cc,cr]=[...selection][0].split(',').map(Number); }
-  else if(selection && selection.size>1){ alert('Seleziona UNA sola cella da forgiare.'); return; }
+  else if(selection && selection.size>1){ alert(tt('Seleziona UNA sola cella da forgiare.')); return; }
   const cell=cells.get(key(cc,cr));
   if(!cell || (cell.t==null && !(cell.extra&&cell.extra.length) && !cell.inv)){
-    alert('Seleziona una cella con una figura (anche composta con ⊕/⊖/∩/⊻), poi forgia.'); return; }
+    alert(tt('Seleziona una cella con una figura (anche composta con ⊕/⊖/∩/⊻), poi forgia.')); return; }
   const stamps=[]; let qi=0;
   const flatten=(st,op)=>{   // false = non rappresentabile (forgiata dentro scavo/ritaglio/esclusione o inverso)
     const tile=tileById(st.t); if(!tile) return true;
@@ -1848,12 +2069,12 @@ function forgeFromCell(){
     stamps.push({t:full.id,rot:0,flip:false,sw:cell.sw??connSW,op:'add',q:qi++});
   }
   for(const o of cellOps(cell)){ ok=ok&&flatten(o.st,o.op); }
-  if(!ok){ alert('La cella contiene una tessera forgiata dentro uno scavo, un ritaglio ∩/⊻ o un inverso: ricomponila con forme base e riprova.'); return; }
-  if(!stamps.some(s=>s.op==='add')){ alert('La cella non ha figure che aggiungono.'); return; }
+  if(!ok){ alert(tt('La cella contiene una tessera forgiata dentro uno scavo, un ritaglio ∩/⊻ o un inverso: ricomponila con forme base e riprova.')); return; }
+  if(!stamps.some(s=>s.op==='add')){ alert(tt('La cella non ha figure che aggiungono.')); return; }
   const id=nextForgedId();
-  const name=prompt('Nome della nuova tessera forgiata:','forgiata '+id.slice(3));
+  const name=prompt(tt('Nome della nuova tessera forgiata:'),tt('forgiata')+' '+id.slice(3));
   if(name===null) return;
-  const f={id, name:name.trim()||('forgiata '+id.slice(3)), stamps};
+  const f={id, name:name.trim()||(tt('forgiata')+' '+id.slice(3)), stamps};
   FORGED.push(f); registerForged(f); saveForged(); buildPalette(); selectTile(id);
 }
 $('forgeCell').onclick=forgeFromCell;
@@ -1874,7 +2095,7 @@ const PALETTES={
 };
 let curPalette=localStorage.getItem('hexagraph.palette')||'Riso'; if(!PALETTES[curPalette]) curPalette='Riso';
 function buildPalsel(){ const el=$('palsel'); if(!el)return; el.innerHTML='';
-  for(const name of Object.keys(PALETTES)){ const b=document.createElement('button'); b.textContent=name;
+  for(const name of Object.keys(PALETTES)){ const b=document.createElement('button'); b.textContent=tt(name);
     b.className=(name===curPalette?'on':''); b.onclick=()=>{ curPalette=name; localStorage.setItem('hexagraph.palette',name); buildPalsel(); buildSwatches(); };
     el.appendChild(b); } }
 let recentCols=[]; try{ recentCols=JSON.parse(localStorage.getItem('hexagraph.recentcols')||'[]'); }catch(e){}
@@ -1891,10 +2112,10 @@ function buildQuickCols(){ const el=$('quickcols'); if(!el)return; el.innerHTML=
   const cur=brush.col?brush.col.toLowerCase():null;
   quickCols.forEach((c,i)=>{ const b=document.createElement('button'); b.dataset.i=i;
     if(c){ b.className='qsw'+(cur===c.toLowerCase()?' sel':''); b.style.background=c;
-      b.title=c+' — clic: usa · doppio clic: cambia · destro: togli';
+      b.title=c+tt(' — clic: usa · doppio clic: cambia · destro: togli');
       b.onclick=()=>setBrushCol(c); b.ondblclick=()=>openQuickPicker(i);
       b.oncontextmenu=e=>{ e.preventDefault(); quickCols[i]=null; saveQuick(); buildQuickCols(); };
-    } else { b.className='qsw empty'; b.textContent='+'; b.title='scegli un colore col picker'; b.onclick=()=>openQuickPicker(i); }
+    } else { b.className='qsw empty'; b.textContent='+'; b.title=tt('scegli un colore col picker'); b.onclick=()=>openQuickPicker(i); }
     el.appendChild(b); }); }
 function openQuickPicker(i){ quickTarget=i; const p=$('quickPicker'); p.value=quickCols[i]||brush.col||'#ff48b0'; p.click(); }
 $('quickPicker').oninput=()=>{ if(quickTarget<0)return; const v=$('quickPicker').value; quickCols[quickTarget]=v; saveQuick(); setBrushCol(v); buildQuickCols(); };
@@ -1917,7 +2138,7 @@ function buildSwatches(){
   const el=$('swatches'); if(!el)return; el.innerHTML='';
   const sel=brush.col?brush.col.toLowerCase():null;
   const addSw=c=>{ const b=document.createElement('button'); b.className='sw'+(sel===c.toLowerCase()?' sel':'');
-    b.style.background=c; b.title=c+' — clic: usa · doppio clic: aggiungi ai rapidi';
+    b.style.background=c; b.title=c+tt(' — clic: usa · doppio clic: aggiungi ai rapidi');
     b.onclick=()=>setBrushCol(c); b.ondblclick=()=>{ addQuick(c); buildQuickCols(); };
     el.appendChild(b); };
   for(const c of (PALETTES[curPalette]||[])) addSw(c);
@@ -2063,13 +2284,13 @@ function buildLayers(){
   const el=$('layers'); el.innerHTML='';
   layers.map((L,i)=>({L,i})).reverse().forEach(({L,i})=>{   // alto dello stack in cima alla lista
     const row=document.createElement('div'); row.className='layerRow'+(i===active?' active':(activeSet.has(i)?' multisel':'')); row.dataset.i=i;
-    row.innerHTML=`<span class="lhandle" title="trascina per riordinare">⠿</span>`
-      +`<span class="lvis" title="mostra/nascondi">${L.visible?'◉':'○'}</span>`
-      +`<input type="color" class="lcol" value="${L.color}" title="colore-etichetta del livello (solo per riconoscerlo, non colora le tessere)">`
+    row.innerHTML=`<span class="lhandle" title="${tt('trascina per riordinare')}">⠿</span>`
+      +`<span class="lvis" title="${tt('mostra/nascondi')}">${L.visible?'◉':'○'}</span>`
+      +`<input type="color" class="lcol" value="${L.color}" title="${tt('colore-etichetta del livello (solo per riconoscerlo, non colora le tessere)')}">`
       +`<div class="lmid"><div class="lname">${L.name}</div><div class="lctl">`
-      +`<select class="lblend">${BLENDS.map(b=>`<option value="${b}" ${b===L.blend?'selected':''}>${BLEND_LABELS[b]}</option>`).join('')}</select>`
-      +`<input type="range" class="lop" min="0" max="100" value="${Math.round(L.opacity*100)}" title="opacità"></div></div>`
-      +`<span class="ldel" title="elimina">✕</span>`;
+      +`<select class="lblend">${BLENDS.map(b=>`<option value="${b}" ${b===L.blend?'selected':''}>${tt(BLEND_LABELS[b])}</option>`).join('')}</select>`
+      +`<input type="range" class="lop" min="0" max="100" value="${Math.round(L.opacity*100)}" title="${tt('opacità')}"></div></div>`
+      +`<span class="ldel" title="${tt('elimina')}">✕</span>`;
     row.querySelector('.lvis').onclick=e=>{e.stopPropagation();snapshot();L.visible=!L.visible;buildLayers();render();};
     row.querySelector('.lcol').onpointerdown=()=>snapshot();
     row.querySelector('.lcol').oninput=e=>{e.stopPropagation();L.color=e.target.value;};   // §8.15: solo etichetta, non tocca il canvas
@@ -2109,7 +2330,7 @@ function addLayer(){ snapshot(); layers.push(newLayer()); setActive(layers.lengt
 /* duplica il livello attivo (tessere comprese) e lo mette SOPRA l'originale, come livello attivo */
 function duplicateLayer(){ snapshot();
   const src=layers[active];
-  const dup={name:src.name+' copia', color:src.color, blend:src.blend, opacity:src.opacity, visible:src.visible,
+  const dup={name:src.name+tt(' copia'), color:src.color, blend:src.blend, opacity:src.opacity, visible:src.visible,
     cells:new Map(JSON.parse(JSON.stringify([...src.cells])))};   // deep-clone delle celle
   layers.splice(active+1,0,dup); setActive(active+1); buildLayers(); render();
 }
@@ -2127,7 +2348,7 @@ $('bgScale').oninput=()=>{ bgT.s=+$('bgScale').value/100; $('bgScVal').textConte
 $('bgRot').oninput=()=>{ bgT.rot=+$('bgRot').value; $('bgRotVal').textContent=$('bgRot').value+'°'; render(); };
 $('bgReset').onclick=()=>{ bgT={x:0,y:0,s:1,rot:0}; syncBgUI(); render(); };
 function setBgMove(v){ bgMoveMode=!!v; $('bgMove').classList.toggle('on',bgMoveMode); board.style.cursor=bgMoveMode?'move':''; updateStatus(); }
-$('bgMove').onclick=()=>{ if(!bgImage){ flashStatus('carica prima un\'immagine di sfondo'); return; } setBgMove(!bgMoveMode); };
+$('bgMove').onclick=()=>{ if(!bgImage){ flashStatus(tt('carica prima un\'immagine di sfondo')); return; } setBgMove(!bgMoveMode); };
 function syncBgUI(){ $('bgScale').value=Math.round(bgT.s*100); $('bgScVal').textContent=Math.round(bgT.s*100)+'%';
   $('bgRot').value=Math.round(bgT.rot); $('bgRotVal').textContent=Math.round(bgT.rot)+'°'; }
 /* ---- sezioni delle barre: collassabili (clic sull'header) e spostabili (maniglia ⠿) ---- */
@@ -2148,7 +2369,7 @@ function initSections(){
       const lbl=sec.querySelector('.glabel');
       if(lbl && !sec.querySelector('.sechdr')){
         const hdr=document.createElement('div'); hdr.className='sechdr';
-        const h=document.createElement('span'); h.className='shandle'; h.title='trascina per spostare la sezione'; h.textContent='⠿'; hdr.appendChild(h);
+        const h=document.createElement('span'); h.className='shandle'; h.title=tt('trascina per spostare la sezione'); h.textContent='⠿'; hdr.appendChild(h);
         sec.insertBefore(hdr,sec.firstChild); hdr.appendChild(lbl);
         const car=document.createElement('span'); car.className='scaret'; car.textContent='▾'; hdr.appendChild(car);
         hdr.onclick=e=>{ if(e.target===h)return; sec.classList.toggle('closed'); car.textContent=sec.classList.contains('closed')?'▸':'▾'; saveSections(bar); };
@@ -2245,7 +2466,7 @@ function buildTimeline(){
     const d=document.createElement('div'); d.className='fthumb'+(i===anim.cur?' act':''); d.dataset.i=i;
     const cv=thumbCanvas(); drawFrameOn(cv, i===anim.cur?layers:fd); d.appendChild(cv);
     const n=document.createElement('span'); n.className='fn'; n.textContent=i+1; d.appendChild(n);
-    if(anim.frames.length>1){ const x=document.createElement('span'); x.className='fx'; x.textContent='×'; x.title='elimina questo frame';
+    if(anim.frames.length>1){ const x=document.createElement('span'); x.className='fx'; x.textContent='×'; x.title=tt('elimina questo frame');
       x.onclick=ev=>{ ev.stopPropagation(); deleteFrame(i); }; d.appendChild(x); }
     d.onclick=()=>{ stopPlay(); if(i!==anim.cur) animGoto(i); };
     d.draggable=true;
@@ -2391,7 +2612,7 @@ function makeGIF(imgs,w,h,delayCs){
   return new Uint8Array(out);
 }
 $('frGif').onclick=async()=>{
-  if(anim.frames.length<2) return alert('Servono almeno 2 frame.');
+  if(anim.frames.length<2) return alert(tt('Servono almeno 2 frame.'));
   stopPlay(); animCommit(); const keep=anim.cur;
   const fps=Math.max(1,Math.min(30,+$('frFps').value||6));
   const delayCs=Math.max(2,Math.round(100/fps));
@@ -2417,8 +2638,8 @@ $('frGif').onclick=async()=>{
    Fallback: senza track.requestFrame (Safari) cattura automatica a fps; senza webm prova mp4;
    se il file esce vuoto (bug visto il 6 lug: 110 byte) lo dice invece di scaricare spazzatura. */
 $('frVideo').onclick=async()=>{
-  if(anim.frames.length<2) return alert('Servono almeno 2 frame.');
-  if(!window.MediaRecorder) return alert('Questo browser non sa registrare video: usa "PNG ×n".');
+  if(anim.frames.length<2) return alert(tt('Servono almeno 2 frame.'));
+  if(!window.MediaRecorder) return alert(tt('Questo browser non sa registrare video: usa "PNG ×n".'));
   stopPlay(); animCommit(); const keep=anim.cur;
   const fps=Math.max(1,Math.min(30,+$('frFps').value||6));
   const showFrame=i=>{ layers=layersFrom(anim.frames[i]); setActive(Math.min(active,layers.length-1)); };
@@ -2426,7 +2647,7 @@ $('frVideo').onclick=async()=>{
   let stream=board.captureStream(0), track=stream.getVideoTracks()[0], manual=true;
   if(!track || typeof track.requestFrame!=='function'){ manual=false; stream=board.captureStream(fps); }
   const mime=['video/webm;codecs=vp9','video/webm','video/mp4'].find(m=>MediaRecorder.isTypeSupported(m));
-  if(!mime){ animShow(keep); return alert('Questo browser non sa registrare video: usa "PNG ×n".'); }
+  if(!mime){ animShow(keep); return alert(tt('Questo browser non sa registrare video: usa "PNG ×n".')); }
   const rec=new MediaRecorder(stream,{mimeType:mime});
   const chunks=[]; rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
   const stopped=new Promise(res=>rec.onstop=res);
@@ -2436,7 +2657,7 @@ $('frVideo').onclick=async()=>{
     for(const i of cycleOrder()){ showFrame(i); drawExport(); if(manual) track.requestFrame(); await sleep(1000/fps); }
   rec.stop(); await stopped;
   const blob=new Blob(chunks,{type:mime.split(';')[0]});
-  if(blob.size<2000){ animShow(keep); return alert('La registrazione è uscita vuota su questo browser: usa "PNG ×n" (i singoli fotogrammi) e monta il video altrove.'); }
+  if(blob.size<2000){ animShow(keep); return alert(tt('La registrazione è uscita vuota su questo browser: usa "PNG ×n" (i singoli fotogrammi) e monta il video altrove.')); }
   download('hexglyph.'+(mime.startsWith('video/mp4')?'mp4':'webm'), URL.createObjectURL(blob));
   animShow(keep);
 };
@@ -2491,42 +2712,42 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     for(const fr of anim.frames) for(const Ld of fr) for(const kv of (Ld.cells||[])) if(!kv[1].col) kv[1].col=Ld.color||DEFAULT_INK;
     buildSlots();
     undoStack.length=0; redoStack.length=0; refreshUndo(); buildLayers(); render();
-  }catch(err){alert('File non valido');} };
+  }catch(err){alert(tt('File non valido'));} };
   rd.readAsText(f); e.target.value=''; };
 
 /* GUIDA CONTESTUALE (§8.12): dice sempre cosa puoi fare con lo strumento/modalità/selezione correnti */
 function hintHTML(){
   const kb=s=>'<kbd>'+s+'</kbd>';
-  if(bgMoveMode) return `<b>✥ Sposta sfondo</b> · trascina sulla tela per muovere l'immagine · scala e rotazione nella sezione Sfondo · ${kb('Esc')} esce`;
+  if(bgMoveMode) return `<b>${tt('✥ Sposta sfondo')}</b> · ${tt("trascina sulla tela per muovere l'immagine · scala e rotazione nella sezione Sfondo")} · ${kb('Esc')} ${tt('esce')}`;
   const hasSel=selection&&selection.size;
-  const fus={merge:'⊕ unisci',sub:'⊖ sottrai',iso:'∩ interseca',xor:'⊻ escludi'}[stampMode];
+  const fus={merge:'⊕ '+tt('unisci'),sub:'⊖ '+tt('sottrai'),iso:'∩ '+tt('interseca'),xor:'⊻ '+tt('escludi')}[stampMode];
   let h;
   if(tool==='dither'){
     h = !brush.tileB
-      ? `<b>Dither</b> · ${kb('⇧')}+clic su una tessera in libreria = <b>tessera B</b>`
-      : `<b>Dither A→B</b> · <b>trascina</b> = gradiente (${kb('⇧')} blocca a 45°) · clic secco = 50/50 · 2° clic sull'icona = trama · ${kb('Esc')} annulla`;
+      ? `<b>Dither</b> · ${kb('⇧')}${tt('+clic su una tessera in libreria =')} <b>${tt('tessera B')}</b>`
+      : `<b>Dither A→B</b> · <b>${tt('trascina')}</b> ${tt('= gradiente (')}${kb('⇧')} ${tt("blocca a 45°) · clic secco = 50/50 · 2° clic sull'icona = trama ·")} ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='bucket'){
-    h = `<b>Secchiello</b> · clic riempie la zona connessa`+(hasSel?' (dentro la selezione)':'');
+    h = `<b>${tt('Secchiello')}</b> · ${tt('clic riempie la zona connessa')}`+(hasSel?tt(' (dentro la selezione)'):'');
   } else if(tool==='lasso'){
-    h = `<b>Lazo</b> · clic = punto · riclicca il <b>primo esagono</b> (o doppio clic / ${kb('↵')}) chiude · ${kb('Esc')} annulla`;
+    h = `<b>${tt('Lazo')}</b> · ${tt('clic = punto · riclicca il')} <b>${tt('primo esagono')}</b> ${tt('(o doppio clic /')} ${kb('↵')}) ${tt('chiude')} · ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='erase'){
-    h = `<b>Gomma</b> · clic o trascina cancella · ${kb('c')} / ${kb('⌥')}+clic = contagocce`;
+    h = `<b>${tt('Gomma')}</b> · ${tt('clic o trascina cancella ·')} ${kb('c')} / ${kb('⌥')}${tt('+clic = contagocce')}`;
   } else if(tool==='draw'){
-    h = `<b>Matita${pencilMode==='line'?' · linea pulita':''}</b> · clic timbra · trascina dipinge · destro cancella · ${kb('r')} ${kb('f')} ${kb('i')} orienta · ${kb('c')} contagocce · clic sull'icona = modalità`;
+    h = `<b>${tt('Matita')}${pencilMode==='line'?tt(' · linea pulita'):''}</b> · ${tt('clic timbra · trascina dipinge · destro cancella ·')} ${kb('r')} ${kb('f')} ${kb('i')} ${tt('orienta ·')} ${kb('c')} ${tt("contagocce · clic sull'icona = modalità")}`;
   } else if(hasSel){
-    h = `<b>Selezione</b> (${selection.size}) · trascina sposta (${kb('⌥')} copia) · ${kb('r')}${kb('f')} gruppo · ${kb('⇧R')}${kb('⇧F')} singole · ${kb('i')} inverti · swatch colora · ${kb('⇧G')} forgia · ${kb('Canc')} svuota`;
+    h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${kb('⇧G')} ${tt('forgia ·')} ${kb(tt('Canc'))} ${tt('svuota')}`;
   } else {
-    h = `<b>Seleziona</b> · clic una cella · trascina un rettangolo (${kb('⇧')} aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)`;
+    h = `<b>${tt('Seleziona')}</b> · ${tt('clic una cella · trascina un rettangolo (')}${kb('⇧')} ${tt('aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)')}`;
   }
-  if(fus && (tool==='draw'||tool==='bucket'||hasSel)) h+=` · fusione <b>${fus}</b>`;
-  if(symMode!=='none') h+=' · <b>simmetria</b>';
+  if(fus && (tool==='draw'||tool==='bucket'||hasSel)) h+=`${tt(' · fusione ')}<b>${fus}</b>`;
+  if(symMode!=='none') h+=` · <b>${tt('simmetria')}</b>`;
   if(pattern) h+=' · <b>pattern</b>';
   return h;
 }
 function updateStatus(){
   updateBrushPreview(); updateSlotCur(); updateHilites();
   if(flashT) return;   // durante un avviso lampeggiante non sovrascrivere il testo
-  const cur=`<span class="cur">cur <b>${cursor.c},${cursor.r}</b> · <b>${brush.rot*60}°</b> · ${brush.flip?'specchiato':'dritto'}${brush.inv?' · inv':''}</span>`;
+  const cur=`<span class="cur">cur <b>${cursor.c},${cursor.r}</b> · <b>${brush.rot*60}°</b> · ${brush.flip?tt('specchiato'):tt('dritto')}${brush.inv?' · inv':''}</span>`;
   $('status').innerHTML=`<span class="hint">${hintHTML()}</span>${cur}`;
 }
 /* avviso transitorio nella status bar (poi torna alla guida contestuale) */
@@ -2535,15 +2756,21 @@ function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.in
   clearTimeout(flashT); flashT=setTimeout(()=>{ flashT=null; st.classList.remove('warn'); updateStatus(); },2600); }
 
 /* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ---- */
-const COACH=[
- {t:'Benvenuto in Hexagraph',b:'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Poche mosse, un minuto.',sel:null},
- {t:'1 · Scegli una tessera',b:'Nella <b>libreria</b> a sinistra scegli una forma: diventa il tuo pennello.',sel:'[data-sec="tiles"]',ev:'tile'},
- {t:'2 · Matita e timbra',b:'Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.',sel:'#toolDraw',ev:'stamp'},
- {t:'3 · Orienta il pennello',b:'<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.',sel:'#stagePrev'},
- {t:'4 · Combina le forme',b:'In alto ci sono quattro modi di combinare le forme — <svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg> unisci, <svg viewBox="0 0 24 24"><mask id="tut_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#tut_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> sottrai, <svg viewBox="0 0 24 24"><clipPath id="tut_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#tut_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> interseca, <svg viewBox="0 0 24 24"><clipPath id="tut_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="tut_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#tut_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#tut_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg> escludi. Scegline uno e timbra sopra una cella.',sel:'#merge'},
- {t:'5 · Colori e livelli',b:'Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.',sel:'[data-sec="color"]'},
- {t:'Tutto qui',b:'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.',sel:'#status'},
-];
+function buildCoach(){
+  const icoU='<svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg>';
+  const icoS='<svg viewBox="0 0 24 24"><mask id="tut_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#tut_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg>';
+  const icoI='<svg viewBox="0 0 24 24"><clipPath id="tut_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#tut_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg>';
+  const icoX='<svg viewBox="0 0 24 24"><clipPath id="tut_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="tut_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#tut_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#tut_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg>';
+  return [
+ {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Poche mosse, un minuto.'),sel:null},
+ {t:tt('1 · Scegli una tessera'),b:tt('Nella <b>libreria</b> a sinistra scegli una forma: diventa il tuo pennello.'),sel:'[data-sec="tiles"]',ev:'tile'},
+ {t:tt('2 · Matita e timbra'),b:tt('Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.'),sel:'#toolDraw',ev:'stamp'},
+ {t:tt('3 · Orienta il pennello'),b:tt('<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.'),sel:'#stagePrev'},
+ {t:tt('4 · Combina le forme'),b:tt('In alto ci sono quattro modi di combinare le forme —')+' '+icoU+' '+tt('unisci')+', '+icoS+' '+tt('sottrai')+', '+icoI+' '+tt('interseca')+', '+icoX+' '+tt('escludi')+'. '+tt('Scegline uno e timbra sopra una cella.'),sel:'#merge'},
+ {t:tt('5 · Colori e livelli'),b:tt('Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.'),sel:'[data-sec="color"]'},
+ {t:tt('Tutto qui'),b:tt('La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.'),sel:'#status'},
+];}
+let COACH=buildCoach();
 let coachI=-1;
 function coachSpot(sel){ const sp=$('coachSpot'); const el=sel&&document.querySelector(sel);
   if(!el){ sp.hidden=true; return; } const r=el.getBoundingClientRect();
@@ -2554,14 +2781,14 @@ function coachShow(i){ coachI=i; const s=COACH[i];
   $('coachDots').innerHTML=COACH.map((_,k)=>'<i class="'+(k===i?'on':'')+'"></i>').join('');
   $('coachPrev').style.visibility=i>0?'visible':'hidden';
   const n=$('coachNext');
-  if(s.ev){ n.disabled=true; n.classList.remove('primary'); n.textContent='Prova tu…'; }
-  else { n.disabled=false; n.classList.add('primary'); n.textContent=(i===COACH.length-1)?'Fine':'Avanti'; }
+  if(s.ev){ n.disabled=true; n.classList.remove('primary'); n.textContent=tt('Prova tu…'); }
+  else { n.disabled=false; n.classList.add('primary'); n.textContent=(i===COACH.length-1)?tt('Fine'):tt('Avanti'); }
   $('coach').hidden=false; coachSpot(s.sel); }
 function coachEnd(){ coachI=-1; $('coach').hidden=true; $('coachSpot').hidden=true; try{ localStorage.setItem('hexagraph.tutdone','1'); }catch(e){} }
 function coachNext(){ if(coachI<COACH.length-1) coachShow(coachI+1); else coachEnd(); }
 /* avanza automaticamente quando l'utente compie l'azione del passo corrente */
 function coachEvent(tag){ if(coachI>=0 && COACH[coachI] && COACH[coachI].ev===tag){ const n=$('coachNext');
-  if(n.disabled){ n.disabled=false; n.classList.add('primary'); n.textContent='Avanti ✓'; } } }
+  if(n.disabled){ n.disabled=false; n.classList.add('primary'); n.textContent=tt('Avanti ✓'); } } }
 function coachStart(){ coachShow(0); }
 $('coachNext').onclick=coachNext;
 $('coachPrev').onclick=()=>{ if(coachI>0) coachShow(coachI-1); };
@@ -2643,7 +2870,7 @@ window.addEventListener('keydown',e=>{
       const h=hoverPt?cellAt(...hoverPt):null;
       const tc=h?h[0]:cursor.c, tr=h?h[1]:cursor.r;
       if(h){ cursor.c=tc; cursor.r=tr; }
-      if(!pickBrush(tc,tr)) flashStatus('cella vuota: niente da prelevare'); } break;
+      if(!pickBrush(tc,tr)) flashStatus(tt('cella vuota: niente da prelevare')); } break;
     case 'z': doUndo(); break;
     case 'v': paste(); break;
     case 'm': setAssign(!assignMode); break;
@@ -2753,10 +2980,10 @@ function updatePatternUI(){
   $('patInfo').hidden=!on; $('patRow').hidden=!on; $('patExpRow').hidden=!on;
   if(!on) return;
   let extra='';
-  if(pattern.shape==='rect'||pattern.shape==='strip') extra=(cols%2)?' · a mattoncino (colonne dispari)':' · dritto (colonne pari)';
-  if(pattern.shape==='hexa') extra=' · raggio '+patHexaN();
+  if(pattern.shape==='rect'||pattern.shape==='strip') extra=(cols%2)?tt(' · a mattoncino (colonne dispari)'):tt(' · dritto (colonne pari)');
+  if(pattern.shape==='hexa') extra=tt(' · raggio ')+patHexaN();
   if(pattern.shape==='rhomb') extra=' · '+cols+'×'+patRhombM();
-  $('patInfo').innerHTML='<b>Pattern: '+PAT_NAMES[pattern.shape]+'</b>'+extra;
+  $('patInfo').innerHTML='<b>Pattern: '+tt(PAT_NAMES[pattern.shape])+'</b>'+extra;
   $('patBoundsBtn').classList.toggle('on',patBounds);
 }
 $('patBoundsBtn').onclick=()=>{ patBounds=!patBounds; localStorage.setItem('hexagraph.patbounds',patBounds?'1':'0'); updatePatternUI(); render(); };
@@ -2776,10 +3003,10 @@ function syncNewDlg(){
     else if(npShape==='hexa'){ aTxt='Raggio (celle)'; showB=false; aVal=5; note='Tela a esagono che tassella a nido d’ape: le copie circondano su 6 lati.'; }
     else { aTxt='Lato A (colonne)'; bTxt='Lato B'; aVal=10; bVal=10; note='Parallelogramma sugli assi esagonali: la ripetizione scende in obliquo.'; }
   }
-  $('npAWrap').firstChild.nodeValue=aTxt; $('npBWrap').firstChild.nodeValue=bTxt;
+  $('npAWrap').firstChild.nodeValue=tt(aTxt); $('npBWrap').firstChild.nodeValue=tt(bTxt);
   $('npBWrap').style.display=showB?'':'none';
   $('npA').value=aVal; $('npB').value=bVal;
-  $('npNote').textContent=note;
+  $('npNote').textContent=tt(note);
 }
 function createProject(){
   const A=Math.max(2,Math.min(80,+$('npA').value||12)), B=Math.max(2,Math.min(80,+$('npB').value||12));
@@ -2817,8 +3044,8 @@ function syncPeDlg(){
   $('peModePx').classList.toggle('on',peMode==='px');
   $('peRepRow').hidden=(peMode!=='rep'); $('pePxRow').hidden=(peMode!=='px');
   $('peNote').textContent=(peMode==='rep')
-    ? 'Dimensione finale = ripetizioni × larghezza di una ripetizione.'
-    : 'Il pattern riempie l’area data; la scala la decide «larghezza di una ripetizione».';
+    ? tt('Dimensione finale = ripetizioni × larghezza di una ripetizione.')
+    : tt('Il pattern riempie l’area data; la scala la decide «larghezza di una ripetizione».');
 }
 /* dimensioni dell'export in unità-tavola (bw,bh) + scala px/unità (s) */
 function patExportDims(){
@@ -2845,7 +3072,7 @@ $('patDlg').onclick=e=>{ if(e.target===$('patDlg')) $('patDlg').hidden=true; };
 $('pePng').onclick=()=>{
   const [W,H]=boardSize(); const {bw,bh,s}=patExportDims();
   const cw=Math.round(bw*s), ch=Math.round(bh*s);
-  if(cw>8192||ch>8192) return alert('Uscirebbe più grande di 8192px: riduci ripetizioni o scala.');
+  if(cw>8192||ch>8192) return alert(tt('Uscirebbe più grande di 8192px: riduci ripetizioni o scala.'));
   drawPatternUnit(s);
   const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; const g=cv.getContext('2d');
   g.setTransform(s,0,0,s,0,0);
@@ -2871,6 +3098,10 @@ $('peSvg').onclick=()=>{
 /* ---- init ---- */
 layers=[newLayer()]; setActive(0);
 initSections(); loadForged(); applyPalCols();
+/* i18n (§8.14): traduci il DOM statico PRIMA di costruire la UI dinamica (che passa da tt()) */
+translateDOM(); markLang();
+$('langIt').onclick=()=>setLang('it');
+$('langEn').onclick=()=>setLang('en');
 buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
 /* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
 let didFit=false;
