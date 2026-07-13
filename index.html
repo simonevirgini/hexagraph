@@ -282,7 +282,7 @@
   </div>
   <div class="rcluster">
     <div class="qcolors" id="quickcols" title="colori rapidi — clic usa · +/doppio clic cambia col picker · destro toglie"></div>
-    <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · 0-9 piazza"></div>
+    <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · in Seleziona, clic/0-9 deposita al cursore (dopo averlo piazzato)"></div>
   </div>
 </header>
 <div id="pencilPop" class="pop" hidden>
@@ -950,13 +950,19 @@ function render(hoverC,hoverR){
   updateHilites();   // libreria/slot in risalto se la selezione è una tessera semplice (guardia interna anti-lavoro-doppio)
 }
 
-/* ---- hit-test ---- */
+/* ---- hit-test ----
+   O(1): stima colonna/riga invertendo il layout odd-q, poi verifica Voronoi sui soli
+   vicini 3×3 (lo sfalsamento di mezza riga delle colonne dispari è coperto dal ±1).
+   Prima scansionava TUTTA la griglia: su 80×80 erano 6.400 iterazioni per ogni
+   campione di tratto della matita. Semantica invariata (verificato contro la brute force). */
 function cellAt(mx,my){
+  const c0=Math.round((mx-margin())/colW()), r0=Math.round((my-margin())/rowH());
   let best=null,bd=1e9;
-  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
-    const [cx,cy]=cellCenter(c,r); const d=(cx-mx)**2+(cy-my)**2;
-    if(d<bd){bd=d;best=[c,r];}
-  }
+  for(let c=Math.max(0,c0-1);c<=Math.min(cols-1,c0+1);c++)
+    for(let r=Math.max(0,r0-1);r<=Math.min(rows-1,r0+1);r++){
+      const [cx,cy]=cellCenter(c,r); const d=(cx-mx)**2+(cy-my)**2;
+      if(d<bd){bd=d;best=[c,r];}
+    }
   return (best&&bd<(R*1.05)**2)?best:null;
 }
 
@@ -995,6 +1001,11 @@ function restoreState(s){ const o=JSON.parse(s);
   }
   $('cols').value=cols; $('rows').value=rows;
   cursor.c=Math.min(cursor.c,cols-1); cursor.r=Math.min(cursor.r,rows-1);
+  if(selection){   // ripulisce dalla selezione le celle finite fuori griglia (es. undo di un resize)
+    selection=new Set([...selection].filter(k=>{ const i=k.indexOf(','), c=+k.slice(0,i), r=+k.slice(i+1);
+      return c>=0&&c<cols&&r>=0&&r<rows; }));
+    if(!selection.size) selection=null;
+  }
   document.documentElement.style.setProperty('--boardRot',boardRot+'deg');
   buildLayers();
 }
@@ -1085,7 +1096,7 @@ function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie sim
   const rot=ov?ov.rot:brush.rot, flip=ov?ov.flip:brush.flip;
   const ex=cells.get(key(c,r));
   const s={t:brush.tile,rot,flip,sw:brush.sw};
-  if(ex && ex.t!=null && stampMode==='merge'){
+  if(ex && (ex.t!=null||ex.inv) && stampMode==='merge'){   // vale anche sulla cella "sfondo pieno" {t:null,inv}
     const sig=v=>v.t+'/'+v.rot+'/'+v.flip;
     // anti-doppione SOLO se la cella non ha scavi/ritagli: dopo una ⊖/∩/⊻ ri-unire la
     // stessa forma non è un no-op (ripristina l'area tolta, ordine cronologico)
@@ -1095,7 +1106,7 @@ function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie sim
   }
   if(stampMode==='sub'){ if(ex){ s.q=nextQ(ex); ex.sub=(ex.sub||[]); ex.sub.push(s); } return; }   // su cella vuota non fa nulla
   if(stampMode==='iso'){ if(ex){ s.q=nextQ(ex); ex.iso=(ex.iso||[]); ex.iso.push(s); } return; }   // intersezione con vuoto = vuoto
-  if(stampMode==='xor' && ex && ex.t!=null){ s.q=nextQ(ex); ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale
+  if(stampMode==='xor' && ex && (ex.t!=null||ex.inv)){ s.q=nextQ(ex); ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale · su "sfondo pieno" buca il pieno
   const nc=brushCell(); nc.rot=rot; nc.flip=flip; cells.set(key(c,r),nc);
 }
 function bgCell(c,r){ if(!inDomain(c,r))return; cells.set(key(c,r),{t:null,rot:0,flip:false,inv:brush.inv}); }
@@ -1452,7 +1463,8 @@ board.addEventListener('pointerup',e=>{
   painting=false;selecting=false;baseSel=null;selAnchorKey=null;lastPaintPt=null;ppChain=null;
   if(spaceDown)board.style.cursor='grab'; else updateCursor();
 });
-board.addEventListener('pointerleave',()=>{painting=false;lastPaintPt=null;ppChain=null;render();});
+board.addEventListener('pointerleave',e=>{ if(painting && e.buttons) return;   // col bottone premuto il capture continua il tratto oltre il bordo
+  painting=false;lastPaintPt=null;ppChain=null;render();});
 function applyAt([c,r]){ const k=key(c,r); if(k===lastKey)return; lastKey=k; cursor.c=c;cursor.r=r;
   const rec=ppChain?{c,r,writes:[]}:null;   // matita "linea pulita": ricorda cosa scrive questo punto (con le copie simmetriche) per poterlo togliere se è un gomito
   for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r);
@@ -2411,7 +2423,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED,
+  const blob={v:1, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED,   // v = versione del formato (i salvataggi senza v sono pre-round-32)
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur, pingpong:anim.pingpong} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -2430,11 +2442,29 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     bgT = o.bgT ? {x:+o.bgT.x||0, y:+o.bgT.y||0, s:+o.bgT.s||1, rot:+o.bgT.rot||0} : {x:0,y:0,s:1,rot:0}; syncBgUI();   // o.outsideBlack dei salvataggi vecchi: ignorato (toggle rimosso)
     if(o.bgOpacity!=null){bgOpacity=o.bgOpacity;$('bgOpacity').value=Math.round(bgOpacity*100);$('bgOpVal').textContent=Math.round(bgOpacity*100)+'%';}
     bgImage=null; if(o.bg){ const img=new Image(); img.onload=()=>render(); img.src=o.bg; bgImage=img; }
-    if(o.forged){ o.forged.forEach(f=>{ if(!FORGED.some(x=>x.id===f.id)) FORGED.push(f); registerForged(f); }); saveForged(); buildPalette(); }
+    /* FORGIATE: se il progetto porta un id già usato in locale con una FORMA DIVERSA, la forgiata
+       del progetto viene rimappata su un id nuovo (e sotto si aggiornano celle/frame/slot che la usano)
+       — prima la locale vinceva in localStorage e il disegno cambiava aspetto alla sessione dopo. */
+    const idMap={};
+    if(o.forged){ o.forged.forEach(f=>{
+        const ex=FORGED.find(x=>x.id===f.id);
+        if(!ex){ FORGED.push(f); registerForged(f); }
+        else if(JSON.stringify(ex.stamps)!==JSON.stringify(f.stamps)){
+          const nid=nextForgedId(); idMap[f.id]=nid;
+          const nf=Object.assign({},f,{id:nid}); FORGED.push(nf); registerForged(nf);
+        } });   // identica alla locale: già registrata, niente da fare
+      saveForged(); buildPalette(); }
     stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true;
     anim.frames=(o.anim&&o.anim.frames)||[]; anim.cur=anim.frames.length?Math.min(o.anim.cur||0,anim.frames.length-1):0; anim.prevLayers=null;
     anim.pingpong=!!(o.anim&&o.anim.pingpong); $('frPong').classList.toggle('on',anim.pingpong);
     if(o.slots){ for(let i=0;i<10;i++){ const s=o.slots[i]; slots[i]= s ? (typeof s==='string'?{t:s,rot:0,flip:false,inv:false}:s) : null; } }
+    if(Object.keys(idMap).length){   // applica la rimappatura delle forgiate a tutto ciò che è stato caricato
+      const fixT=st=>{ if(st && idMap[st.t]) st.t=idMap[st.t]; };
+      const fixCell=cell=>{ fixT(cell); for(const L of [cell.extra,cell.sub,cell.iso,cell.xor]) if(L) L.forEach(fixT); };
+      for(const L of layers) for(const cell of L.cells.values()) fixCell(cell);
+      for(const fr of anim.frames) for(const Ld of fr) for(const kv of (Ld.cells||[])) fixCell(kv[1]);
+      slots.forEach(s=>{ if(s){ fixT(s); if(s.cell) fixCell(s.cell); } });
+    }
     buildSlots();
     undoStack.length=0; redoStack.length=0; refreshUndo(); buildLayers(); render();
   }catch(err){alert('File non valido');} };
@@ -2462,7 +2492,7 @@ function hintHTML(){
   } else if(hasSel){
     h = `<b>Selezione</b> (${selection.size}) · trascina sposta (${kb('⌥')} copia) · ${kb('r')}${kb('f')} gruppo · ${kb('⇧R')}${kb('⇧F')} singole · ${kb('i')} inverti · swatch colora · ${kb('⇧G')} forgia · ${kb('Canc')} svuota`;
   } else {
-    h = `<b>Seleziona</b> · clic una cella · trascina un rettangolo (${kb('⇧')} aggiunge) · doppio clic = tutte le identiche · tessera in libreria = deposita al cursore`;
+    h = `<b>Seleziona</b> · clic una cella · trascina un rettangolo (${kb('⇧')} aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)`;
   }
   if(fus && (tool==='draw'||tool==='bucket'||hasSel)) h+=` · fusione <b>${fus}</b>`;
   if(symMode!=='none') h+=' · <b>simmetria</b>';
@@ -2590,7 +2620,7 @@ window.addEventListener('keydown',e=>{
       const tc=h?h[0]:cursor.c, tr=h?h[1]:cursor.r;
       if(h){ cursor.c=tc; cursor.r=tr; }
       if(!pickBrush(tc,tr)) flashStatus('cella vuota: niente da prelevare'); } break;
-    case 'z': if(e.metaKey||e.ctrlKey){doUndo();} else doUndo(); break;
+    case 'z': doUndo(); break;
     case 'v': paste(); break;
     case 'm': setAssign(!assignMode); break;
     case ',': cycleTile(-1); break;
