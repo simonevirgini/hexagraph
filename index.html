@@ -194,6 +194,7 @@
   #coachTitle{font-size:14px;margin:6px 0 4px;color:var(--text)}
   #coachBody{font-size:12px;line-height:1.55;color:var(--muted)}
   #coachBody b{color:var(--text)}
+  #coachBody svg{width:16px;height:16px;vertical-align:-4px;color:var(--text)}
   #coachDots{display:flex;gap:5px;margin:11px 0}
   #coachDots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
   #coachDots i.on{background:var(--accent)}
@@ -1553,8 +1554,9 @@ function xformRot(d){
 }
 function xformFlip(){
   if(selection&&selection.size){ groupMirror(); }
-  else if(brush.cell){ orientCell(brush.cell, 0, true); brush.flip=!brush.flip; $('flip').classList.toggle('on',brush.flip); }   // specchia TUTTA la combinazione
-  else { brush.flip=!brush.flip; $('flip').classList.toggle('on',brush.flip); }
+  else if(brush.cell){ orientCell(brush.cell, 0, true); brush.flip=!brush.flip; brush.rot=((-brush.rot)%6+6)%6; $('flip').classList.toggle('on',brush.flip); }   // specchia TUTTA la combinazione
+  // riflesso sull'asse VERTICALE dello schermo: oltre a flip, nega la rotazione così l'asse resta verticale anche se la tessera è ruotata (rot=0 → identico a prima)
+  else { brush.flip=!brush.flip; brush.rot=((-brush.rot)%6+6)%6; $('flip').classList.toggle('on',brush.flip); }
   updateStatus(); render();
 }
 function xformInv(){
@@ -2512,13 +2514,13 @@ function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.in
 
 /* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ---- */
 const COACH=[
- {t:'Benvenuto in Hexagraph',b:'Si disegna posando <b>tessere esagonali</b> b/n su una griglia a nido d\'ape. Poche mosse, un minuto.',sel:null},
+ {t:'Benvenuto in Hexagraph',b:'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Poche mosse, un minuto.',sel:null},
  {t:'1 · Scegli una tessera',b:'Nella <b>libreria</b> a sinistra scegli una forma: diventa il tuo pennello.',sel:'[data-sec="tiles"]',ev:'tile'},
  {t:'2 · Matita e timbra',b:'Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.',sel:'#toolDraw',ev:'stamp'},
  {t:'3 · Orienta il pennello',b:'<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.',sel:'#stagePrev'},
- {t:'4 · Combina le forme',b:'In alto scegli <b>⊕ unisci</b>, <b>⊖ sottrai</b>, <b>∩ interseca</b> o <b>⊻ escludi</b>, poi timbra sopra una cella: più forme nella stessa casella.',sel:'#merge'},
- {t:'5 · Colore e livelli',b:'Nella barra destra dai un <b>colore</b> ai timbri e usa i <b>livelli</b> per sovrapporli (fusioni tipo risograph).',sel:'[data-sec="color"]'},
- {t:'Tutto qui',b:'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria. Buon divertimento! 🌸',sel:'#status'},
+ {t:'4 · Combina le forme',b:'In alto ci sono quattro modi di combinare le forme — <svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg> unisci, <svg viewBox="0 0 24 24"><mask id="tut_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#tut_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> sottrai, <svg viewBox="0 0 24 24"><clipPath id="tut_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#tut_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> interseca, <svg viewBox="0 0 24 24"><clipPath id="tut_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="tut_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#tut_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#tut_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg> escludi. Scegline uno e timbra sopra una cella.',sel:'#merge'},
+ {t:'5 · Colori e livelli',b:'Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.',sel:'[data-sec="color"]'},
+ {t:'Tutto qui',b:'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.',sel:'#status'},
 ];
 let coachI=-1;
 function coachSpot(sel){ const sp=$('coachSpot'); const el=sel&&document.querySelector(sel);
@@ -2573,7 +2575,7 @@ window.addEventListener('keydown',e=>{
       case 'I': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(cell)cell.inv=!cell.inv;},true); break;
       case 'R': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>s.rot=(s.rot+1)%6;   // ⇧R = ruota OGNI tessera in place
         f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);},true); break;
-      case 'F': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>{s.flip=!s.flip;};   // ⇧F = specchia OGNI tessera in place
+      case 'F': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>{s.flip=!s.flip; s.rot=((-s.rot)%6+6)%6;};   // ⇧F = specchia OGNI tessera in place (asse verticale schermo)
         f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);},true); break;
       case 'H': shiftSel(-1,0); break;
       case 'L': shiftSel(1,0); break;
