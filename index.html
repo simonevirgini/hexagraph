@@ -46,13 +46,11 @@
   .sw{aspect-ratio:1;border:0;border-radius:2px;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
   .swlabel{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:5px 0 1px}
   .sw.sel{outline:2px solid var(--accent);outline-offset:1px}
-  .sw.auto{display:grid;place-items:center;font-size:11px;font-weight:700;background:var(--panel2);color:var(--text)}
   /* colori rapidi (in cima, vicino alle tessere rapide) */
   #topbar .rcluster{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-left:auto}
   #topbar .qcolors{display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .qsw{width:17px;height:17px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
   .qsw.sel{box-shadow:0 0 0 2px var(--panel),0 0 0 3.5px var(--accent)}
-  .qsw.auto{display:grid;place-items:center;font-size:9px;font-weight:700;background:var(--panel2);color:var(--text)}
   .qsw.empty{background:transparent;color:var(--muted);display:grid;place-items:center;font-size:12px;line-height:1;box-shadow:none;border:1px dashed var(--line)}
   /* selettore palette a tema */
   .palsel{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:8px;background:var(--bg);border-radius:4px;padding:2px}
@@ -211,7 +209,10 @@
   .layerRow.multisel{box-shadow:inset 2.5px 0 0 var(--accent2)}   /* nel set multi-selezione ma non il livello di disegno */
   .layerRow .lvis,.layerRow .ldel{cursor:pointer;font-size:12px;color:var(--muted);width:15px;text-align:center;flex:0 0 auto}
   .layerRow .ldel:hover{color:#ff7a7a}
-  .layerRow input[type=color]{width:22px;height:22px;padding:0;border:0;border-radius:2px;flex:0 0 auto;background:none}
+  /* §8.15: il colore del livello è solo un pallino-etichetta (cambiabile, non colora le tessere) */
+  .layerRow input[type=color]{width:13px;height:13px;padding:0;border:0;border-radius:50%;flex:0 0 auto;background:none;overflow:hidden;cursor:pointer}
+  .layerRow input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+  .layerRow input[type=color]::-webkit-color-swatch{border:none;border-radius:50%}
   .layerRow .lmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .layerRow .lname{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .layerRow .lctl{display:flex;gap:5px;align-items:center}
@@ -359,7 +360,7 @@
           <input type="color" id="cellCol" title="colore personalizzato">
           <span class="legend" style="flex:1">colore libero — si aggiunge ai <b>rapidi</b> in alto</span>
         </div>
-        <div class="legend"><b>A</b> = colore del livello. Clic su un colore = prossimi timbri (e la selezione, se c'è). Doppio clic su uno swatch = aggiungilo ai <b>rapidi</b>.</div>
+        <div class="legend">Clic su un colore = prossimi timbri (e la selezione, se c'è). Doppio clic su uno swatch = aggiungilo ai <b>rapidi</b>.</div>
         <input type="color" id="quickPicker" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
       </div>
 
@@ -574,7 +575,8 @@ let patBounds=localStorage.getItem('hexagraph.patbounds')!=='0';   // confine de
 let stampMode=null;                // null (sostituisci) | 'merge' ⊕ | 'sub' ⊖ | 'iso' ∩ | 'xor' ⊻ — vale per timbro E rilascio del trascinamento
 /* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
-const brush={ tile:TILES[0]?TILES[0].id:null, tileB:null, cell:null, rot:0, flip:false, inv:false, sw:0.34, col:null };   // sw = spessore tratto per-timbro · col = colore cella (null = colore del livello) · tileB = seconda tessera del dither (⇧+clic in libreria) · cell = pennello COMPOSITO (contagocce su una cella con più forme: si timbra l'intera combinazione)
+const DEFAULT_INK='#111111';   // inchiostro di default (nero riso): fallback per celle/preset senza colore (§8.15: il colore è SEMPRE per-cella, mai ereditato dal livello)
+const brush={ tile:TILES[0]?TILES[0].id:null, tileB:null, cell:null, rot:0, flip:false, inv:false, sw:0.34, col:DEFAULT_INK };   // sw = spessore tratto per-timbro · col = colore cella (sempre valorizzato, §8.15) · tileB = seconda tessera del dither (⇧+clic in libreria) · cell = pennello COMPOSITO (contagocce su una cella con più forme: si timbra l'intera combinazione)
 const cursor={c:0,r:0};
 let cursorPlaced=false;   // finché l'utente non piazza il cursore (clic sulla tela o frecce), il clic in libreria/slot NON deposita
 const view={zoom:1,x:0,y:0};   // vista: zoom + traslazione (px) applicati via CSS transform sulla tavola
@@ -760,7 +762,7 @@ function compositeLayers(Ls,alpha){
   for(const L of Ls){ if(!L.visible || L.cells.size===0) continue;
     setupOff();
     for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
-      const [cx,cy]=cellCenter(c,r); lctx.save(); lctx.translate(cx,cy); drawCellFigures(lctx,cell,cell.col||L.color); lctx.restore(); }
+      const [cx,cy]=cellCenter(c,r); lctx.save(); lctx.translate(cx,cy); drawCellFigures(lctx,cell,cell.col||DEFAULT_INK); lctx.restore(); }
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(lc,0,0); ctx.restore();
   }
 }
@@ -784,7 +786,7 @@ function drawPatternUnit(q){
   for(const L of layers){ if(!L.visible||L.cells.size===0) continue;
     plG.setTransform(1,0,0,1,0,0); plG.clearRect(0,0,w,h); plG.setTransform(q,0,0,q,0,0);
     for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
-      const [cx,cy]=cellCenter(c,r); plG.save(); plG.translate(cx,cy); drawCellFigures(plG,cell,cell.col||L.color); plG.restore(); }
+      const [cx,cy]=cellCenter(c,r); plG.save(); plG.translate(cx,cy); drawCellFigures(plG,cell,cell.col||DEFAULT_INK); plG.restore(); }
     puG.save(); puG.setTransform(1,0,0,1,0,0); puG.globalAlpha=L.opacity; puG.globalCompositeOperation=L.blend; puG.drawImage(plC,0,0); puG.restore();
   }
   return [W,H];
@@ -897,7 +899,7 @@ function render(hoverC,hoverR){
       }
       ctx.globalAlpha=occupied?0.65:0.45;
       const g=brushCell(); g.rot=t.rot; g.flip=t.flip;
-      drawCellFigures(ctx, g, brush.col||layers[active].color);
+      drawCellFigures(ctx, g, brush.col||DEFAULT_INK);
       ctx.globalAlpha=0.95;   // tratteggio del fantasma
       ctx.save(); ctx.scale(R,R); ctx.setLineDash([0.22,0.15]); ctx.strokeStyle=acc; ctx.lineWidth=2/R; ctx.lineJoin='round'; ctx.stroke(HEX_UNIT_PATH); ctx.restore();
       ctx.restore();
@@ -931,12 +933,12 @@ function render(hoverC,hoverR){
         dests.push([nc,nr]);
         const cell=cells.get(key(c,r)); if(!cell) continue;
         const [px,py]=cellCenter(nc,nr);
-        ctx.save(); ctx.translate(px,py); drawCellFigures(ctx,cell,cell.col||layers[active].color); ctx.restore();
+        ctx.save(); ctx.translate(px,py); drawCellFigures(ctx,cell,cell.col||DEFAULT_INK); ctx.restore();
       }
     } else {   // fuori griglia: ghost libero come feedback
       const dx=dragMove.curPt[0]-dragMove.startPt[0], dy=dragMove.curPt[1]-dragMove.startPt[1];
       for(const [c,r] of selCells()){ const cell=cells.get(key(c,r)); if(!cell) continue;
-        const [px,py]=cellCenter(c,r); ctx.save(); ctx.translate(px+dx,py+dy); drawCellFigures(ctx,cell,cell.col||layers[active].color); ctx.restore(); }
+        const [px,py]=cellCenter(c,r); ctx.save(); ctx.translate(px+dx,py+dy); drawCellFigures(ctx,cell,cell.col||DEFAULT_INK); ctx.restore(); }
     }
     ctx.restore();
     for(const [nc,nr] of dests) outline(nc,nr,2);
@@ -1120,7 +1122,7 @@ function stamp(c,r,ov){   // ov = orientazione alternativa {rot,flip} (copie sim
   if(stampMode==='xor' && ex && (ex.t!=null||ex.inv)){ s.q=nextQ(ex); ex.xor=(ex.xor||[]); ex.xor.push(s); return; }   // su vuoto = timbro normale · su "sfondo pieno" buca il pieno
   const nc=brushCell(); nc.rot=rot; nc.flip=flip; cells.set(key(c,r),nc);
 }
-function bgCell(c,r){ if(!inDomain(c,r))return; cells.set(key(c,r),{t:null,rot:0,flip:false,inv:brush.inv}); }
+function bgCell(c,r){ if(!inDomain(c,r))return; const c2={t:null,rot:0,flip:false,inv:brush.inv}; if(brush.col)c2.col=brush.col; cells.set(key(c,r),c2); }
 function erase(c,r){ cells.delete(key(c,r)); }
 /* ---- secchiello (flood fill) ---- */
 /* vicini esagonali flat-top con colonne sfalsate (colonne dispari più in basso) */
@@ -1652,7 +1654,7 @@ function applyPreset(p){
   brush.tile=p.t; brush.rot=p.rot||0; brush.flip=!!p.flip; brush.inv=!!p.inv;
   noteRecentTile(p.t);
   if(p.sw!=null) brush.sw=p.sw;
-  brush.col=p.col||null;
+  brush.col=p.col||DEFAULT_INK;   // preset vecchi senza colore (ex "A"): inchiostro di default
   syncBrushUI();
   document.querySelectorAll('#palette .tile').forEach(x=>x.classList.toggle('sel',x.dataset.id===brush.tile));
   updateStatus(); render();
@@ -1661,7 +1663,7 @@ function applyPreset(p){
 function syncBrushUI(){
   $('flip').classList.toggle('on',brush.flip); $('inv').classList.toggle('on',brush.inv);
   $('connSW').value=brush.sw; $('swVal').textContent=(+brush.sw).toFixed(2);
-  const cc=$('cellCol'); if(cc) cc.value=brush.col||layers[active].color;
+  const cc=$('cellCol'); if(cc) cc.value=brush.col||DEFAULT_INK;
   buildSwatches(); buildQuickCols();
 }
 /* CONTAGOCCE (§ round 21, esteso round 22): preleva la cella sotto (c,r) con TUTTO il suo aspetto e la
@@ -1675,7 +1677,7 @@ function pickBrush(c,r){
   if(cell.t!=null){ brush.tile=cell.t; brush.rot=cell.rot||0; brush.flip=!!cell.flip; noteRecentTile(cell.t); }
   brush.inv=!!cell.inv;
   if(cell.sw!=null) brush.sw=cell.sw;
-  brush.col=cell.col||null;
+  brush.col=cell.col||DEFAULT_INK;
   document.querySelectorAll('#palette .tile, #palfav .tile').forEach(x=>x.classList.toggle('sel', !brush.cell && x.dataset.id===brush.tile));
   syncBrushUI(); updateBrushPreview();
   if(tool==='select'||tool==='lasso'||tool==='erase') setTool('draw');
@@ -1859,7 +1861,7 @@ $('rotL').onclick=()=>xformRot(-1);
 $('rotR').onclick=()=>xformRot(1);
 $('flip').onclick=()=>xformFlip();
 $('inv').onclick=()=>xformInv();
-/* ---- COLORE: swatch riso + recenti + auto (A = colore del livello) ---- */
+/* ---- COLORE (§8.15): sempre per-cella (brush.col/cell.col, mai ereditato dal livello); swatch a tema + rapidi ---- */
 const RISO_COLORS=['#111111','#0078bf','#ff665e','#00a95c','#ffe800','#ff48b0','#ff6c2f','#765ba7','#00838a','#914e72','#62a8e5','#928d88'];
 /* PALETTE a tema mostrate nella colonna Colore (il selettore #palsel le cambia) */
 const PALETTES={
@@ -1887,9 +1889,6 @@ function addQuick(v){ v=(v||'').toLowerCase(); if(!v||quickCols.some(c=>c&&c.toL
 let quickTarget=-1;
 function buildQuickCols(){ const el=$('quickcols'); if(!el)return; el.innerHTML='';
   const cur=brush.col?brush.col.toLowerCase():null;
-  const auto=document.createElement('button'); auto.className='qsw auto'+(brush.col?'':' sel');
-  auto.style.background=layers[active].color; auto.style.color=colLum(layers[active].color)>140?'#111':'#fff';
-  auto.textContent='A'; auto.title='colore del livello attivo'; auto.onclick=()=>setBrushCol(null); el.appendChild(auto);
   quickCols.forEach((c,i)=>{ const b=document.createElement('button'); b.dataset.i=i;
     if(c){ b.className='qsw'+(cur===c.toLowerCase()?' sel':''); b.style.background=c;
       b.title=c+' — clic: usa · doppio clic: cambia · destro: togli';
@@ -1900,7 +1899,7 @@ function buildQuickCols(){ const el=$('quickcols'); if(!el)return; el.innerHTML=
 function openQuickPicker(i){ quickTarget=i; const p=$('quickPicker'); p.value=quickCols[i]||brush.col||'#ff48b0'; p.click(); }
 $('quickPicker').oninput=()=>{ if(quickTarget<0)return; const v=$('quickPicker').value; quickCols[quickTarget]=v; saveQuick(); setBrushCol(v); buildQuickCols(); };
 $('quickPicker').onchange=()=>{ quickTarget=-1; };
-/* colora le celle selezionate su TUTTI i livelli attivi (A/null = torna al colore del livello) —
+/* colora le celle selezionate su TUTTI i livelli attivi —
    NIENTE snapshot qui dentro: lo gestisce il chiamante (uno solo per gesto). */
 function colorSelection(col){ const cs=selCells().filter(([c,r])=>inDomain(c,r));
   for(const li of activeLayers()){ const cl=layers[li].cells;
@@ -1914,7 +1913,6 @@ function setBrushCol(col, live){
   if(!live) syncBrushUI();
   updateStatus(); render();
 }
-const colLum=c=>{ const n=parseInt(c.slice(1),16); return 0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255); };
 function buildSwatches(){
   const el=$('swatches'); if(!el)return; el.innerHTML='';
   const sel=brush.col?brush.col.toLowerCase():null;
@@ -1922,10 +1920,6 @@ function buildSwatches(){
     b.style.background=c; b.title=c+' — clic: usa · doppio clic: aggiungi ai rapidi';
     b.onclick=()=>setBrushCol(c); b.ondblclick=()=>{ addQuick(c); buildQuickCols(); };
     el.appendChild(b); };
-  const auto=document.createElement('button'); auto.className='sw auto'+(brush.col?'':' sel');
-  auto.style.background=layers[active].color; auto.style.color=colLum(layers[active].color)>140?'#111':'#fff';
-  auto.textContent='A'; auto.title='automatico: colore del livello attivo';
-  auto.onclick=()=>setBrushCol(null); el.appendChild(auto);
   for(const c of (PALETTES[curPalette]||[])) addSw(c);
 }
 $('cellCol').onpointerdown=()=>{ if(selection&&selection.size) snapshot(); };   // un solo snapshot per l'intera scelta col picker nativo
@@ -2071,14 +2065,14 @@ function buildLayers(){
     const row=document.createElement('div'); row.className='layerRow'+(i===active?' active':(activeSet.has(i)?' multisel':'')); row.dataset.i=i;
     row.innerHTML=`<span class="lhandle" title="trascina per riordinare">⠿</span>`
       +`<span class="lvis" title="mostra/nascondi">${L.visible?'◉':'○'}</span>`
-      +`<input type="color" class="lcol" value="${L.color}">`
+      +`<input type="color" class="lcol" value="${L.color}" title="colore-etichetta del livello (solo per riconoscerlo, non colora le tessere)">`
       +`<div class="lmid"><div class="lname">${L.name}</div><div class="lctl">`
       +`<select class="lblend">${BLENDS.map(b=>`<option value="${b}" ${b===L.blend?'selected':''}>${BLEND_LABELS[b]}</option>`).join('')}</select>`
       +`<input type="range" class="lop" min="0" max="100" value="${Math.round(L.opacity*100)}" title="opacità"></div></div>`
       +`<span class="ldel" title="elimina">✕</span>`;
     row.querySelector('.lvis').onclick=e=>{e.stopPropagation();snapshot();L.visible=!L.visible;buildLayers();render();};
     row.querySelector('.lcol').onpointerdown=()=>snapshot();
-    row.querySelector('.lcol').oninput=e=>{e.stopPropagation();L.color=e.target.value;syncBrushUI();render();};
+    row.querySelector('.lcol').oninput=e=>{e.stopPropagation();L.color=e.target.value;};   // §8.15: solo etichetta, non tocca il canvas
     row.querySelector('.lcol').onclick=e=>e.stopPropagation();
     row.querySelector('.lblend').onpointerdown=()=>snapshot();
     row.querySelector('.lblend').onchange=e=>{e.stopPropagation();L.blend=e.target.value;render();};
@@ -2240,7 +2234,7 @@ function drawFrameOn(cv, Ls){
   for(const L of Ls){ if(!L.visible) continue;
     const m=(L.cells instanceof Map)?L.cells:new Map(L.cells);
     for(const [k,cell] of m){ const [c,r]=k.split(',').map(Number); const [cx,cy]=cellCenter(c,r);
-      g.save(); g.translate(cx,cy); g.globalAlpha=L.opacity; drawCellFigures(g,cell,cell.col||L.color); g.restore(); } }
+      g.save(); g.translate(cx,cy); g.globalAlpha=L.opacity; drawCellFigures(g,cell,cell.col||DEFAULT_INK); g.restore(); } }
 }
 const THUMB_H=46;
 function thumbCanvas(){ const [W,H]=boardSize(); const cv=document.createElement('canvas'); cv.height=THUMB_H; cv.width=Math.max(24,Math.round(THUMB_H*W/H)); return cv; }
@@ -2449,7 +2443,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={v:1, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED,   // v = versione del formato (i salvataggi senza v sono pre-round-32)
+  const blob={v:2, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED,   // v = versione del formato (senza v = pre-round-32; v2 = colore sempre per-cella, §8.15)
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur, pingpong:anim.pingpong} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -2491,6 +2485,10 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
       for(const fr of anim.frames) for(const Ld of fr) for(const kv of (Ld.cells||[])) fixCell(kv[1]);
       slots.forEach(s=>{ if(s){ fixT(s); if(s.cell) fixCell(s.cell); } });
     }
+    /* §8.15 retro-compat (salvataggi pre-v2): le celle senza colore prendevano l'inchiostro del
+       livello → lo si CUOCE dentro cell.col al caricamento, così l'aspetto non cambia. */
+    for(const L of layers) for(const cell of L.cells.values()) if(!cell.col) cell.col=L.color||DEFAULT_INK;
+    for(const fr of anim.frames) for(const Ld of fr) for(const kv of (Ld.cells||[])) if(!kv[1].col) kv[1].col=Ld.color||DEFAULT_INK;
     buildSlots();
     undoStack.length=0; redoStack.length=0; refreshUndo(); buildLayers(); render();
   }catch(err){alert('File non valido');} };
@@ -2694,7 +2692,7 @@ function svgLayersBody(W,H){
     const blend={'source-over':'normal','multiply':'multiply','screen':'screen','darken':'darken','lighten':'lighten'}[L.blend];
     let g=`<g style="mix-blend-mode:${blend}" opacity="${L.opacity}">`;
     for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue; const [cx,cy]=cellCenter(c,r);
-      const col=cell.col||L.color, tr=`translate(${cx.toFixed(2)},${cy.toFixed(2)})`;
+      const col=cell.col||DEFAULT_INK, tr=`translate(${cx.toFixed(2)},${cy.toFixed(2)})`;
       const hexW=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#fff"/></g>`;
       const hexB=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#000"/></g>`;
       const MR=`x="${(-R*1.3).toFixed(1)}" y="${(-R*1.3).toFixed(1)}" width="${(R*2.6).toFixed(1)}" height="${(R*2.6).toFixed(1)}"`;
