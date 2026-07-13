@@ -287,8 +287,8 @@
 </header>
 <div id="pencilPop" class="pop" hidden>
   <div class="pophdr">Modalità della matita</div>
-  <button class="popitem" data-mode="free">Libera <span>timbra tutto il passaggio</span></button>
-  <button class="popitem" data-mode="line">Linea pulita <span>niente grumi (pixel-perfect)</span></button>
+  <button class="popitem" data-mode="free">Libera</button>
+  <button class="popitem" data-mode="line">Linea</button>
 </div>
 <div id="ditherPop" class="pop" hidden>
   <div class="pophdr">Trama del dither</div>
@@ -873,18 +873,22 @@ function render(hoverC,hoverR){
     ctx.restore(); }
   function outline(c,r,w){ const [cx,cy]=cellCenter(c,r); ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R);
     ctx.strokeStyle=acc; ctx.lineWidth=w/R; ctx.lineJoin='round'; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); }
-  // anteprima del tassello al cursore — SEMPRE, anche sopra una cella già piena (così vedi cosa stai per mettere)
+  // anteprima del tassello al cursore — SEMPRE, anche sopra una cella già piena (così vedi cosa stai per mettere).
+  // Il FANTASMA è riconoscibile dalle tessere vere: figura semitrasparente + contorno esagonale
+  // TRATTEGGIATO rosa (convenzione "provvisorio"; le tessere posate non sono mai tratteggiate).
   if(brush.tile && tool==='draw'){
     for(const t of symTargets(cursor.c,cursor.r)){   // ghost anche sulle copie simmetriche: la simmetria si vede da qui
       const occupied=!!cells.get(key(t.c,t.r));
       const [cx,cy]=cellCenter(t.c,t.r);
       ctx.save(); ctx.translate(cx,cy);
       if(occupied){   // velo di carta per far risaltare l'anteprima sopra la tessera esistente
-        ctx.save(); ctx.scale(R,R); ctx.globalAlpha=0.7; ctx.fillStyle=pageDark?'#000':'#fff'; ctx.fill(HEX_UNIT_PATH); ctx.restore();
+        ctx.save(); ctx.scale(R,R); ctx.globalAlpha=0.5; ctx.fillStyle=pageDark?'#000':'#fff'; ctx.fill(HEX_UNIT_PATH); ctx.restore();
       }
-      ctx.globalAlpha=occupied?0.9:0.5;
+      ctx.globalAlpha=occupied?0.65:0.45;
       const g=brushCell(); g.rot=t.rot; g.flip=t.flip;
       drawCellFigures(ctx, g, brush.col||layers[active].color);
+      ctx.globalAlpha=0.95;   // tratteggio del fantasma
+      ctx.save(); ctx.scale(R,R); ctx.setLineDash([0.22,0.15]); ctx.strokeStyle=acc; ctx.lineWidth=2/R; ctx.lineJoin='round'; ctx.stroke(HEX_UNIT_PATH); ctx.restore();
       ctx.restore();
     }
   }
@@ -938,8 +942,9 @@ function render(hoverC,hoverR){
   }
   // hover: contorno sottile
   if(hoverC!=null && !(hoverC===cursor.c&&hoverR===cursor.r)) outline(hoverC,hoverR,2);
-  // cursore: contorno molto spesso
-  outline(cursor.c,cursor.r,4.5);
+  // cursore: contorno molto spesso — ma in matita col ghost attivo NO: lì il segno del cursore
+  // è il tratteggio del fantasma (pieno sopra tratteggio lo nasconderebbe e confonderebbe di nuovo)
+  if(!(tool==='draw' && brush.tile)) outline(cursor.c,cursor.r,4.5);
   // miniatura del frame corrente aggiornata con calma mentre si disegna
   if(anim.on){ clearTimeout(thumbT); thumbT=setTimeout(()=>{ if(anim.on&&!previewing) updateThumb(anim.cur); },350); }
   updateHilites();   // libreria/slot in risalto se la selezione è una tessera semplice (guardia interna anti-lavoro-doppio)
