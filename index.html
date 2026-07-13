@@ -319,7 +319,7 @@
       <div class="group" data-sec="forge">
         <div class="glabel">Forgia</div>
         <button class="btn" id="forgeCell">⬡ Forgia la cella selezionata <kbd>⇧G</kbd></button>
-        <div class="legend">Componi una figura in una cella (timbra, poi <svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg> <b>unisci</b> e <svg viewBox="0 0 24 24"><mask id="frg_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#frg_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> <b>sottrai</b>), <b>selezionala</b> con la freccia <svg viewBox="0 0 24 24"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg> e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
+        <div class="legend">Componi una figura in una cella (timbra, poi <svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg> <b>unisci</b>, <svg viewBox="0 0 24 24"><mask id="frg_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#frg_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> <b>sottrai</b>, <svg viewBox="0 0 24 24"><clipPath id="frg_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#frg_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> <b>interseca</b> o <svg viewBox="0 0 24 24"><clipPath id="frg_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="frg_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#frg_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#frg_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg> <b>escludi</b>), <b>selezionala</b> con la freccia <svg viewBox="0 0 24 24"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg> e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
       </div>
       <div class="group" data-sec="info">
         <div class="glabel">Info</div>
@@ -682,10 +682,20 @@ function orderedOps(cell){
     if(L) for(const st of L) ops.push({op,st});
   return ops.map((o,i)=>[o,i]).sort((a,b)=>((a[0].st.q||0)-(b[0].st.q||0))||(a[1]-b[1])).map(p=>p[0]);   // sort stabile per q
 }
+/* ordine di applicazione degli stamp di una FORGIATA: le nuove (round 34, §8.16) portano un
+   progressivo q = ordine cronologico e conoscono anche iso/xor; le vecchie (solo add/sub,
+   senza q) mantengono il raggruppamento add-poi-sub di prima → rendono identiche a prima. */
+function forgedOps(tile){
+  const st=tile.stamps;
+  if(st.some(s=>s.q!=null)) return st.map((s,i)=>[s,i]).sort((a,b)=>((a[0].q||0)-(b[0].q||0))||(a[1]-b[1])).map(p=>p[0]);
+  return st.filter(s=>s.op!=='sub').concat(st.filter(s=>s.op==='sub'));
+}
 /* disegna un singolo timbro {t,rot,flip,sw} nel contesto corrente (colori già impostati).
-   Tessere base: parts. Tessere FORGIATE: stamps (adds+subs interni) → composte isolate su un
-   canvas scratch e riversate, così le loro sottrazioni non scavano il resto della cella. */
+   Tessere base: parts. Tessere FORGIATE: stamps (add/sub/iso/xor interni, in ordine) →
+   composte isolate su un canvas scratch e riversate, così le loro sottrazioni/ritagli
+   non toccano il resto della cella. */
 let scratchC=null, scratchG=null;
+const FORGE_OPMODE={add:'source-over', sub:'destination-out', iso:'destination-in', xor:'xor'};
 function drawStamp(g,st){
   const tile=tileById(st.t); if(!tile) return false;
   g.save(); g.rotate(st.rot*60*Math.PI/180); if(st.flip) g.scale(-1,1);
@@ -696,9 +706,7 @@ function drawStamp(g,st){
     const sg=scratchG; sg.setTransform(1,0,0,1,0,0); sg.clearRect(0,0,cw,ch);
     sg.setTransform(g.getTransform());
     sg.fillStyle=g.fillStyle; sg.strokeStyle=g.strokeStyle; sg.lineCap='round'; sg.lineJoin='round';
-    for(const s of tile.stamps){ if(s.op!=='sub') drawStamp(sg,s); }
-    sg.globalCompositeOperation='destination-out';
-    for(const s of tile.stamps){ if(s.op==='sub') drawStamp(sg,s); }
+    for(const s of forgedOps(tile)){ sg.globalCompositeOperation=FORGE_OPMODE[s.op]||'source-over'; drawStamp(sg,s); }
     sg.globalCompositeOperation='source-over';
     g.save(); g.setTransform(1,0,0,1,0,0); g.drawImage(scratchC,0,0); g.restore();
   } else {
@@ -1574,13 +1582,28 @@ function tileSVG(t){
 }
 /* figure SVG di una tessera (base o forgiata) come gruppo, per le anteprime; uid per mask/clip univoche */
 function tileFigSVG(t, fill, sw, uid){
-  if(t.stamps){   // forgiata: adds + mask con i subs in nero
-    let adds='', subs='';
-    for(let i=0;i<t.stamps.length;i++){ const s=t.stamps[i]; const st=tileById(s.t); if(!st)continue;
-      const g=`<g transform="rotate(${(s.rot||0)*60}) scale(${s.flip?-1:1},1)">${tileFigSVG(st, s.op==='sub'?'#000':fill, s.sw??sw, uid+'_'+i)}</g>`;
-      if(s.op==='sub') subs+=g; else adds+=g; }
-    if(!subs) return adds;
-    return `<mask id="fm_${uid}" maskUnits="userSpaceOnUse" x="-1.2" y="-1.2" width="2.4" height="2.4"><rect x="-1.2" y="-1.2" width="2.4" height="2.4" fill="#fff"/>${subs}</mask><g mask="url(#fm_${uid})">${adds}</g>`;
+  if(t.stamps){   // forgiata: catena di operazioni in ordine (come svgLayersBody per le celle, in coordinate unitarie)
+    const hexW=`<path d="${HEX_UNIT_D}" fill="#fff"/>`, hexB=`<path d="${HEX_UNIT_D}" fill="#000"/>`;
+    let defs='', mN=0;
+    const mk=body=>{ const id=`fm_${uid}_${mN++}`; defs+=`<mask id="${id}" maskUnits="userSpaceOnUse" x="-1.2" y="-1.2" width="2.4" height="2.4">${body}</mask>`; return id; };
+    const wrap=(frag,mid)=>frag?`<g mask="url(#${mid})">${frag}</g>`:'';
+    // content = figure colorate · silW = silhouette bianca "dove c'è contenuto" · silB = esagono bianco con contenuto nero "dove NON c'è" (serve allo xor)
+    let content='', silW='', silB=hexW, i=0;
+    for(const s of forgedOps(t)){ const st=tileById(s.t); if(!st){ i++; continue; }
+      const G=(fl,tag)=>`<g transform="rotate(${(s.rot||0)*60}) scale(${s.flip?-1:1},1)">${tileFigSVG(st, fl, s.sw??sw, uid+'_'+i+tag)}</g>`;
+      const figC=G(fill,'c'), figW=G('#fff','w'), figB=G('#000','b');
+      if(s.op==='sub'){ const m=mk(hexW+figB);        // tieni fuori dalla forma
+        content=wrap(content,m); silW=wrap(silW,m); silB+=figW; }
+      else if(s.op==='iso'){ const m=mk(figW);        // tieni dentro la forma
+        content=wrap(content,m); silW=wrap(silW,m); silB=hexW+wrap(silB,m); }
+      else if(s.op==='xor'){ // (contenuto − forma) + (forma − contenuto)
+        const mOut=mk(hexW+figB), mNC=mk(silB);
+        const nc=wrap(content,mOut)+wrap(figC,mNC), nw=wrap(silW,mOut)+wrap(figW,mNC);
+        silB=hexW+wrap(silB,mOut)+wrap(figB,mNC); content=nc; silW=nw; }
+      else { content+=figC; silW+=figW; silB+=figB; }
+      i++;
+    }
+    return defs+content;
   }
   return t.parts.map(pp=> pp.sw
     ? `<path d="${pp.d}" fill="none" stroke="${fill}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`
@@ -1774,9 +1797,11 @@ function setAssign(v){ assignMode=v; document.querySelectorAll('#slots .slot').f
 const $=id=>document.getElementById(id);
 
 /* ---- FORGIA: tessere nuove componendo/scavando quelle esistenti ----
-   Nessuna geometria booleana: una forgiata è {id,name,stamps:[{t,rot,flip,sw,op}]} con op add/sub,
-   composta a runtime (canvas scratch in drawStamp, mask in tileFigSVG). Persistite in localStorage
-   e nel JSON di salvataggio. Le forgiate si appiattiscono se riusate nella forgia (mai annidate). */
+   Nessuna geometria booleana: una forgiata è {id,name,stamps:[{t,rot,flip,sw,op,q}]} con
+   op add/sub/iso/xor e q = ordine cronologico (le vecchie senza q: solo add/sub, raggruppate),
+   composta a runtime (canvas scratch in drawStamp, mask in tileFigSVG, ordine da forgedOps).
+   Persistite in localStorage e nel JSON di salvataggio. Le forgiate si appiattiscono se
+   riusate nella forgia (mai annidate). */
 let FORGED=[];
 function rebuildTileIndex(){ for(const k in tileIndex) delete tileIndex[k]; TILES.forEach((t,j)=>tileIndex[t.id]=j); }
 function registerForged(f){ const t={id:f.id,grp:'fx',cat:'Forgiate',name:f.name,stamps:f.stamps};
@@ -1792,40 +1817,37 @@ function deleteForged(id){ const i=FORGED.findIndex(f=>f.id===id); if(i<0)return
   if(brush.tileB===id) brush.tileB=null;
   buildPalette(); updateBrushPreview(); render(); }
 
-/* forgia la cella sotto il cursore: primaria+extra → add, sub → sub, inv → pieno meno figure */
+/* forgia la cella sotto il cursore: le operazioni della cella (cellOps: primaria + fusioni in
+   ordine cronologico, inv = pieno meno primaria) diventano gli stamps della forgiata, con un
+   progressivo q che ne conserva l'ordine (round 34, §8.16: anche ∩ iso e ⊻ xor). */
 function forgeFromCell(){
   let cc=cursor.c, cr=cursor.r;
   if(selection && selection.size===1){ [cc,cr]=[...selection][0].split(',').map(Number); }
   else if(selection && selection.size>1){ alert('Seleziona UNA sola cella da forgiare.'); return; }
   const cell=cells.get(key(cc,cr));
   if(!cell || (cell.t==null && !(cell.extra&&cell.extra.length) && !cell.inv)){
-    alert('Seleziona una cella con una figura (anche composta con ⊕/⊖), poi forgia.'); return; }
-  if((cell.iso&&cell.iso.length)||(cell.xor&&cell.xor.length)){
-    alert('Le celle con intersezioni ∩ o esclusioni ⊻ non si possono ancora forgiare (il modello forgiato conosce solo aggiungi/scava).'); return; }
-  const stamps=[];
-  const flatten=(st,op)=>{   // false = non rappresentabile (forgiata dentro scavo/inverso)
+    alert('Seleziona una cella con una figura (anche composta con ⊕/⊖/∩/⊻), poi forgia.'); return; }
+  const stamps=[]; let qi=0;
+  const flatten=(st,op)=>{   // false = non rappresentabile (forgiata dentro scavo/ritaglio/esclusione o inverso)
     const tile=tileById(st.t); if(!tile) return true;
     if(tile.stamps){
-      if(op==='sub') return false;
-      for(const s of tile.stamps){
+      if(op!=='add') return false;
+      for(const s of forgedOps(tile)){
         const rot=(((st.rot||0)+(st.flip?-(s.rot||0):(s.rot||0)))%6+6)%6;
-        stamps.push({t:s.t,rot,flip:!!st.flip!==!!s.flip,sw:s.sw??st.sw??connSW,op:s.op==='sub'?'sub':'add'});
+        stamps.push({t:s.t,rot,flip:!!st.flip!==!!s.flip,sw:s.sw??st.sw??connSW,op:s.op||'add',q:qi++});
       }
       return true;
     }
-    stamps.push({t:st.t,rot:st.rot||0,flip:!!st.flip,sw:st.sw??connSW,op}); return true;
+    stamps.push({t:st.t,rot:st.rot||0,flip:!!st.flip,sw:st.sw??connSW,op,q:qi++}); return true;
   };
   let ok=true;
-  if(cell.inv){   // complemento: esagono pieno, figure scavate
+  if(cell.inv){   // base del complemento: esagono pieno (la primaria lo scava via cellOps)
     const full=TILES.find(t=>t.name==='pieno')||TILES[0];
-    stamps.push({t:full.id,rot:0,flip:false,sw:cell.sw??connSW,op:'add'});
-    if(cell.t!=null) for(const st of cellStamps(cell)){ ok=ok&&flatten(st,'sub'); }
-  } else {
-    for(const st of cellStamps(cell)){ ok=ok&&flatten(st,'add'); }
+    stamps.push({t:full.id,rot:0,flip:false,sw:cell.sw??connSW,op:'add',q:qi++});
   }
-  for(const st of (cell.sub||[])){ ok=ok&&flatten(st,'sub'); }
-  if(!ok){ alert('La cella contiene una tessera forgiata dentro uno scavo o un inverso: ricomponila con forme base e riprova.'); return; }
-  if(!stamps.some(s=>s.op!=='sub')){ alert('La cella non ha figure che aggiungono.'); return; }
+  for(const o of cellOps(cell)){ ok=ok&&flatten(o.st,o.op); }
+  if(!ok){ alert('La cella contiene una tessera forgiata dentro uno scavo, un ritaglio ∩/⊻ o un inverso: ricomponila con forme base e riprova.'); return; }
+  if(!stamps.some(s=>s.op==='add')){ alert('La cella non ha figure che aggiungono.'); return; }
   const id=nextForgedId();
   const name=prompt('Nome della nuova tessera forgiata:','forgiata '+id.slice(3));
   if(name===null) return;
