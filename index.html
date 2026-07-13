@@ -162,6 +162,7 @@
   .toggle{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
   .legend{font-size:11px;color:var(--muted);line-height:1.7}
   .legend b{color:var(--text)}
+  .legend svg{width:15px;height:15px;vertical-align:-3px;color:var(--text)}
   kbd{display:inline-block;min-width:14px;text-align:center;background:var(--bg);border:0;border-radius:2px;padding:1px 5px;font:11px 'Ahamono',ui-monospace,monospace;color:var(--text)}
   details summary{cursor:pointer;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;outline:none}
   #stage{flex:1;position:relative;overflow:hidden}
@@ -318,7 +319,7 @@
       <div class="group" data-sec="forge">
         <div class="glabel">Forgia</div>
         <button class="btn" id="forgeCell">⬡ Forgia la cella selezionata <kbd>⇧G</kbd></button>
-        <div class="legend">Componi una figura in una cella (timbra, poi <b>⊕ unisci</b> e <b>⊖ sottrai</b>), <b>selezionala</b> (strumento ⬚) e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
+        <div class="legend">Componi una figura in una cella (timbra, poi <svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg> <b>unisci</b> e <svg viewBox="0 0 24 24"><mask id="frg_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#frg_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> <b>sottrai</b>), <b>selezionala</b> con la freccia <svg viewBox="0 0 24 24"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg> e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
       </div>
       <div class="group" data-sec="info">
         <div class="glabel">Info</div>
