@@ -40,6 +40,7 @@
   .btn.ic svg{width:18px;height:18px;display:block}
   #cellCol{width:34px;height:28px;padding:2px;border:0;border-radius:var(--rad);background:var(--bg);cursor:pointer;flex:0 0 auto}
   #symSel{height:30px;background:transparent;border:0;color:var(--muted);border-radius:var(--rad);font:inherit;font-size:12px;padding:0 4px;cursor:pointer}
+  #wheelSel{background:var(--bg);border:0;color:var(--text);border-radius:var(--rad);font:inherit;font-size:11px;padding:5px 6px;cursor:pointer}
   #symSel:hover{background:var(--panel2);color:var(--text)}
   #symSel.on{color:var(--accent)}
   .swgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
@@ -414,7 +415,14 @@
           <button class="btn" id="grid" title="mostra/nascondi le linee della griglia (h)">▦ griglia sì/no</button>
         </div>
         <label class="toggle"><input type="checkbox" id="pageDark"> sfondo pagina nero</label>
-        <div class="legend" style="margin-top:2px" data-i18n="move-legend">Muoviti: rotella scorre · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
+        <label class="field" style="margin-top:6px">Rotella del mouse
+          <select id="wheelSel">
+            <option value="auto">auto: rotella = zoom · trackpad = scorri</option>
+            <option value="zoom">sempre zoom</option>
+            <option value="pan">sempre scorri</option>
+          </select>
+        </label>
+        <div class="legend" style="margin-top:2px" data-i18n="move-legend">Muoviti: trackpad scorre · rotella del mouse = zoom · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+rotella o pinch = zoom · <kbd>alt</kbd>+rotella ruota il pennello · <kbd>spazio</kbd> o tasto centrale = trascina</div>
       </div>
 
       <div class="group" data-sec="saveexp">
@@ -602,6 +610,7 @@ const I18N={
 'ruota tutta la tela di -90°':'rotate the whole board by −90°','ruota tutta la tela di +90°':'rotate the whole board by +90°',
 '▦ griglia sì/no':'▦ grid on/off','mostra/nascondi le linee della griglia (h)':'show/hide the grid lines (h)',
 'sfondo pagina nero':'black page background',
+'Rotella del mouse':'Mouse wheel','auto: rotella = zoom · trackpad = scorri':'auto: wheel = zoom · trackpad = scroll','sempre zoom':'always zoom','sempre scorri':'always scroll',
 'Salva / Carica & Export':'Save / Load & Export','Nuovo…':'New…','Svuota':'Clear',
 'nuovo progetto: tela normale o tela per pattern':'new project: normal canvas or pattern canvas',
 'esporta il pattern ripetuto alla dimensione che vuoi (PNG o SVG)':'export the repeated pattern at any size (PNG or SVG)',
@@ -711,7 +720,7 @@ const I18N_HTML={
 'lib-legend':'<kbd>⌥</kbd>+click a tile = add to/remove from <b>Favorites</b>; <b>Recent</b> updates by itself. <b>Eyedropper</b>: <kbd>c</kbd> on the cursor cell, or <kbd>⌥</kbd>+click on the canvas, copies the tile with its look into the brush.',
 'stroke-legend':'Applies to the <b>next</b> stamps (each line remembers its own). <kbd>[</kbd>/<kbd>]</kbd> adjust the cell under the cursor.',
 'anim-legend':'Frames at the bottom: click = go · drag = reorder · ⧉ duplicate · + empty · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> step · fps adjustable during play · ◎ onion skin (with its two colors: previous / next frame) · export WEBM (video) or a PNG sequence.',
-'move-legend':'Get around: wheel scrolls · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+wheel zooms · <kbd>alt</kbd>+wheel rotates the brush · <kbd>space</kbd> or middle button = drag',
+'move-legend':'Get around: trackpad scrolls · mouse wheel = zoom · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+wheel or pinch = zoom · <kbd>alt</kbd>+wheel rotates the brush · <kbd>space</kbd> or middle button = drag',
 };
 const i18nTextOrig=new Map(), i18nHtmlOrig=new Map();
 function translateDOM(){
@@ -1739,13 +1748,38 @@ function paintTo(pt){
   } else { const h=cellAt(...pt); if(h) applyAt(h); }
   lastPaintPt=pt;
 }
-/* rotella (su tutto lo stage, come grafino): scorre la tela · ⌘/Ctrl = zoom sul puntatore · Alt = ruota il pennello */
+/* ---- rotella: MOUSE FISICO = zoom · TRACKPAD = scorri (round 36, richiesta di Simone) ----
+   Il browser non dice da che dispositivo viene un wheel event; euristica PER-GESTO
+   (gli eventi entro 300ms sono lo stesso gesto e mantengono la classe decisa):
+   - deltaMode≠0 (righe/pagine, Firefox) → rotella
+   - deltaX≠0 oppure deltaY frazionario → trackpad (i trackpad producono delta continui e orizzontali)
+   - |deltaY|≥100 intero → rotella (scatto classico Windows ±100/120)
+   - tick interi piccoli (ambigui, es. mouse su macOS): decide il singolo evento senza fissare
+     il gesto — evento raro (gap>120ms) o ampio (≥10) = rotella, flusso fitto e minuto = trackpad.
+   Se l'euristica sbaglia c'è l'impostazione "Rotella del mouse" (auto/zoom/scorri) nella
+   sezione Canvas (localStorage hexagraph.wheel). Il pinch del trackpad arriva come
+   ctrlKey+wheel → resta zoom com'era. */
+let wheelMode='auto'; try{ const w=localStorage.getItem('hexagraph.wheel'); if(['auto','zoom','pan'].includes(w)) wheelMode=w; }catch(e){}
+let wgKind=null, wgT=0;
+function wheelIsMouse(e){
+  const now=performance.now(), gap=now-wgT; wgT=now;
+  if(gap>300) wgKind=null;                                            // nuovo gesto
+  if(e.deltaMode!==0){ wgKind='m'; return true; }
+  if(e.deltaX!==0 || !Number.isInteger(e.deltaY)){ wgKind='t'; return false; }
+  if(wgKind) return wgKind==='m';
+  if(Math.abs(e.deltaY)>=100){ wgKind='m'; return true; }
+  return gap>120 || Math.abs(e.deltaY)>=10;                           // ambiguo: solo questo evento
+}
 stageEl.addEventListener('wheel',e=>{ e.preventDefault();
-  if(e.ctrlKey||e.metaKey){   // zoom stile grafino, centrato sul puntatore
-    const r=stageEl.getBoundingClientRect(); setZoomAt(e.clientX-r.left,e.clientY-r.top,view.zoom*Math.exp(-e.deltaY*0.003)); return; }
-  if(e.altKey){ brush.rot=((brush.rot+(e.deltaY>0?1:5))%6+6)%6; updateStatus();
+  const norm=e.deltaMode===1?33:e.deltaMode===2?300:1;                // righe/pagine → ~px
+  const dx=e.deltaX*norm, dy=e.deltaY*norm;
+  if(e.ctrlKey||e.metaKey){   // zoom stile grafino centrato sul puntatore (anche il pinch del trackpad)
+    const r=stageEl.getBoundingClientRect(); setZoomAt(e.clientX-r.left,e.clientY-r.top,view.zoom*Math.exp(-dy*0.003)); return; }
+  if(e.altKey){ brush.rot=((brush.rot+(dy>0?1:5))%6+6)%6; updateStatus();
     const hit=cellAt(...localXY(e)); render(hit?hit[0]:null,hit?hit[1]:null); return; }
-  view.x-=e.deltaX; view.y-=e.deltaY; applyPan(); },{passive:false});
+  if(wheelMode==='zoom' || (wheelMode==='auto' && wheelIsMouse(e))){  // rotella fisica: zoom sul puntatore
+    const r=stageEl.getBoundingClientRect(); setZoomAt(e.clientX-r.left,e.clientY-r.top,view.zoom*Math.exp(-dy*0.002)); return; }
+  view.x-=dx; view.y-=dy; applyPan(); },{passive:false});
 
 /* ---- selezione: operazioni ---- */
 function selCells(){ return selection ? [...selection].map(k=>k.split(',').map(Number)) : []; }
@@ -2264,6 +2298,8 @@ $('cols').oninput=()=>resizeCanvas(+$('cols').value||cols, rows);
 $('rows').oninput=()=>resizeCanvas(cols, +$('rows').value||rows);
 $('cols').onchange=()=>{$('cols').value=cols;}; $('rows').onchange=()=>{$('rows').value=rows;};   // riallinea il campo al valore clampato dopo la digitazione
 $('pageDark').oninput=()=>{pageDark=$('pageDark').checked;render();};
+$('wheelSel').value=wheelMode;
+$('wheelSel').onchange=()=>{ wheelMode=$('wheelSel').value; try{ localStorage.setItem('hexagraph.wheel',wheelMode); }catch(e){} };
 /* ---- comandi vista (bottom-right) ---- */
 $('zIn').onclick=()=>zoomByCenter(1.2);
 $('zOut').onclick=()=>zoomByCenter(1/1.2);
