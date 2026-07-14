@@ -38,7 +38,7 @@ sempre cosa puoi fare. La guida si rigioca da **Info** (in fondo alla libreria).
 
 - `index.html` — tutta l'app (HTML + canvas + JS vanilla).
 - `tiles.js` — i dati delle tessere base.
-- `Ahamono.otf` — font dell'interfaccia.
+- Font dell'interfaccia = **Sono** (di Sora Sagano, SIL OFL), inline nell'index come data URI. Licenza in `Sono-OFL.txt`.
 - `HANDOFF.md` — note tecniche di sviluppo (architettura, modello dati).
 
 ## Licenza
