@@ -12,8 +12,10 @@ Al collegamento del repo GitHub `simonevirgini/hexagraph`:
 - **Framework preset:** None
 - **Build command:**
   ```
-  mkdir -p dist && cp index.html tiles.js _headers dist/
+  bash build.sh
   ```
+  (la lista dei file pubblicati vive in `build.sh`, in git: se cambia basta un commit,
+  niente da toccare nella dashboard)
 - **Build output directory:** `dist`
 - **Root directory:** `/` (default)
 
