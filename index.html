@@ -323,6 +323,15 @@
         <button class="btn" id="forgeCell">⬡ Forgia la cella selezionata <kbd>⇧G</kbd></button>
         <div class="legend">Componi una figura in una cella (timbra, poi <svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg> <b>unisci</b>, <svg viewBox="0 0 24 24"><mask id="frg_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#frg_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> <b>sottrai</b>, <svg viewBox="0 0 24 24"><clipPath id="frg_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#frg_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg> <b>interseca</b> o <svg viewBox="0 0 24 24"><clipPath id="frg_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="frg_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#frg_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#frg_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg> <b>escludi</b>), <b>selezionala</b> con la freccia <svg viewBox="0 0 24 24"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg> e premi Forgia: diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
       </div>
+      <div class="group" data-sec="svgtiles">
+        <div class="glabel">Tessere da SVG</div>
+        <div class="row">
+          <button class="btn" id="svgTemplate" title="scarica il template con l'esagono guida: disegnaci dentro con Illustrator o simili">⬇ Template</button>
+          <button class="btn" id="svgImport" title="importa un SVG disegnato sul template: diventa una tessera tua">⬆ Importa SVG…</button>
+        </div>
+        <div class="legend">Scarica il template, disegna dentro l'esagono guida rosa (forme piene = pieni, linee = tratti), esporta in SVG e importalo: la forma diventa una tessera tua, in fondo alla palette (destro = elimina).</div>
+        <input type="file" id="svgFile" accept=".svg,image/svg+xml" style="display:none">
+      </div>
       <div class="group" data-sec="info">
         <div class="glabel">Info</div>
         <div class="segrow" style="margin-bottom:8px">
@@ -428,7 +437,7 @@
       <div class="group" data-sec="saveexp">
         <div class="glabel">Salva / Carica &amp; Export</div>
         <div class="row"><button class="btn" id="newProj" title="nuovo progetto: tela normale o tela per pattern">Nuovo…</button><button class="btn" id="clear">Svuota</button></div>
-        <div class="row"><button class="btn" id="exportPng">Export Png</button><button class="btn" id="exportSvg">Export Svg</button></div>
+        <div class="row"><button class="btn" id="exportPng">Export Png</button><button class="btn" id="exportJpg" title="come il PNG ma su carta piena (il JPG non ha trasparenza)">Export Jpg</button><button class="btn" id="exportSvg">Export Svg</button></div>
         <div class="row" id="patExpRow" hidden><button class="btn" id="exportPattern" title="esporta il pattern ripetuto alla dimensione che vuoi (PNG o SVG)">⬡ Export Pattern…</button></div>
         <div class="row"><button class="btn" id="save">Salva</button><button class="btn" id="load">Carica</button></div>
         <input type="file" id="loadFile" accept="application/json" style="display:none">
@@ -646,7 +655,17 @@ const I18N={
 'Il pattern riempie l’area data; la scala la decide «larghezza di una ripetizione».':'The pattern fills the given area; the scale is set by “width of one repetition”.',
 'Uscirebbe più grande di 8192px: riduci ripetizioni o scala.':'It would come out larger than 8192px: reduce the repetitions or the scale.',
 /* — palette / livelli / colori dinamici — */
-'Pieni':'Solids','Tondi':'Rounds','Cornici':'Frames','Linee':'Lines','Curve':'Curves','Forgiate':'Forged',
+'Pieni':'Solids','Tondi':'Rounds','Cornici':'Frames','Linee':'Lines','Curve':'Curves','Forgiate':'Forged','Importate':'Imported',
+/* — tessere da SVG (§8.18) — */
+'Tessere da SVG':'Tiles from SVG','⬆ Importa SVG…':'⬆ Import SVG…',
+'scarica il template con l\'esagono guida: disegnaci dentro con Illustrator o simili':'download the template with the hexagon guide: draw inside it with Illustrator or similar',
+'importa un SVG disegnato sul template: diventa una tessera tua':'import an SVG drawn on the template: it becomes your own tile',
+'Scarica il template, disegna dentro l\'esagono guida rosa (forme piene = pieni, linee = tratti), esporta in SVG e importalo: la forma diventa una tessera tua, in fondo alla palette (destro = elimina).':'Download the template, draw inside the pink hexagon guide (filled shapes = fills, stroked lines = strokes), export as SVG and import it: the shape becomes your own tile, at the bottom of the palette (right-click = delete).',
+'Eliminare la tessera importata':'Delete the imported tile','elimina questa tessera importata':'delete this imported tile',
+'Nome della tessera importata:':'Name of the imported tile:',
+'SVG non valido':'Invalid SVG','Nessuna forma trovata nell\'SVG (oltre alla guida).':'No shapes found in the SVG (besides the guide).',
+'Import SVG fallito: ':'SVG import failed: ',
+'come il PNG ma su carta piena (il JPG non ha trasparenza)':'like the PNG but on solid paper (JPG has no transparency)',
 'Preferite ★':'Favorites ★','Recenti':'Recent',
 'clic per aprire/chiudere la categoria':'click to open/close the category',
 ' — ⌥+clic: preferita · ⇧+clic: tessera B del dither':' — ⌥+click: favorite · ⇧+click: dither tile B',
@@ -1862,9 +1881,15 @@ function tileFigSVG(t, fill, sw, uid){
     }
     return defs+content;
   }
-  return t.parts.map(pp=> pp.sw
-    ? `<path d="${pp.d}" fill="none" stroke="${fill}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`
-    : `<path d="${pp.d}" fill="${fill}" fill-rule="${pp.eo?'evenodd':'nonzero'}"/>`).join('');
+  return t.parts.map(pp=>{
+    // tessere IMPORTATE (§8.18): d in coordinate originali + matrice tf; lo stroke-width si
+    // divide per la scala della matrice così dopo il transform torna allo spessore del timbro
+    const w=pp.tf ? sw/(Math.sqrt(Math.abs(pp.tf[0]*pp.tf[3]-pp.tf[1]*pp.tf[2]))||1) : sw;
+    const core=pp.sw
+      ? `<path d="${pp.d}" fill="none" stroke="${fill}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<path d="${pp.d}" fill="${fill}" fill-rule="${pp.eo?'evenodd':'nonzero'}"/>`;
+    return pp.tf ? `<g transform="matrix(${pp.tf.join(' ')})">${core}</g>` : core;
+  }).join('');
 }
 /* anteprima di un preset {t,rot,flip,inv,sw} con le sue trasformazioni; uid = id univoco per la clip */
 function stampPreviewSVG(p, uid){
@@ -1961,9 +1986,11 @@ function buildPalette(){
       if(cell&&cell.t!=null) cell.t=t.id;                              // piena: sostituisce la tessera (tiene rot/flip/colore)
       else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } // vuota: riempie con l'orientazione corrente del pennello
     }); } };   // doppio clic = applica la tessera a TUTTA la selezione
-    if(t.cat==='Forgiate'){ b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
-      const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title=tt('elimina questa tessera forgiata');
-      x.onclick=e=>{ e.stopPropagation(); deleteForged(t.id); }; b.appendChild(x); }
+    const del=t.cat==='Forgiate'?deleteForged:(t.cat==='Importate'?deleteCustom:null);
+    if(del){ b.oncontextmenu=e=>{ e.preventDefault(); del(t.id); };
+      const x=document.createElement('span'); x.className='tilex'; x.textContent='×';
+      x.title=tt(t.cat==='Forgiate'?'elimina questa tessera forgiata':'elimina questa tessera importata');
+      x.onclick=e=>{ e.stopPropagation(); del(t.id); }; b.appendChild(x); }
     pal.appendChild(b);
   });
 }
@@ -1986,9 +2013,11 @@ function quickTileButton(t){
     selectTile(t.id); if(tool==='select'&&cursorPlaced&&(!selection||!selection.size)){ snapshot(); stamp(cursor.c,cursor.r); render(); } };
   b.ondblclick=()=>{ if(selection&&selection.size){ selOp((c,r)=>{ const cell=cells.get(key(c,r));
     if(cell&&cell.t!=null) cell.t=t.id; else { const nc=brushCell(); nc.t=t.id; cells.set(key(c,r),nc); } }); } };
-  if(t.cat==='Forgiate'){ b.oncontextmenu=e=>{ e.preventDefault(); deleteForged(t.id); };
-    const x=document.createElement('span'); x.className='tilex'; x.textContent='×'; x.title=tt('elimina questa tessera forgiata');
-    x.onclick=e=>{ e.stopPropagation(); deleteForged(t.id); }; b.appendChild(x); }
+  const del=t.cat==='Forgiate'?deleteForged:(t.cat==='Importate'?deleteCustom:null);
+  if(del){ b.oncontextmenu=e=>{ e.preventDefault(); del(t.id); };
+    const x=document.createElement('span'); x.className='tilex'; x.textContent='×';
+    x.title=tt(t.cat==='Forgiate'?'elimina questa tessera forgiata':'elimina questa tessera importata');
+    x.onclick=e=>{ e.stopPropagation(); del(t.id); }; b.appendChild(x); }
   return b;
 }
 function buildQuickTiles(){
@@ -2112,6 +2141,124 @@ function forgeFromCell(){
   FORGED.push(f); registerForged(f); saveForged(); buildPalette(); selectTile(id);
 }
 $('forgeCell').onclick=forgeFromCell;
+
+/* ---- TESSERE CUSTOM DA SVG (§8.18, round 37) ----
+   Il TEMPLATE scaricabile ha un esagono-guida flat-top (id "hexguide", rosa #ff48b0):
+   si disegna dentro (Illustrator o simili), si esporta in SVG e si importa qui.
+   L'import risolve stili CSS/classi (getComputedStyle su un DOM vivo nascosto) e i
+   transform annidati (getCTM), normalizza sull'esagono guida (o sul viewBox se manca)
+   e salva parts {d, tf, eo, sw}: d ORIGINALE + matrice tf — il Path2D per il canvas è
+   "cotto" con addPath(matrix), l'SVG le avvolge in <g transform="matrix(tf)">.
+   Forme PIENE → parts fill (il colore si ignora, contano le geometrie) · forme SOLO
+   TRATTO → parts sw (lo spessore reale resta per-timbro, come i connettori).
+   Persistite come le forgiate: localStorage hexagraph.custom + JSON blob.custom
+   (stessa rimappatura id al load in caso di collisione). Categoria "Importate". */
+let CUSTOM=[];
+function customTile(f){ return {id:f.id, grp:'cu', cat:'Importate', name:f.name,
+  parts:f.parts.map(p=>{ const P=new Path2D(); P.addPath(new Path2D(p.d), p.tf?new DOMMatrix(p.tf):undefined);
+    return {d:p.d, tf:p.tf, eo:p.eo, sw:p.sw, path:P}; })}; }
+function registerCustom(f){ const t=customTile(f);
+  if(tileIndex[f.id]!=null) TILES[tileIndex[f.id]]=t; else { TILES.push(t); tileIndex[f.id]=TILES.length-1; } }
+function loadCustom(){ try{ CUSTOM=JSON.parse(localStorage.getItem('hexagraph.custom')||'[]'); }catch(e){ CUSTOM=[]; } CUSTOM.forEach(registerCustom); }
+function saveCustom(){ localStorage.setItem('hexagraph.custom',JSON.stringify(CUSTOM)); }
+function nextCustomId(){ let n=1; while(tileIndex['cu_'+n]!=null) n++; return 'cu_'+n; }
+function deleteCustom(id){ const i=CUSTOM.findIndex(f=>f.id===id); if(i<0)return;
+  if(!confirm(tt('Eliminare la tessera importata')+' "'+(CUSTOM[i].name||id)+'"? '+tt('Le celle che la usano resteranno vuote.'))) return;
+  CUSTOM.splice(i,1); saveCustom();
+  const ti=tileIndex[id]; if(ti!=null) TILES.splice(ti,1); rebuildTileIndex();
+  if(brush.tile===id) brush.tile=TILES[0]?TILES[0].id:null;
+  if(brush.tileB===id) brush.tileB=null;
+  buildPalette(); buildQuickTiles(); updateBrushPreview(); render(); }
+/* template: esagono raggio 100 centrato in (110,110), guida + crocino di registro */
+$('svgTemplate').onclick=()=>{
+  const R=100,C=110;
+  const pts=[...Array(6)].map((_,i)=>{ const a=Math.PI/3*i; return (C+R*Math.cos(a)).toFixed(2)+','+(C+R*Math.sin(a)).toFixed(2); }).join(' ');
+  const svg='<?xml version="1.0" encoding="UTF-8"?>\n'
+   +'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220">\n'
+   +'  <!-- Hexagraph — tile template. Draw INSIDE the pink hexagon guide: filled shapes = fills, stroked lines = strokes.\n'
+   +'       You can keep the guide: it is ignored on import (id "hexguide" / pink #ff48b0). -->\n'
+   +`  <polygon id="hexguide" points="${pts}" fill="none" stroke="#ff48b0" stroke-width="1"/>\n`
+   +`  <path id="hexguide-cross" d="M${C-6} ${C}H${C+6}M${C} ${C-6}V${C+6}" fill="none" stroke="#ff48b0" stroke-width="1"/>\n`
+   +'</svg>';
+  download('hexagraph-template.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg));
+};
+const GUIDE_PINK='rgb(255, 72, 176)';
+function shapeD(el){   // path 'd' equivalente di ogni primitiva SVG (coordinate LOCALI, il transform vive in tf)
+  const A=n=>+(el.getAttribute(n)||0);
+  switch(el.tagName.toLowerCase()){
+    case 'path': return el.getAttribute('d')||'';
+    case 'rect': { const x=A('x'),y=A('y'),w=A('width'),h=A('height');
+      let rx=el.hasAttribute('rx')?A('rx'):(el.hasAttribute('ry')?A('ry'):0), ry=el.hasAttribute('ry')?A('ry'):rx;
+      rx=Math.min(rx,w/2); ry=Math.min(ry,h/2);
+      if(!rx&&!ry) return `M${x} ${y}H${x+w}V${y+h}H${x}Z`;
+      return `M${x+rx} ${y}H${x+w-rx}A${rx} ${ry} 0 0 1 ${x+w} ${y+ry}V${y+h-ry}A${rx} ${ry} 0 0 1 ${x+w-rx} ${y+h}H${x+rx}A${rx} ${ry} 0 0 1 ${x} ${y+h-ry}V${y+ry}A${rx} ${ry} 0 0 1 ${x+rx} ${y}Z`; }
+    case 'circle': { const cx=A('cx'),cy=A('cy'),r=A('r'); return `M${cx-r} ${cy}A${r} ${r} 0 1 0 ${cx+r} ${cy}A${r} ${r} 0 1 0 ${cx-r} ${cy}Z`; }
+    case 'ellipse': { const cx=A('cx'),cy=A('cy'),rx=A('rx'),ry=A('ry'); return `M${cx-rx} ${cy}A${rx} ${ry} 0 1 0 ${cx+rx} ${cy}A${rx} ${ry} 0 1 0 ${cx-rx} ${cy}Z`; }
+    case 'polygon': return 'M'+(el.getAttribute('points')||'').trim()+'Z';
+    case 'polyline': return 'M'+(el.getAttribute('points')||'').trim();
+    case 'line': return `M${A('x1')} ${A('y1')}L${A('x2')} ${A('y2')}`;
+  }
+  return '';
+}
+async function importTileSVG(file){
+  const txt=await file.text();
+  const doc=new DOMParser().parseFromString(txt,'image/svg+xml');
+  if(doc.querySelector('parsererror')) throw new Error(tt('SVG non valido'));
+  const svg=document.importNode(doc.documentElement,true);
+  // viewport = user unit (così getCTM è pulito): l'svg si dimensiona come il suo viewBox
+  let vb=svg.viewBox&&svg.viewBox.baseVal;
+  if(!vb||!vb.width){ const w=parseFloat(svg.getAttribute('width'))||220, h=parseFloat(svg.getAttribute('height'))||220;
+    svg.setAttribute('viewBox',`0 0 ${w} ${h}`); vb=svg.viewBox.baseVal; }
+  svg.setAttribute('width',vb.width); svg.setAttribute('height',vb.height);
+  svg.style.cssText='position:absolute;left:-99999px;top:0';
+  document.body.appendChild(svg);
+  try{
+    const isGuide=el=>{ if((el.id||'').startsWith('hexguide')||el.closest('[id^="hexguide"]')) return true;
+      const cs=getComputedStyle(el); return cs.fill==='none'&&cs.stroke===GUIDE_PINK; };
+    // normalizzazione: bbox trasformata dell'esagono guida (larghezza flat-top = 2R), o viewBox se manca
+    let gcx=vb.x+vb.width/2, gcy=vb.y+vb.height/2, gR=Math.min(vb.width,vb.height)/2;
+    const g=svg.querySelector('[id^="hexguide"]:not([id*="cross"])')
+      ||[...svg.querySelectorAll('path,polygon')].find(el=>{ const cs=getComputedStyle(el); return cs.fill==='none'&&cs.stroke===GUIDE_PINK; });
+    if(g&&g.getBBox){ const bb=g.getBBox(), m=g.getCTM()||new DOMMatrix();
+      const cs2=[[bb.x,bb.y],[bb.x+bb.width,bb.y],[bb.x,bb.y+bb.height],[bb.x+bb.width,bb.y+bb.height]]
+        .map(([x,y])=>{ const p=new DOMPoint(x,y).matrixTransform(m); return [p.x,p.y]; });
+      const xs=cs2.map(p=>p[0]), ys=cs2.map(p=>p[1]);
+      gcx=(Math.min(...xs)+Math.max(...xs))/2; gcy=(Math.min(...ys)+Math.max(...ys))/2;
+      gR=(Math.max(...xs)-Math.min(...xs))/2 || gR;
+    }
+    const parts=[];
+    for(const el of svg.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,line')){
+      if(el.closest('defs,clipPath,mask,symbol,pattern')) continue;
+      if(isGuide(el)) continue;
+      const cs=getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden') continue;
+      const d=shapeD(el); if(!d) continue;
+      const ctm=el.getCTM()||new DOMMatrix();
+      const M=new DOMMatrix([1/gR,0,0,1/gR,-gcx/gR,-gcy/gR]).multiply(ctm);
+      const tf=[M.a,M.b,M.c,M.d,M.e,M.f].map(v=>+v.toFixed(6));
+      const scale=Math.sqrt(Math.abs(M.a*M.d-M.b*M.c))||1;
+      const hasFill=cs.fill&&cs.fill!=='none';
+      const swid=parseFloat(cs.strokeWidth)||0;
+      const hasStroke=cs.stroke&&cs.stroke!=='none'&&swid>0;
+      if(hasFill&&el.tagName.toLowerCase()!=='line') parts.push({d,tf,eo:cs.fillRule==='evenodd'});
+      if(hasStroke) parts.push({d,tf,sw:+(swid*scale).toFixed(3)});
+    }
+    if(!parts.length) throw new Error(tt('Nessuna forma trovata nell\'SVG (oltre alla guida).'));
+    return parts;
+  } finally { svg.remove(); }
+}
+$('svgImport').onclick=()=>$('svgFile').click();
+$('svgFile').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const parts=await importTileSVG(f);
+    const id=nextCustomId();
+    const def=f.name.replace(/\.svg$/i,'')||id;
+    const name=prompt(tt('Nome della tessera importata:'),def); if(name===null) return;
+    const t={id, name:(name.trim()||def), parts};
+    CUSTOM.push(t); registerCustom(t); saveCustom(); buildPalette(); selectTile(id);
+  }catch(err){ alert(tt('Import SVG fallito: ')+((err&&err.message)||err)); }
+};
+
 $('rotL').onclick=()=>xformRot(-1);
 $('rotR').onclick=()=>xformRot(1);
 $('flip').onclick=()=>xformFlip();
@@ -2700,7 +2847,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={v:2, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED,   // v = versione del formato (senza v = pre-round-32; v2 = colore sempre per-cella, §8.15)
+  const blob={v:2, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED, custom:CUSTOM,   // v = versione del formato (senza v = pre-round-32; v2 = colore sempre per-cella, §8.15)
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur, pingpong:anim.pingpong} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -2731,6 +2878,15 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
           const nf=Object.assign({},f,{id:nid}); FORGED.push(nf); registerForged(nf);
         } });   // identica alla locale: già registrata, niente da fare
       saveForged(); buildPalette(); }
+    /* TESSERE IMPORTATE (§8.18): stessa logica delle forgiate, idMap condivisa */
+    if(o.custom){ o.custom.forEach(f=>{
+        const ex=CUSTOM.find(x=>x.id===f.id);
+        if(!ex){ CUSTOM.push(f); registerCustom(f); }
+        else if(JSON.stringify(ex.parts)!==JSON.stringify(f.parts)){
+          const nid=nextCustomId(); idMap[f.id]=nid;
+          const nf=Object.assign({},f,{id:nid}); CUSTOM.push(nf); registerCustom(nf);
+        } });
+      saveCustom(); buildPalette(); }
     stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true;
     anim.frames=(o.anim&&o.anim.frames)||[]; anim.cur=anim.frames.length?Math.min(o.anim.cur||0,anim.frames.length-1):0; anim.prevLayers=null;
     anim.pingpong=!!(o.anim&&o.anim.pingpong); $('frPong').classList.toggle('on',anim.pingpong);
@@ -2933,6 +3089,12 @@ window.addEventListener('keyup',e=>{ if(e.key==='p'){ previewing=false; document
 /* ---- export ---- */
 function download(name,href){ const a=document.createElement('a'); a.download=name; a.href=href; a.click(); }
 $('exportPng').onclick=()=>{ drawExport(); download('hexglyph.png',board.toDataURL('image/png')); render(); };
+/* JPG = niente alpha: si compone su carta piena (bianca, o nera se "sfondo pagina nero") */
+$('exportJpg').onclick=()=>{ drawExport();
+  const cv=document.createElement('canvas'); cv.width=board.width; cv.height=board.height;
+  const g=cv.getContext('2d'); g.fillStyle=pageDark?'#000':'#fff'; g.fillRect(0,0,cv.width,cv.height);
+  g.drawImage(board,0,0);
+  download('hexglyph.jpg',cv.toDataURL('image/jpeg',0.92)); render(); };
 /* figure SVG di una lista di timbri (usa tileFigSVG: gestisce anche le forgiate), clip all'esagono */
 let svgUid=0;
 function stampsSVGList(stampList,color){
@@ -3133,7 +3295,7 @@ $('peSvg').onclick=()=>{
 
 /* ---- init ---- */
 layers=[newLayer()]; setActive(0);
-initSections(); loadForged(); applyPalCols();
+initSections(); loadForged(); loadCustom(); applyPalCols();
 /* i18n (§8.14): traduci il DOM statico PRIMA di costruire la UI dinamica (che passa da tt()) */
 translateDOM(); markLang();
 $('langIt').onclick=()=>setLang('it');
