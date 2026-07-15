@@ -541,7 +541,7 @@
 <div id="coachSpot" hidden></div>
 
 <script src="tiles.js?v=3"></script>
-<script src="packs/manifest.js?v=1"></script>
+<script src="packs/manifest.js?v=2"></script>
 <script>
 "use strict";
 const TAU=Math.PI*2;
@@ -600,8 +600,8 @@ const I18N={
 'pack di tessere generate (tools/gen_tiles.py) — clic per attivare/disattivare':'generated tile packs (tools/gen_tiles.py) — click to enable/disable',
 'pack disattivato: le celle che lo usano restano vuote finché non lo riattivi':'pack disabled: cells using it stay empty until you re-enable it',
 'pack non caricato':'pack failed to load',
-'Settori':'Sectors','Corde':'Chords','Corde libere':'Free chords','Archi':'Arcs','Anelli':'Rings',
-'Pack · Settori':'Pack · Sectors','Pack · Corde':'Pack · Chords','Pack · Corde libere':'Pack · Free chords','Pack · Archi':'Pack · Arcs','Pack · Anelli':'Pack · Rings',
+'Frazioni':'Fractions','Settori':'Sectors','Corde':'Chords','Corde libere':'Free chords','Archi':'Arcs','Anelli':'Rings',
+'Pack · Frazioni':'Pack · Fractions','Pack · Settori':'Pack · Sectors','Pack · Corde':'Pack · Chords','Pack · Corde libere':'Pack · Free chords','Pack · Archi':'Pack · Arcs','Pack · Anelli':'Pack · Rings',
 /* — barra sinistra — */
 'comprimi libreria':'collapse the library','comprimi pannello':'collapse the panel',
 'Tessere':'Tiles','tessere più piccole':'smaller tiles','tessere più grandi':'larger tiles',
@@ -2129,8 +2129,11 @@ const $=id=>document.getElementById(id);
    riusate nella forgia (mai annidate). */
 let FORGED=[];
 function rebuildTileIndex(){ for(const k in tileIndex) delete tileIndex[k]; TILES.forEach((t,j)=>tileIndex[t.id]=j); }
+function insertBeforePacks(t){   // forgiate/importate restano PRIMA dei pack (che chiudono la libreria)
+  let at=TILES.findIndex(x=>x.cat&&x.cat.startsWith('Pack ')); if(at<0) at=TILES.length;
+  TILES.splice(at,0,t); rebuildTileIndex(); }
 function registerForged(f){ const t={id:f.id,grp:'fx',cat:'Forgiate',name:f.name,stamps:f.stamps};
-  if(tileIndex[f.id]!=null) TILES[tileIndex[f.id]]=t; else { TILES.push(t); tileIndex[f.id]=TILES.length-1; } }
+  if(tileIndex[f.id]!=null) TILES[tileIndex[f.id]]=t; else insertBeforePacks(t); }
 function loadForged(){ try{ FORGED=JSON.parse(localStorage.getItem('hexagraph.forged')||'[]'); }catch(e){ FORGED=[]; } FORGED.forEach(registerForged); }
 function saveForged(){ localStorage.setItem('hexagraph.forged',JSON.stringify(FORGED)); }
 function nextForgedId(){ let n=1; while(tileIndex['fx_'+n]!=null) n++; return 'fx_'+n; }
@@ -2197,7 +2200,7 @@ function customTile(f){ return {id:f.id, grp:'cu', cat:'Importate', name:f.name,
   parts:f.parts.map(p=>{ const P=new Path2D(); P.addPath(new Path2D(p.d), p.tf?new DOMMatrix(p.tf):undefined);
     return {d:p.d, tf:p.tf, eo:p.eo, sw:p.sw, path:P}; })}; }
 function registerCustom(f){ const t=customTile(f);
-  if(tileIndex[f.id]!=null) TILES[tileIndex[f.id]]=t; else { TILES.push(t); tileIndex[f.id]=TILES.length-1; } }
+  if(tileIndex[f.id]!=null) TILES[tileIndex[f.id]]=t; else insertBeforePacks(t); }
 function loadCustom(){ try{ CUSTOM=JSON.parse(localStorage.getItem('hexagraph.custom')||'[]'); }catch(e){ CUSTOM=[]; } CUSTOM.forEach(registerCustom); }
 function saveCustom(){ localStorage.setItem('hexagraph.custom',JSON.stringify(CUSTOM)); }
 function nextCustomId(){ let n=1; while(tileIndex['cu_'+n]!=null) n++; return 'cu_'+n; }
@@ -2220,7 +2223,7 @@ function savePacksOn(){ localStorage.setItem('hexagraph.packs',JSON.stringify([.
 function fetchPack(key){ return new Promise((res,rej)=>{
   if(window.TILE_PACKS&&window.TILE_PACKS[key]) return res();
   const info=PACK_INDEX.find(p=>p.key===key); if(!info) return rej(new Error('pack sconosciuto: '+key));
-  const s=document.createElement('script'); s.src=info.file+'?v=1';
+  const s=document.createElement('script'); s.src=info.file+'?v=2';
   s.onload=res; s.onerror=()=>rej(new Error('pack non caricato: '+key)); document.head.appendChild(s); }); }
 async function enablePack(key){
   await fetchPack(key);
@@ -2229,8 +2232,7 @@ async function enablePack(key){
   if(tileIndex[P.tiles[0].id]==null){
     const mapped=P.tiles.map(t=>({id:t.id,grp:t.id.slice(0,2),cat:t.cat,name:t.name,
       parts:(t.parts||[]).map(p=>({d:p.d,eo:p.eo,sw:p.sw,path:new Path2D(p.d)}))}));
-    let at=TILES.findIndex(t=>t.cat==='Forgiate'||t.cat==='Importate'); if(at<0) at=TILES.length;
-    TILES.splice(at,0,...mapped); rebuildTileIndex();
+    TILES.push(...mapped); rebuildTileIndex();   // i pack vanno IN FONDO alla libreria (richiesta di Simone, round 41)
     let seen=[]; try{ seen=JSON.parse(localStorage.getItem('hexagraph.packseen')||'[]'); }catch(e){}
     if(!seen.includes(key)){ seen.push(key); localStorage.setItem('hexagraph.packseen',JSON.stringify(seen));
       let closed=[]; try{ closed=JSON.parse(localStorage.getItem('hexagraph.palclosed')||'[]'); }catch(e){}

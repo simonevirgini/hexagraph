@@ -1,0 +1,14 @@
+<!doctype html><meta charset=utf-8><title>Pack Frazioni — anteprima</title>
+<style>body{font:13px/1.4 monospace;background:#f4f1ea;color:#222;margin:20px}
+.g{display:flex;flex-wrap:wrap;gap:8px} .t{background:#fff;border:1px solid #ddd;padding:6px;text-align:center}
+.t small{display:block;opacity:.55;margin-top:2px;font-size:9px}</style>
+<h2>Pack «Frazioni» <span id=n></span></h2><div class=g id=g></div>
+<script src="frazioni.js"></script><script>
+const P=window.TILE_PACKS["frazioni"];document.getElementById('n').textContent='— '+P.tiles.length+' tessere';
+const hex='M1,0L0.5,0.866L-0.5,0.866L-1,0L-0.5,-0.866L0.5,-0.866Z';
+document.getElementById('g').innerHTML=P.tiles.map(t=>{
+ const parts=t.parts.map(p=>p.sw?`<path d="${p.d}" fill="none" stroke="#111" stroke-width=".13" stroke-linecap="round"/>`
+  :`<path d="${p.d}" fill="#111"${p.eo?' fill-rule="evenodd"':''}/>`).join('');
+ return `<div class=t><svg width=64 height=58 viewBox="-1.05 -0.95 2.1 1.9"><path d="${hex}" fill="none" stroke="#ccc" stroke-width=".02"/>${parts}</svg><small>${t.id}</small></div>`;
+}).join('');
+</script>

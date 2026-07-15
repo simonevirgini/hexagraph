@@ -204,10 +204,14 @@ def fam_settori():
             m = 0
             for t in range(L): m |= 1 << ((s+t) % 12)
             excl.add(canon(frozenset([('sect', m)])))
+    # COMPLEMENTI = doppioni (feedback di Simone, round 41): in-app il tasto `i`
+    # inverte la tessera, quindi maschera e negativo sono la STESSA forma.
+    # Si enumera per popcount crescente → si tiene la versione "positiva" (meno piena).
     seen, out = set(), []
-    for m in range(1, 4096):
-        c = canon(frozenset([('sect', m)]))
-        if c in seen or c in excl: continue
+    for m in sorted(range(1, 4096), key=lambda x: bin(x).count('1')):
+        c  = canon(frozenset([('sect', m)]))
+        cc = canon(frozenset([('sect', m ^ 0xFFF)]))
+        if c in seen or cc in seen or c in excl or cc in excl: continue
         seen.add(c); out.append((c, [{'d': sect_d(c[0][1]), 'eo': 0}]))
     return out
 
@@ -279,8 +283,10 @@ def fam_archi(existing):
 def fam_anelli(existing):
     seen, out = set(), []
     for kind, radii, shape in [('bandc', RADII_C, circle_d), ('bandh', RADII_H, hexring_d)]:
-        for m in range(1, 16):
+        for m in sorted(range(1, 16), key=lambda x: bin(x).count('1')):
             c = canon(frozenset([(kind, m)]))
+            # bandh arriva al bordo esagono → il complemento è in famiglia = doppione sotto `i`
+            if kind == 'bandh' and canon(frozenset([(kind, m ^ 0xF)])) in seen: continue
             if c in seen or c in existing: continue
             seen.add(c); out.append((c, band_parts(m, radii, shape)))
     for kind, radii, shape in [('ringc', RADII_C, circle_d), ('ringh', RADII_H, hexring_d)]:
@@ -291,6 +297,127 @@ def fam_anelli(existing):
             seen.add(c)
             out.append((c, [{'d': shape(radii[j]), 'sw': 0.34} for j in range(4) if m >> j & 1]))
     return out
+
+# ============================== FRAZIONI di cerchio e figure geometriche (round 41) ===
+# Richiesta di Simone: tessere che siano frazioni di cerchi / figure geometriche vere.
+#   ('csec', d, s, r)  settore circolare centrato in C: raggio r (1=APO, 2=APO/2),
+#                      parte dalla direzione d (0..11, 30° l'una: pari=verso Vi, dispari=verso Mi)
+#                      e spazza s×30° in senso antiorario (s=1..11)
+#   ('dome', mask6)    semicerchi r=1/2 appoggiati sui LATI (centro Mi, diametro = il lato)
+#   ('vsec', mask6)    quarti di cerchio r=1/2 nei VERTICI (centro Vi)
+FR_RADII = {1: APO, 2: APO/2}
+
+def act_fraz(g, d):
+    k, f = g
+    if d[0] == 'csec':
+        dd, s, r = d[1], d[2], d[3]
+        if f: dd = (-dd - s) % 12
+        return ('csec', (dd + 2*k) % 12, s, r)
+    if d[0] in ('dome', 'vsec'):
+        m = d[1]; out = 0
+        for b in range(6):
+            if m >> b & 1:
+                nb = ((5-b) if d[0] == 'dome' else (-b) % 6) if f else b
+                out |= 1 << ((nb + k) % 6)
+        return (d[0], out)
+    return None
+
+def csec_d(dd, s, r):
+    rr = FR_RADII[r]
+    a0 = PI/6*dd; a1 = PI/6*(dd+s)
+    pts = [(0.0, 0.0)] + arc_points(0, 0, rr, a0, a1, ccw=True)
+    return 'M' + 'L'.join(P(q) for q in pts) + 'Z'
+
+def dome_d(i):
+    m = mco(i); a = math.atan2(m[1], m[0])
+    # semicerchio dal vertice Vi al vertice V(i+1), che sporge verso il centro
+    pts = arc_points(m[0], m[1], 0.5, a - PI/2, a + PI/2, ccw=False)
+    return 'M' + 'L'.join(P(q) for q in pts) + 'Z'
+
+def vsec_d(i):
+    v = vco(i); a = math.atan2(v[1], v[0])
+    # quarto di cerchio nel vertice: arco da M(i-1) a Mi + i due tratti di lato
+    pts = [ANCHORS[f'V{i}']] + arc_points(v[0], v[1], 0.5, a + PI - PI/3, a + PI + PI/3, ccw=True)
+    return 'M' + 'L'.join(P(q) for q in pts) + 'Z'
+
+# --- firma RASTER su griglia D6-simmetrica: per confrontare le frazioni con le
+#     149 esistenti (uguali O complementari: in-app `i` inverte, quindi doppione).
+SIG_RINGS = [APO*j/10 for j in range(1, 10)]
+SIG_PTS = [(0.0, 0.0)] + [(r*COS(PI/12*t), r*SIN(PI/12*t)) for r in SIG_RINGS for t in range(24)]
+def sig_perm(g):
+    """permutazione degli indici di SIG_PTS sotto l'elemento g (rot 60°=+4 sui 24 angoli)."""
+    k, f = g
+    perm = [0]
+    for ri in range(len(SIG_RINGS)):
+        for t in range(24):
+            nt = ((-t) % 24 if f else t)
+            nt = (nt + 4*k) % 24
+            perm.append(1 + ri*24 + nt)
+    return perm
+SIG_PERMS = [sig_perm(g) for g in GROUP]
+
+def fraz_inside(desc):
+    if desc[0] == 'csec':
+        dd, s, rr = desc[1], desc[2], FR_RADII[desc[3]]
+        def f(x, y):
+            if math.hypot(x, y) > rr + 1e-9: return False
+            a = (math.atan2(y, x) - PI/6*dd) % (2*PI)
+            return a <= PI/6*s + 1e-9
+        return f
+    cs = [mco(i) if desc[0] == 'dome' else vco(i) for i in range(6) if desc[1] >> i & 1]
+    return lambda x, y: any(math.hypot(x-c[0], y-c[1]) <= 0.5 + 1e-9 for c in cs)
+
+def poly_inside(subs):
+    """test even-odd su una lista di subpath poligonali (crossing number complessivo)."""
+    def f(x, y):
+        n = 0
+        for sub in subs:
+            for j in range(len(sub)):
+                (x1, y1), (x2, y2) = sub[j-1], sub[j]
+                if (y1 > y) != (y2 > y) and x < x1 + (y-y1)*(x2-x1)/(y2-y1): n += 1
+        return n % 2 == 1
+    return f
+
+def signature(inside):
+    return tuple(inside(x, y) for x, y in SIG_PTS)
+
+def fam_frazioni(existing_sigs):
+    vocab  = [('csec', d, s, r) for d in range(12) for s in range(1, 12) for r in (1, 2)]
+    vocab += [('dome', m) for m in range(1, 64)]
+    vocab += [('vsec', m) for m in range(1, 64)]
+    seen, out = set(), []
+    for desc in vocab:
+        c = min(act_fraz(g, desc) for g in GROUP)
+        if c in seen: continue
+        seen.add(c)
+        sig = signature(fraz_inside(c))
+        dup = False
+        for perm in SIG_PERMS:                      # uguale (o complementare) a una base?
+            s2 = tuple(sig[p] for p in perm)
+            for es in existing_sigs:
+                d1 = sum(a != b for a, b in zip(s2, es))
+                if d1 <= 4 or d1 >= len(s2) - 4: dup = True; break
+            if dup: break
+        if dup: continue
+        if c[0] == 'csec': parts = [{'d': csec_d(c[1], c[2], c[3]), 'eo': 0}]
+        elif c[0] == 'dome': parts = [{'d': ''.join(dome_d(i) for i in range(6) if c[1] >> i & 1), 'eo': 0}]
+        else: parts = [{'d': ''.join(vsec_d(i) for i in range(6) if c[1] >> i & 1), 'eo': 0}]
+        out.append(((c,), parts))
+    return out
+
+def existing_fill_signatures():
+    """firme raster delle tessere base fatte di SOLI riempimenti (per il dedup frazioni)."""
+    src = open(os.path.join(ROOT, 'tiles.js')).read()
+    body = re.sub(r',\s*\]', ']', src[src.index('['): src.rindex(']')+1])
+    sigs = []
+    for t in json.loads(body):
+        if any(p.get('sw') for p in t['parts']): continue
+        subs = []
+        for p in t['parts']:
+            ss, _ = parse_path(p['d'])
+            subs += ss
+        sigs.append(signature(poly_inside(subs)))
+    return sigs
 
 # ============================================= DECODIFICA di tiles.js esistente ===
 def parse_path(d):
@@ -429,7 +556,7 @@ def decode_existing():
     return existing, undecoded, len(data)
 
 # ======================================================================= MAIN ===
-PREFIX = {'settori': 'st', 'corde': 'cr', 'corde-libere': 'cl', 'archi': 'ar', 'anelli': 'an'}
+PREFIX = {'frazioni': 'fz', 'settori': 'st', 'corde': 'cr', 'corde-libere': 'cl', 'archi': 'ar', 'anelli': 'an'}
 ALL_IDS = set()
 def tile_id(key, c):
     return PREFIX[key] + '_' + hashlib.md5(repr(c).encode()).hexdigest()[:8]
@@ -473,11 +600,12 @@ def main():
 
     corde, corde_libere = fam_corde(existing)
     fams = [
+        ('frazioni',     'Frazioni',     'Pack · Frazioni',     fam_frazioni(existing_fill_signatures())),
         ('settori',      'Settori',      'Pack · Settori',      fam_settori()),
+        ('anelli',       'Anelli',       'Pack · Anelli',       fam_anelli(existing)),
+        ('archi',        'Archi',        'Pack · Archi',        fam_archi(existing)),
         ('corde',        'Corde',        'Pack · Corde',        corde),
         ('corde-libere', 'Corde libere', 'Pack · Corde libere', corde_libere),
-        ('archi',        'Archi',        'Pack · Archi',        fam_archi(existing)),
-        ('anelli',       'Anelli',       'Pack · Anelli',       fam_anelli(existing)),
     ]
     print('\nCENSIMENTO')
     for key, name, cat, tiles in fams:
