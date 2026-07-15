@@ -49,6 +49,8 @@
   .sw{aspect-ratio:1;border:0;border-radius:2px;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
   .swlabel{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:5px 0 1px}
   .sw.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .sw.plus{background:transparent;color:var(--muted);display:grid;place-items:center;font-size:14px;line-height:1;box-shadow:none;border:1px dashed var(--line)}
+  .sw.plus:hover{color:var(--text);border-color:var(--muted)}
   /* colori rapidi (in cima, vicino alle tessere rapide) */
   #topbar .rcluster{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-left:auto}
   #topbar .qcolors{display:flex;align-items:center;gap:8px;flex:0 0 auto}
@@ -244,11 +246,11 @@
   <div class="brand" title="Hexagraph — tessere esagonali"><svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>Hexagraph</div>
   <div class="tgroup"><!-- selezione -->
     <button class="btn ic on" id="toolSelect" title="Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg></button>
-    <button class="btn ic" id="toolLasso" title="Lazo a esagoni: ogni clic aggiunge un punto e si evidenziano gli esagoni del percorso · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
+    <button class="btn ic" id="toolLasso" title="Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- disegno -->
-    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita)">✎</button>
+    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
     <button class="btn ic" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
@@ -378,6 +380,7 @@
         </div>
         <div class="legend">Clic su un colore = prossimi timbri (e la selezione, se c'è). Doppio clic su uno swatch = aggiungilo ai <b>rapidi</b>.</div>
         <input type="color" id="quickPicker" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
+        <input type="color" id="custPicker" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
       </div>
 
       <div class="group" data-sec="anim">
@@ -565,8 +568,8 @@ const I18N={
 /* — topbar: tooltip strumenti — */
 'Hexagraph — tessere esagonali':'Hexagraph — hexagonal tiles',
 'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo':'Select: click = one cell · drag = rectangle · double-click a tile = all identical ones (⇧ adds) · drag a selected cell = move the group',
-'Lazo a esagoni: ogni clic aggiunge un punto e si evidenziano gli esagoni del percorso · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla':'Hex lasso: each click adds a point and the hexagons along the path light up · click the FIRST hexagon again (or double-click / Enter) to close · right-click/Esc cancels',
-'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita)':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line)',
+'Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla':'Hex lasso: clicks = points (polygonal) · drag = freehand, closes on release · click the FIRST hexagon again (or double-click / Enter) to close · right-click/Esc cancels',
+'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line) · ⌘/Ctrl+D hides/shows the ghost',
 'Cancellina: clic o trascina per cancellare le tessere':'Eraser: click or drag to erase tiles',
 'Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione':'Bucket (g): fill connected empty areas or identical tiles — inside a selection it fills only the selection',
 'Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull\'icona = scegli la trama':'Dither (t): pattern-blend from tile A to tile B — ⇧+click in the library picks B · area works like the bucket · drag = gradient direction and length · single click = 50/50 · Esc cancels · click the icon again = choose the pattern',
@@ -673,6 +676,10 @@ const I18N={
 ' — ⌥+clic: preferita · ⇧+clic: tessera B del dither':' — ⌥+click: favorite · ⇧+click: dither tile B',
 'elimina questa tessera forgiata':'delete this forged tile','togli dallo slot':'remove from the slot',
 ' — clic: usa · doppio clic: cambia · destro: togli':' — click: use · double-click: change · right-click: remove',
+'Personale':'Custom',
+'la tua palette: aggiungi i colori col quadratino +':'your own palette: add colors with the + square',
+'aggiungi un colore alla tua palette':'add a color to your palette',
+'fantasma del pennello nascosto — ⌘/Ctrl+D lo rimostra':'brush ghost hidden — ⌘/Ctrl+D shows it again',
 'scegli un colore col picker':'pick a color with the picker',
 ' — clic: usa · doppio clic: aggiungi ai rapidi':' — click: use · double-click: add to the quick colors',
 'trascina per spostare la sezione':'drag to move the section','trascina per riordinare':'drag to reorder',
@@ -723,7 +730,7 @@ const I18N={
 'trascina':'drag','= gradiente (':'= gradient (',
 'blocca a 45°) · clic secco = 50/50 · 2° clic sull\'icona = trama ·':'locks to 45°) · single click = 50/50 · 2nd click on the icon = pattern ·',
 'Secchiello':'Bucket','clic riempie la zona connessa':'click fills the connected area',' (dentro la selezione)':' (inside the selection)',
-'Lazo':'Lasso','clic = punto · riclicca il':'click = point · re-click the','primo esagono':'first hexagon','(o doppio clic /':'(or double-click /',') ':') ',
+'Lazo':'Lasso','clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il':'clicks = points · drag = freehand (release closes) · re-click the','primo esagono':'first hexagon','(o doppio clic /':'(or double-click /',') ':') ',
 'Gomma':'Eraser','clic o trascina cancella ·':'click or drag erases ·','+clic = contagocce':'+click = eyedropper',
 'Matita':'Pencil',' · linea pulita':' · clean line',
 'clic timbra · trascina dipinge · destro cancella ·':'click stamps · drag paints · right-click erases ·',
@@ -819,6 +826,7 @@ let colFlip=false, rowFlip=false;   // alternanza del lato (dx/sx, giù/su) per 
 const colPar=c=>(((c+colPhase)%2)+2)%2;
 let showGrid=true, pageDark=false, previewing=false, connSW=0.34, boardRot=0;
 let tool='select';                 // 'select' (default, freccia) | 'lasso' | 'draw' | 'erase' | 'bucket'
+let ghostHide=false;               // ⌘/Ctrl+D in matita nasconde il fantasma del pennello (round 39); torna con ⌘D, cambio strumento o nuova tessera
 /* MODALITÀ PATTERN: null = tela normale · {shape:'rect'|'strip'|'hexa'|'rhomb'} — le dimensioni
    della forma derivano SEMPRE da cols/rows (hexa: raggio dal lato minore · rhomb: lato B dalle righe) */
 let pattern=null;
@@ -1140,7 +1148,7 @@ function render(hoverC,hoverR){
   // anteprima del tassello al cursore — SEMPRE, anche sopra una cella già piena (così vedi cosa stai per mettere).
   // Il FANTASMA è riconoscibile dalle tessere vere: figura semitrasparente + contorno esagonale
   // TRATTEGGIATO rosa (convenzione "provvisorio"; le tessere posate non sono mai tratteggiate).
-  if(brush.tile && tool==='draw'){
+  if(brush.tile && tool==='draw' && !ghostHide){
     for(const t of symTargets(cursor.c,cursor.r)){   // ghost anche sulle copie simmetriche: la simmetria si vede da qui
       const occupied=!!cells.get(key(t.c,t.r));
       const [cx,cy]=cellCenter(t.c,t.r);
@@ -1590,6 +1598,7 @@ function updateCursor(){ board.style.cursor = (tool==='bucket'||tool==='dither')
 /* ---- input mouse ---- */
 let painting=false, selecting=false, mode='stamp', lastKey=null, selStartPt=null, baseSel=null, selAnchorKey=null;
 const lassoPts=[]; let hoverPt=null;
+let lassoDrag=false, lassoDragAdded=0;   // lazo IBRIDO (round 39): trascinare = mano libera, il rilascio dopo un vero tratto chiude
 /* selezione rettangolare in coordinate contenuto: celle col centro dentro il rettangolo (+ la cella d'ancora) */
 function rectSelect(p1,p2){
   const s=new Set(baseSel||[]);
@@ -1624,7 +1633,7 @@ function closeLasso(){
     }
     selection=s.size?s:null;
   }
-  lassoPts.length=0; render();
+  lassoPts.length=0; render(); updateStatus();
 }
 const localXY=e=>{ const b=board.getBoundingClientRect();
   let x=(e.clientX-b.left-view.x)/view.zoom, y=(e.clientY-b.top-view.y)/view.zoom;   // inverte pan+zoom (il canvas è il viewport)
@@ -1650,7 +1659,8 @@ board.addEventListener('pointerdown',e=>{
     // clic di nuovo sul PRIMO esagono = chiudi (oltre a doppio clic e Invio)
     if(lassoPts.length>=2 && hit){ const first=cellAt(...lassoPts[0]);
       if(first && hit[0]===first[0] && hit[1]===first[1]){ closeLasso(); return; } }
-    lassoPts.push(pt); render(); return;
+    lassoPts.push(pt); lassoDrag=true; lassoDragAdded=0;
+    board.setPointerCapture(e.pointerId); render(); return;
   }
   // trascina la selezione: nello strumento seleziona, presa su una cella GIÀ selezionata
   if(tool==='select' && !e.shiftKey && e.button!==2 && hit && inSel(hit[0],hit[1])){
@@ -1703,6 +1713,13 @@ board.addEventListener('pointermove',e=>{
   if(bgDrag){ bgT.x=bgDrag.x0+(pt[0]-bgDrag.sx); bgT.y=bgDrag.y0+(pt[1]-bgDrag.sy); render(); return; }
   if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; render(); return; }
   if(ditherDrag){ ditherDrag.cur=e.shiftKey?ditherSnap(ditherDrag.start,pt):pt; ditherRestore(); ditherApply(); render(); return; }
+  // lazo IBRIDO: col bottone premuto il trascinamento aggiunge punti in continuo (mano libera).
+  // Soglia in PIXEL SCHERMO (non contenuto): il micro-jitter di un clic non deve mai contare come tratto
+  if(lassoDrag && tool==='lasso' && (e.buttons&1)){
+    const lp=lassoPts[lassoPts.length-1];
+    if(lp && Math.hypot(pt[0]-lp[0],pt[1]-lp[1])*view.zoom>7){ lassoPts.push(pt); lassoDragAdded++; }
+    render(); return;
+  }
   const hit=cellAt(...pt);
   if(selecting){ selection=rectSelect(selStartPt,pt); render(); return; }
   if(painting){
@@ -1715,6 +1732,11 @@ board.addEventListener('pointermove',e=>{
 });
 board.addEventListener('pointerup',e=>{
   if(bgDrag){ bgDrag=null; return; }
+  if(lassoDrag){ lassoDrag=false;
+    // un vero TRATTO disegnato = lazo libero: il rilascio chiude; un clic secco resta un vertice poligonale
+    if(lassoDragAdded>=2 && lassoPts.length>=3) closeLasso();
+    lassoDragAdded=0; return;
+  }
   if(ditherDrag){   // applica il dither: torna all'originale, snapshot per l'undo, riapplica
     ditherRestore(); snapshot(); ditherApply(); ditherDrag=null; render(); updateStatus(); return;
   }
@@ -2033,7 +2055,7 @@ function buildQuickTiles(){
     for(const t of list) el.appendChild(quickTileButton(t));
   }
 }
-function selectTile(id){ brush.cell=null; brush.tile=id; noteRecentTile(id);   // scegliere una tessera esce dal pennello composito
+function selectTile(id){ brush.cell=null; brush.tile=id; noteRecentTile(id); ghostHide=false;   // scegliere una tessera esce dal pennello composito (e rimostra il fantasma)
   document.querySelectorAll('#palette .tile, #palfav .tile').forEach(x=>x.classList.toggle('sel',x.dataset.id===id));
   updateBrushPreview(); render(); if(typeof coachEvent==='function') coachEvent('tile'); }
 function cycleTile(dir){ let i=tileIndex[brush.tile]||0; i=(i+dir+TILES.length)%TILES.length; selectTile(TILES[i].id); }
@@ -2276,11 +2298,27 @@ const PALETTES={
   'Fluo':['#ff2079','#ff5d2e','#ffd500','#37ff8b','#00e5ff','#2b7fff','#b14dff','#ff48b0','#00ffc6','#eaff00'],
   'Mono':['#111111','#2f2f2f','#4d4d4d','#6b6b6b','#8a8a8a','#a8a8a8','#c9c9c9','#ffffff'],
 };
-let curPalette=localStorage.getItem('hexagraph.palette')||'Riso'; if(!PALETTES[curPalette]) curPalette='Riso';
+let curPalette=localStorage.getItem('hexagraph.palette')||'Riso'; if(!PALETTES[curPalette]&&curPalette!=='custom') curPalette='Riso';
 function buildPalsel(){ const el=$('palsel'); if(!el)return; el.innerHTML='';
   for(const name of Object.keys(PALETTES)){ const b=document.createElement('button'); b.textContent=tt(name);
     b.className=(name===curPalette?'on':''); b.onclick=()=>{ curPalette=name; localStorage.setItem('hexagraph.palette',name); buildPalsel(); buildSwatches(); };
-    el.appendChild(b); } }
+    el.appendChild(b); }
+  // PALETTE PERSONALE (§8.17): finché è vuota il bottone è un "+", poi prende il nome
+  const b=document.createElement('button'); b.textContent=customPal.length?tt('Personale'):'+';
+  b.className=(curPalette==='custom'?'on':''); b.title=tt('la tua palette: aggiungi i colori col quadratino +');
+  b.onclick=()=>{ curPalette='custom'; localStorage.setItem('hexagraph.palette','custom'); buildPalsel(); buildSwatches(); };
+  el.appendChild(b); }
+/* PALETTE PERSONALE (§8.17): colori scelti col picker, un quadratino "+" per aggiungerne sempre un altro */
+let customPal=[]; try{ customPal=JSON.parse(localStorage.getItem('hexagraph.custompal')||'[]'); }catch(e){}
+if(!Array.isArray(customPal)) customPal=[];
+function saveCustomPal(){ localStorage.setItem('hexagraph.custompal',JSON.stringify(customPal)); }
+let custTarget=-1;
+function openCustPicker(i){ custTarget=i;
+  if(selection&&selection.size) snapshot();   // il colore scelto colora anche la selezione: un solo undo per l'intera scelta
+  const p=$('custPicker'); p.value=customPal[i]||brush.col||'#ff48b0'; p.click(); }
+$('custPicker').oninput=()=>{ if(custTarget<0)return; const v=$('custPicker').value;
+  customPal[custTarget]=v; saveCustomPal(); setBrushCol(v,true); buildSwatches(); };
+$('custPicker').onchange=()=>{ if(custTarget>=0){ buildPalsel(); syncBrushUI(); } custTarget=-1; };
 let recentCols=[]; try{ recentCols=JSON.parse(localStorage.getItem('hexagraph.recentcols')||'[]'); }catch(e){}
 function pushRecentCol(col){ col=col.toLowerCase(); if(RISO_COLORS.includes(col))return;
   recentCols=[col,...recentCols.filter(c=>c!==col)].slice(0,8); localStorage.setItem('hexagraph.recentcols',JSON.stringify(recentCols)); }
@@ -2324,6 +2362,17 @@ function buildSwatches(){
     b.style.background=c; b.title=c+tt(' — clic: usa · doppio clic: aggiungi ai rapidi');
     b.onclick=()=>setBrushCol(c); b.ondblclick=()=>{ addQuick(c); buildQuickCols(); };
     el.appendChild(b); };
+  if(curPalette==='custom'){   // palette personale: swatch editabili + quadratino "+" per aggiungere
+    customPal.forEach((c,i)=>{ const b=document.createElement('button'); b.className='sw'+(sel===c.toLowerCase()?' sel':'');
+      b.style.background=c; b.title=c+tt(' — clic: usa · doppio clic: cambia · destro: togli');
+      b.onclick=()=>setBrushCol(c); b.ondblclick=()=>openCustPicker(i);
+      b.oncontextmenu=e=>{ e.preventDefault(); customPal.splice(i,1); saveCustomPal(); buildPalsel(); buildSwatches(); };
+      el.appendChild(b); });
+    const p=document.createElement('button'); p.className='sw plus'; p.textContent='+';
+    p.title=tt('aggiungi un colore alla tua palette'); p.onclick=()=>openCustPicker(customPal.length);
+    el.appendChild(p);
+    return;
+  }
   for(const c of (PALETTES[curPalette]||[])) addSw(c);
 }
 $('cellCol').onpointerdown=()=>{ if(selection&&selection.size) snapshot(); };   // un solo snapshot per l'intera scelta col picker nativo
@@ -2336,7 +2385,7 @@ $('merge').onclick=()=>setStampMode('merge');
 $('sub').onclick=()=>setStampMode('sub');
 $('iso').onclick=()=>setStampMode('iso');
 $('xor').onclick=()=>setStampMode('xor');
-function setTool(t){ tool=t; lassoPts.length=0; ditherCancel();
+function setTool(t){ tool=t; lassoPts.length=0; ditherCancel(); ghostHide=false;
   $('toolDraw').classList.toggle('on',t==='draw');
   $('toolErase').classList.toggle('on',t==='erase');
   $('toolSelect').classList.toggle('on',t==='select');
@@ -2353,7 +2402,8 @@ $('symAxes').classList.toggle('on',showAxes);
 $('toolSelect').onclick=()=>setTool('select');
 $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
 // matita come il dither: 1º clic attiva lo strumento · 2º clic (già attiva) apre/chiude il pannello modalità (libera / linea pulita, stile Aseprite)
-$('toolDraw').onclick=()=>{ if(tool!=='draw') setTool('draw'); else togglePencilPop(); };
+$('toolDraw').onclick=()=>{ if(stampMode) setStampMode(stampMode);   // clic sulla matita = via le fusioni ⊕⊖∩⊻ (round 39)
+  if(tool!=='draw') setTool('draw'); else togglePencilPop(); };
 $('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
 $('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
 // dither: 1º clic attiva lo strumento · 2º clic (già attivo) apre/chiude sotto l'icona il pannello con le trame
@@ -2923,7 +2973,7 @@ function hintHTML(){
   } else if(tool==='bucket'){
     h = `<b>${tt('Secchiello')}</b> · ${tt('clic riempie la zona connessa')}`+(hasSel?tt(' (dentro la selezione)'):'');
   } else if(tool==='lasso'){
-    h = `<b>${tt('Lazo')}</b> · ${tt('clic = punto · riclicca il')} <b>${tt('primo esagono')}</b> ${tt('(o doppio clic /')} ${kb('↵')}) ${tt('chiude')} · ${kb('Esc')} ${tt('annulla')}`;
+    h = `<b>${tt('Lazo')}</b> · ${tt('clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il')} <b>${tt('primo esagono')}</b> ${tt('(o doppio clic /')} ${kb('↵')}) ${tt('chiude')} · ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='erase'){
     h = `<b>${tt('Gomma')}</b> · ${tt('clic o trascina cancella ·')} ${kb('c')} / ${kb('⌥')}${tt('+clic = contagocce')}`;
   } else if(tool==='draw'){
@@ -2999,7 +3049,10 @@ window.addEventListener('keydown',e=>{
   if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
   const k=e.key;
   // ⌘/Ctrl+D = deseleziona (e annulla il lazo in corso)
-  if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0; e.preventDefault(); render(); updateStatus(); return; }
+  if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0;
+    if(tool==='draw' && brush.tile){ ghostHide=!ghostHide;   // in matita ⌘D nasconde/rimostra anche il fantasma: tela pulita
+      if(ghostHide) flashStatus(tt('fantasma del pennello nascosto — ⌘/Ctrl+D lo rimostra')); }
+    e.preventDefault(); render(); updateStatus(); return; }
   // ⌘/Ctrl+C = copia · ⌘/Ctrl+V = incolla SUL POSTO (⌘F di Illustrator): stessa posizione, livello attivo
   if((e.metaKey||e.ctrlKey) && (k==='c'||k==='C')){ copySel(); e.preventDefault(); return; }
   if((e.metaKey||e.ctrlKey) && (k==='v'||k==='V')){ pasteInPlace(); e.preventDefault(); return; }
