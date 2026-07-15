@@ -246,7 +246,7 @@
   <div class="brand" title="Hexagraph — tessere esagonali"><svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>Hexagraph</div>
   <div class="tgroup"><!-- selezione -->
     <button class="btn ic on" id="toolSelect" title="Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg></button>
-    <button class="btn ic" id="toolLasso" title="Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
+    <button class="btn ic" id="toolLasso" title="Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · ⇧ aggiunge alla selezione · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- disegno -->
@@ -568,7 +568,7 @@ const I18N={
 /* — topbar: tooltip strumenti — */
 'Hexagraph — tessere esagonali':'Hexagraph — hexagonal tiles',
 'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo':'Select: click = one cell · drag = rectangle · double-click a tile = all identical ones (⇧ adds) · drag a selected cell = move the group',
-'Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · destro/Esc annulla':'Hex lasso: clicks = points (polygonal) · drag = freehand, closes on release · click the FIRST hexagon again (or double-click / Enter) to close · right-click/Esc cancels',
+'Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · ⇧ aggiunge alla selezione · destro/Esc annulla':'Hex lasso: clicks = points (polygonal) · drag = freehand, closes on release · click the FIRST hexagon again (or double-click / Enter) to close · ⇧ adds to the selection · right-click/Esc cancels',
 'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line) · ⌘/Ctrl+D hides/shows the ghost',
 'Cancellina: clic o trascina per cancellare le tessere':'Eraser: click or drag to erase tiles',
 'Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione':'Bucket (g): fill connected empty areas or identical tiles — inside a selection it fills only the selection',
@@ -730,7 +730,7 @@ const I18N={
 'trascina':'drag','= gradiente (':'= gradient (',
 'blocca a 45°) · clic secco = 50/50 · 2° clic sull\'icona = trama ·':'locks to 45°) · single click = 50/50 · 2nd click on the icon = pattern ·',
 'Secchiello':'Bucket','clic riempie la zona connessa':'click fills the connected area',' (dentro la selezione)':' (inside the selection)',
-'Lazo':'Lasso','clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il':'clicks = points · drag = freehand (release closes) · re-click the','primo esagono':'first hexagon','(o doppio clic /':'(or double-click /',') ':') ',
+'Lazo':'Lasso','clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il':'clicks = points · drag = freehand (release closes) · re-click the','primo esagono':'first hexagon','aggiunge':'adds','(o doppio clic /':'(or double-click /',') ':') ',
 'Gomma':'Eraser','clic o trascina cancella ·':'click or drag erases ·','+clic = contagocce':'+click = eyedropper',
 'Matita':'Pencil',' · linea pulita':' · clean line',
 'clic timbra · trascina dipinge · destro cancella ·':'click stamps · drag paints · right-click erases ·',
@@ -1599,6 +1599,7 @@ function updateCursor(){ board.style.cursor = (tool==='bucket'||tool==='dither')
 let painting=false, selecting=false, mode='stamp', lastKey=null, selStartPt=null, baseSel=null, selAnchorKey=null;
 const lassoPts=[]; let hoverPt=null;
 let lassoDrag=false, lassoDragAdded=0;   // lazo IBRIDO (round 39): trascinare = mano libera, il rilascio dopo un vero tratto chiude
+let lassoBase=null;                       // selezione preesistente da SOMMARE se il lazo è partito con ⇧ (come gli altri strumenti)
 /* selezione rettangolare in coordinate contenuto: celle col centro dentro il rettangolo (+ la cella d'ancora) */
 function rectSelect(p1,p2){
   const s=new Set(baseSel||[]);
@@ -1627,13 +1628,14 @@ function lassoPathCells(closed){
 }
 function closeLasso(){
   if(lassoPts.length>=2){
-    const s=lassoPathCells(true);                       // il bordo (gli esagoni del percorso) fa parte della selezione
+    const s=lassoBase?new Set(lassoBase):new Set();     // ⇧ all'avvio del lazo = somma alla selezione esistente
+    for(const k of lassoPathCells(true)) s.add(k);      // il bordo (gli esagoni del percorso) fa parte della selezione
     if(lassoPts.length>=3){                              // + l'interno del poligono
       for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r); if(pointInPoly(cx,cy,lassoPts)) s.add(key(c,r)); }
     }
     selection=s.size?s:null;
   }
-  lassoPts.length=0; render(); updateStatus();
+  lassoPts.length=0; lassoBase=null; render(); updateStatus();
 }
 const localXY=e=>{ const b=board.getBoundingClientRect();
   let x=(e.clientX-b.left-view.x)/view.zoom, y=(e.clientY-b.top-view.y)/view.zoom;   // inverte pan+zoom (il canvas è il viewport)
@@ -1655,10 +1657,11 @@ board.addEventListener('pointerdown',e=>{
   }
   if(hit) cursorPlaced=true;
   if(tool==='lasso'){
-    if(e.button===2){ lassoPts.length=0; render(); return; }   // destro = annulla il lazo
+    if(e.button===2){ lassoPts.length=0; lassoBase=null; render(); return; }   // destro = annulla il lazo
     // clic di nuovo sul PRIMO esagono = chiudi (oltre a doppio clic e Invio)
     if(lassoPts.length>=2 && hit){ const first=cellAt(...lassoPts[0]);
       if(first && hit[0]===first[0] && hit[1]===first[1]){ closeLasso(); return; } }
+    if(lassoPts.length===0) lassoBase=(e.shiftKey && selection)?new Set(selection):null;   // ⇧ al 1º punto = aggiungi alla selezione
     lassoPts.push(pt); lassoDrag=true; lassoDragAdded=0;
     board.setPointerCapture(e.pointerId); render(); return;
   }
@@ -2385,7 +2388,7 @@ $('merge').onclick=()=>setStampMode('merge');
 $('sub').onclick=()=>setStampMode('sub');
 $('iso').onclick=()=>setStampMode('iso');
 $('xor').onclick=()=>setStampMode('xor');
-function setTool(t){ tool=t; lassoPts.length=0; ditherCancel(); ghostHide=false;
+function setTool(t){ tool=t; lassoPts.length=0; lassoBase=null; ditherCancel(); ghostHide=false;
   $('toolDraw').classList.toggle('on',t==='draw');
   $('toolErase').classList.toggle('on',t==='erase');
   $('toolSelect').classList.toggle('on',t==='select');
@@ -2973,7 +2976,7 @@ function hintHTML(){
   } else if(tool==='bucket'){
     h = `<b>${tt('Secchiello')}</b> · ${tt('clic riempie la zona connessa')}`+(hasSel?tt(' (dentro la selezione)'):'');
   } else if(tool==='lasso'){
-    h = `<b>${tt('Lazo')}</b> · ${tt('clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il')} <b>${tt('primo esagono')}</b> ${tt('(o doppio clic /')} ${kb('↵')}) ${tt('chiude')} · ${kb('Esc')} ${tt('annulla')}`;
+    h = `<b>${tt('Lazo')}</b> · ${tt('clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il')} <b>${tt('primo esagono')}</b> ${tt('(o doppio clic /')} ${kb('↵')}) ${tt('chiude')} · ${kb('⇧')} ${tt('aggiunge')} · ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='erase'){
     h = `<b>${tt('Gomma')}</b> · ${tt('clic o trascina cancella ·')} ${kb('c')} / ${kb('⌥')}${tt('+clic = contagocce')}`;
   } else if(tool==='draw'){
@@ -3049,7 +3052,7 @@ window.addEventListener('keydown',e=>{
   if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
   const k=e.key;
   // ⌘/Ctrl+D = deseleziona (e annulla il lazo in corso)
-  if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0;
+  if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0; lassoBase=null;
     if(tool==='draw' && brush.tile){ ghostHide=!ghostHide;   // in matita ⌘D nasconde/rimostra anche il fantasma: tela pulita
       if(ghostHide) flashStatus(tt('fantasma del pennello nascosto — ⌘/Ctrl+D lo rimostra')); }
     e.preventDefault(); render(); updateStatus(); return; }
@@ -3107,7 +3110,7 @@ window.addEventListener('keydown',e=>{
     case 'r': xformRot(1); break;       // selezione se c'è, altrimenti pennello (vedi anteprima in alto a destra)
     case 'f': xformFlip(); break;
     case 'i': xformInv(); break;
-    case 'Escape': if(ditherDrag){ ditherCancel(); break; } if(bgMoveMode){ setBgMove(false); break; } lassoPts.length=0; selection=null; break;
+    case 'Escape': if(ditherDrag){ ditherCancel(); break; } if(bgMoveMode){ setBgMove(false); break; } lassoPts.length=0; lassoBase=null; selection=null; break;
     case 'h': showGrid=!showGrid; $('grid').classList.toggle('on',!showGrid); break;
     case 'u': $('merge').click(); break;
     case 'x': $('sub').click(); break;
