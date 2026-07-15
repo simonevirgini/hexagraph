@@ -130,6 +130,10 @@
   .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
   .palzoom{float:right;display:inline-flex;gap:3px;margin-left:6px}
   .pz{width:19px;height:19px;background:var(--panel2);border:0;color:var(--text);border-radius:var(--rad);cursor:pointer;font-size:12px;line-height:1;padding:0}
+  #packrow{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}
+  #packrow[hidden]{display:none}
+  .packchip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:var(--rad);cursor:pointer;font:inherit;font-size:10px;padding:2px 7px;line-height:1.5}
+  .packchip.on{color:var(--text);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
   .pz:hover{background:var(--panel3)}
   .grouphdr{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-top:5px;border-top:1px solid var(--line);padding-top:6px;display:flex;justify-content:space-between;cursor:pointer;user-select:none}
   .grouphdr:hover{color:var(--text)}
@@ -311,6 +315,7 @@
     <div class="barbody">
       <div class="group" data-sec="tiles">
         <div class="glabel">Tessere <span id="tcount" style="color:var(--muted)"></span> <span style="color:var(--muted)">— <kbd>,</kbd>/<kbd>.</kbd></span><span class="palzoom"><button class="pz" id="palMinus" title="tessere più piccole">−</button><button class="pz" id="palPlus" title="tessere più grandi">+</button></span></div>
+        <div id="packrow"></div>
         <div class="palette" id="palfav"></div>
         <div class="palette" id="palette"></div>
         <div class="legend" data-i18n="lib-legend"><kbd>⌥</kbd>+clic su una tessera = aggiungi/togli dalle <b>Preferite</b>; le <b>Recenti</b> si aggiornano da sole. <b>Contagocce</b>: <kbd>c</kbd> sulla cella del cursore, o <kbd>⌥</kbd>+clic sulla tela, copia la tessera con il suo aspetto nel pennello.</div>
@@ -536,6 +541,7 @@
 <div id="coachSpot" hidden></div>
 
 <script src="tiles.js?v=3"></script>
+<script src="packs/manifest.js?v=1"></script>
 <script>
 "use strict";
 const TAU=Math.PI*2;
@@ -590,6 +596,12 @@ const I18N={
 /* — popup matita/dither — */
 'Modalità della matita':'Pencil mode','Libera':'Freehand','Linea':'Line',
 'Trama del dither':'Dither pattern','Casuale':'Random','morbido':'soft','grezzo':'coarse','granuloso':'grainy',
+/* — pack di tessere generate (round 39) — */
+'pack di tessere generate (tools/gen_tiles.py) — clic per attivare/disattivare':'generated tile packs (tools/gen_tiles.py) — click to enable/disable',
+'pack disattivato: le celle che lo usano restano vuote finché non lo riattivi':'pack disabled: cells using it stay empty until you re-enable it',
+'pack non caricato':'pack failed to load',
+'Settori':'Sectors','Corde':'Chords','Corde libere':'Free chords','Archi':'Arcs','Anelli':'Rings',
+'Pack · Settori':'Pack · Sectors','Pack · Corde':'Pack · Chords','Pack · Corde libere':'Pack · Free chords','Pack · Archi':'Pack · Arcs','Pack · Anelli':'Pack · Rings',
 /* — barra sinistra — */
 'comprimi libreria':'collapse the library','comprimi pannello':'collapse the panel',
 'Tessere':'Tiles','tessere più piccole':'smaller tiles','tessere più grandi':'larger tiles',
@@ -2196,6 +2208,64 @@ function deleteCustom(id){ const i=CUSTOM.findIndex(f=>f.id===id); if(i<0)return
   if(brush.tile===id) brush.tile=TILES[0]?TILES[0].id:null;
   if(brush.tileB===id) brush.tileB=null;
   buildPalette(); buildQuickTiles(); updateBrushPreview(); render(); }
+/* ==== PACK di tessere GENERATE (round 39, tools/gen_tiles.py) =====================
+   packs/manifest.js elenca i pack; ogni pack è un .js caricato solo alla prima
+   attivazione, le sue tessere entrano in TILES (categoria propria, chiusa di
+   default la prima volta così la palette non esplode) PRIMA di Forgiate/Importate.
+   Stato in localStorage 'hexagraph.packs' e nel JSON di salvataggio (un progetto
+   che usa tessere di pack li riattiva da solo al caricamento). */
+const PACK_INDEX=window.TILE_PACK_INDEX||[];
+let packsOn=new Set(); try{ packsOn=new Set(JSON.parse(localStorage.getItem('hexagraph.packs')||'[]')); }catch(e){}
+function savePacksOn(){ localStorage.setItem('hexagraph.packs',JSON.stringify([...packsOn])); }
+function fetchPack(key){ return new Promise((res,rej)=>{
+  if(window.TILE_PACKS&&window.TILE_PACKS[key]) return res();
+  const info=PACK_INDEX.find(p=>p.key===key); if(!info) return rej(new Error('pack sconosciuto: '+key));
+  const s=document.createElement('script'); s.src=info.file+'?v=1';
+  s.onload=res; s.onerror=()=>rej(new Error('pack non caricato: '+key)); document.head.appendChild(s); }); }
+async function enablePack(key){
+  await fetchPack(key);
+  const P=window.TILE_PACKS[key];
+  packsOn.add(key); savePacksOn();
+  if(tileIndex[P.tiles[0].id]==null){
+    const mapped=P.tiles.map(t=>({id:t.id,grp:t.id.slice(0,2),cat:t.cat,name:t.name,
+      parts:(t.parts||[]).map(p=>({d:p.d,eo:p.eo,sw:p.sw,path:new Path2D(p.d)}))}));
+    let at=TILES.findIndex(t=>t.cat==='Forgiate'||t.cat==='Importate'); if(at<0) at=TILES.length;
+    TILES.splice(at,0,...mapped); rebuildTileIndex();
+    let seen=[]; try{ seen=JSON.parse(localStorage.getItem('hexagraph.packseen')||'[]'); }catch(e){}
+    if(!seen.includes(key)){ seen.push(key); localStorage.setItem('hexagraph.packseen',JSON.stringify(seen));
+      let closed=[]; try{ closed=JSON.parse(localStorage.getItem('hexagraph.palclosed')||'[]'); }catch(e){}
+      if(!closed.includes(mapped[0].cat)){ closed.push(mapped[0].cat); localStorage.setItem('hexagraph.palclosed',JSON.stringify(closed)); } }
+  }
+  buildPackRow(); buildPalette(); updateBrushPreview(); render(); }
+function packUseCount(ids){ let n=0;
+  const chk=st=>{ if(st&&ids.has(st.t)) n++; };
+  const one=c=>{ chk(c); for(const L of [c.extra,c.sub,c.iso,c.xor]) if(L) L.forEach(chk); };
+  for(const L of layers) for(const c of L.cells.values()) one(c);
+  for(const fr of (anim.frames||[])) for(const Ld of fr) for(const kv of (Ld.cells||[])) one(kv[1]);
+  return n; }
+function disablePack(key){
+  packsOn.delete(key); savePacksOn();
+  const P=(window.TILE_PACKS||{})[key]; if(!P){ buildPackRow(); return; }
+  const ids=new Set(P.tiles.map(t=>t.id));
+  const used=packUseCount(ids);
+  for(let i=TILES.length-1;i>=0;i--) if(ids.has(TILES[i].id)) TILES.splice(i,1);
+  rebuildTileIndex();
+  if(ids.has(brush.tile)) brush.tile=TILES[0].id;
+  if(ids.has(brush.tileB)) brush.tileB=null;
+  if(used) flashStatus(tt('pack disattivato: le celle che lo usano restano vuote finché non lo riattivi')+' ('+used+')');
+  buildPackRow(); buildPalette(); buildQuickTiles(); updateBrushPreview(); render(); }
+function buildPackRow(){
+  const el=$('packrow'); if(!el) return;
+  if(!PACK_INDEX.length){ el.hidden=true; return; }
+  el.hidden=false; el.innerHTML='';
+  for(const p of PACK_INDEX){ const b=document.createElement('button');
+    b.className='packchip'+(packsOn.has(p.key)?' on':'');
+    b.textContent=tt(p.name)+' '+p.count;
+    b.title=tt('pack di tessere generate (tools/gen_tiles.py) — clic per attivare/disattivare');
+    b.onclick=()=>{ packsOn.has(p.key) ? disablePack(p.key)
+      : enablePack(p.key).catch(()=>flashStatus(tt('pack non caricato'))); };
+    el.appendChild(b); } }
+
 /* template: esagono raggio 100 centrato in (110,110), guida + crocino di registro */
 $('svgTemplate').onclick=()=>{
   const R=100,C=110;
@@ -2902,7 +2972,7 @@ $('frVideo').onclick=async()=>{
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
-  const blob={v:2, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED, custom:CUSTOM,   // v = versione del formato (senza v = pre-round-32; v2 = colore sempre per-cella, §8.15)
+  const blob={v:2, cols,rows,pageDark,boardRot,bgOpacity, bgT, pattern, colPhase, slots, forged:FORGED, custom:CUSTOM, packs:[...packsOn],   // v = versione del formato (senza v = pre-round-32; v2 = colore sempre per-cella, §8.15)
     anim: anim.frames.length ? {frames:anim.frames, cur:anim.cur, pingpong:anim.pingpong} : null,
     layers:layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})),
     bg: bgImage?bgToDataURL():null };
@@ -2942,6 +3012,9 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
           const nf=Object.assign({},f,{id:nid}); CUSTOM.push(nf); registerCustom(nf);
         } });
       saveCustom(); buildPalette(); }
+    /* PACK (round 39): un progetto che usa tessere di pack li riattiva da solo (carico asincrono:
+       le celle appaiono appena il pack arriva; enablePack rifà palette e render da sé) */
+    if(o.packs) o.packs.forEach(k=>{ if(!packsOn.has(k)) enablePack(k).catch(()=>flashStatus(tt('pack non caricato'))); });
     stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true;
     anim.frames=(o.anim&&o.anim.frames)||[]; anim.cur=anim.frames.length?Math.min(o.anim.cur||0,anim.frames.length-1):0; anim.prevLayers=null;
     anim.pingpong=!!(o.anim&&o.anim.pingpong); $('frPong').classList.toggle('on',anim.pingpong);
@@ -3359,6 +3432,7 @@ translateDOM(); markLang();
 $('langIt').onclick=()=>setLang('it');
 $('langEn').onclick=()=>setLang('en');
 buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
+buildPackRow(); [...packsOn].forEach(k=>enablePack(k).catch(()=>{}));   // pack attivi dalla sessione precedente (round 39)
 /* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
 let didFit=false;
 new ResizeObserver(()=>{ const r=stageEl.getBoundingClientRect(); if(r.width<2||r.height<2) return;
