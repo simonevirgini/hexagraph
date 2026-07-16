@@ -253,14 +253,14 @@
 <header id="topbar">
   <div class="brand" title="Hexagraph — tessere esagonali"><svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>Hexagraph</div>
   <div class="tgroup"><!-- selezione -->
-    <button class="btn ic on" id="toolSelect" title="Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg></button>
+    <button class="btn ic on" id="toolSelect" title="Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo · clic di nuovo sull'icona = doppio clic contiguo/non contiguo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg></button>
     <button class="btn ic" id="toolLasso" title="Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · ⇧ aggiunge alla selezione · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- disegno -->
     <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
-    <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
+    <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull'icona = contiguo/non contiguo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
     <button class="btn ic" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
   </div>
   <div class="sep"></div>
@@ -311,6 +311,16 @@
   <button class="popitem" data-pat="b4">Bayer 4×4 <span>morbido</span></button>
   <button class="popitem" data-pat="b2">Bayer 2×2 <span>grezzo</span></button>
   <button class="popitem" data-pat="rnd">Casuale <span>granuloso</span></button>
+</div>
+<div id="bucketPop" class="pop" hidden>
+  <div class="pophdr">Riempimento del secchiello</div>
+  <button class="popitem" data-mode="cont">Contiguo <span>solo la zona attaccata</span></button>
+  <button class="popitem" data-mode="all">Non contiguo <span>tutte le uguali della tela</span></button>
+</div>
+<div id="selectPop" class="pop" hidden>
+  <div class="pophdr">Doppio clic sulla tela</div>
+  <button class="popitem" data-mode="cont">Contiguo <span>identiche solo attaccate</span></button>
+  <button class="popitem" data-mode="all">Non contiguo <span>identiche in tutta la tela</span></button>
 </div>
 
 <div id="main">
@@ -584,11 +594,11 @@ function tt(s){ return LANG==='en' ? (I18N[s]??s) : s; }
 const I18N={
 /* — topbar: tooltip strumenti — */
 'Hexagraph — tessere esagonali':'Hexagraph — hexagonal tiles',
-'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = tutte le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo':'Select: click = one cell · drag = rectangle · double-click a tile = all identical ones (⇧ adds) · drag a selected cell = move the group',
+'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo · clic di nuovo sull\'icona = doppio clic contiguo/non contiguo':'Select: click = one cell · drag = rectangle · double-click a tile = identical ones (⇧ adds) · drag a selected cell = move the group · click the icon again = contiguous/non-contiguous double-click',
 'Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · ⇧ aggiunge alla selezione · destro/Esc annulla':'Hex lasso: clicks = points (polygonal) · drag = freehand, closes on release · click the FIRST hexagon again (or double-click / Enter) to close · ⇧ adds to the selection · right-click/Esc cancels',
 'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line) · ⌘/Ctrl+D hides/shows the ghost',
 'Cancellina: clic o trascina per cancellare le tessere':'Eraser: click or drag to erase tiles',
-'Secchiello (g): riempi zone vuote o tessere identiche connesse — dentro una selezione riempie solo la selezione':'Bucket (g): fill connected empty areas or identical tiles — inside a selection it fills only the selection',
+'Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull\'icona = contiguo/non contiguo':'Bucket (g): fill empty areas or identical tiles — inside a selection it fills only the selection · click the icon again = contiguous/non-contiguous',
 'Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull\'icona = scegli la trama':'Dither (t): pattern-blend from tile A to tile B — ⇧+click in the library picks B · area works like the bucket · drag = gradient direction and length · single click = 50/50 · Esc cancels · click the icon again = choose the pattern',
 'Unisci (u): la forma si SOMMA a quella presente':'Unite (u): the shape is ADDED to the existing one',
 'Sottrai (x): la forma SCAVA quella presente':'Subtract (x): the shape CARVES the existing one',
@@ -607,6 +617,13 @@ const I18N={
 /* — popup matita/dither — */
 'Modalità della matita':'Pencil mode','Libera':'Freehand','Linea':'Line',
 'Trama del dither':'Dither pattern','Casuale':'Random','morbido':'soft','grezzo':'coarse','granuloso':'grainy',
+'Riempimento del secchiello':'Bucket fill','Doppio clic sulla tela':'Double-click on the canvas',
+'Contiguo':'Contiguous','Non contiguo':'Non-contiguous',
+'solo la zona attaccata':'only the connected area','tutte le uguali della tela':'every matching cell on the canvas',
+'identiche solo attaccate':'identical, connected only','identiche in tutta la tela':'identical anywhere on the canvas',
+' · non contiguo':' · non-contiguous','clic riempie TUTTE le celle uguali':'click fills EVERY matching cell',
+'2° clic sull\'icona = modalità':'2nd click on the icon = mode',
+'aggiunge) · doppio clic = identiche CONTIGUE · clic in libreria = pennello (a cursore piazzato: deposita)':'adds) · double-click = CONTIGUOUS identical · click in the library = brush (once the cursor is placed: drops)',
 /* — barra sinistra — */
 'comprimi libreria':'collapse the library','comprimi pannello':'collapse the panel',
 'Tessere':'Tiles','tessere più piccole':'smaller tiles','tessere più grandi':'larger tiles',
@@ -1509,9 +1526,9 @@ function mergeCellInto(c,r,src){
 function cellSig(cell){ return cell ? JSON.stringify([cell.t,cell.rot,!!cell.flip,!!cell.inv,cell.sw??null,cell.col??null,cell.extra||null,cell.sub||null,cell.iso||null,cell.xor||null]) : 'empty'; }
 /* zona del flood fill dal punto (sc,sr): celle contigue con la stessa firma;
    partendo da una cella SELEZIONATA resta dentro la selezione (regole del secchiello) */
-function floodRegion(sc,sr){
+function floodRegion(sc,sr,noLimit){
   const target=cellSig(cells.get(key(sc,sr)));
-  const limit=(selection && selection.size && selection.has(key(sc,sr))) ? selection : null;
+  const limit=(!noLimit && selection && selection.size && selection.has(key(sc,sr))) ? selection : null;
   const seen=new Set(), out=[], stack=[[sc,sr]];
   while(stack.length){
     const [c,r]=stack.pop();
@@ -1525,11 +1542,23 @@ function floodRegion(sc,sr){
   }
   return out;
 }
+/* modalità NON CONTIGUO del secchiello: tutte le celle della tela con la stessa firma
+   (rispetta dominio pattern e, partendo da una cella selezionata, la selezione) */
+function sameSigRegion(sc,sr){
+  const target=cellSig(cells.get(key(sc,sr)));
+  const limit=(selection && selection.size && selection.has(key(sc,sr))) ? selection : null;
+  const out=[];
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const k=key(c,r);
+    if(limit && !limit.has(k)) continue;
+    if(cellSig(cells.get(k))===target) out.push([c,r]); }
+  return out;
+}
 function bucketFill(sc,sr){
   const target=cellSig(cells.get(key(sc,sr)));
   if(target===cellSig(brushCell())) return;   // niente da cambiare
   snapshot();
-  for(const [c,r] of floodRegion(sc,sr)) cells.set(key(c,r),brushCell());
+  const region=bucketMode==='all' ? sameSigRegion(sc,sr) : floodRegion(sc,sr);
+  for(const [c,r] of region) cells.set(key(c,r),brushCell());
   render();
 }
 /* ---- DITHER (§8.3): gradiente A→B a tessere, stile Aseprite ----
@@ -1725,12 +1754,14 @@ board.addEventListener('pointerdown',e=>{
 });
 board.addEventListener('dblclick',e=>{
   if(tool==='lasso'&&lassoPts.length){ e.preventDefault(); closeLasso(); return; }
-  // doppio clic su una tessera = seleziona TUTTE le identiche sulla tela (stessa firma: rotazione/trasformazioni comprese); ⇧ aggiunge
+  // doppio clic su una tessera = seleziona le IDENTICHE (stessa firma: rotazione/trasformazioni comprese); ⇧ aggiunge.
+  // selMode (2º clic sull'icona freccia): 'all' = tutta la tela · 'cont' = solo quelle contigue
   const hit=cellAt(...localXY(e)); if(!hit) return;
   const cell=cells.get(key(hit[0],hit[1])); if(!cell) return;
   const sig=cellSig(cell);
   const s=(e.shiftKey&&selection)?new Set(selection):new Set();
-  for(const [k,c2] of cells){ if(cellSig(c2)===sig) s.add(k); }
+  if(selMode==='cont'){ for(const [c,r] of floodRegion(hit[0],hit[1],true)) s.add(key(c,r)); }
+  else { for(const [k,c2] of cells){ if(cellSig(c2)===sig) s.add(k); } }
   selection=s.size?s:null;
   if(tool!=='select') setTool('select');
   render(); updateStatus();
@@ -2422,18 +2453,22 @@ function setTool(t){ tool=t; lassoPts.length=0; lassoBase=null; ditherCancel(); 
   $('dither').classList.toggle('on',t==='dither');
   if(t!=='dither') $('ditherPop').hidden=true;   // uscendo dal dither chiudi il pannello trama
   if(t!=='draw') $('pencilPop').hidden=true;     // uscendo dalla matita chiudi il pannello modalità
+  if(t!=='bucket') $('bucketPop').hidden=true;   // idem secchiello
+  if(t!=='select') $('selectPop').hidden=true;   // idem seleziona
   updateCursor(); updateStatus(); render(); }
 $('symSel').onchange=()=>{ symMode=$('symSel').value; $('symSel').classList.toggle('on',symMode!=='none'); updateStatus(); render(); };
 $('symAxes').onclick=()=>{ showAxes=!showAxes; $('symAxes').classList.toggle('on',showAxes);
   localStorage.setItem('hexagraph.showaxes',showAxes?'1':'0'); render(); };
 $('symAxes').classList.toggle('on',showAxes);
-$('toolSelect').onclick=()=>setTool('select');
+// seleziona come matita/dither: 1º clic attiva · 2º clic apre il pannello contiguo/non contiguo del doppio clic
+$('toolSelect').onclick=()=>{ if(tool!=='select') setTool('select'); else toggleSelectPop(); };
 $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
 // matita come il dither: 1º clic attiva lo strumento · 2º clic (già attiva) apre/chiude il pannello modalità (libera / linea pulita, stile Aseprite)
 $('toolDraw').onclick=()=>{ if(stampMode) setStampMode(stampMode);   // clic sulla matita = via le fusioni ⊕⊖∩⊻ (round 39)
   if(tool!=='draw') setTool('draw'); else togglePencilPop(); };
 $('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
-$('bucket').onclick=()=>setTool(tool==='bucket'?'select':'bucket');
+// secchiello come matita/dither: 1º clic attiva · 2º clic apre il pannello contiguo/non contiguo
+$('bucket').onclick=()=>{ if(tool!=='bucket') setTool('bucket'); else toggleBucketPop(); };
 // dither: 1º clic attiva lo strumento · 2º clic (già attivo) apre/chiude sotto l'icona il pannello con le trame
 $('dither').onclick=()=>{ if(tool!=='dither') setTool('dither'); else toggleDitherPop(); };
 /* pannello modalità matita (libera / linea pulita) — stesso pattern del dither */
@@ -2458,6 +2493,30 @@ document.addEventListener('click',e=>{   // clic fuori dal pannello (e non sull'
   if($('ditherPop').hidden) return;
   if($('ditherPop').contains(e.target)||$('dither').contains(e.target)) return;
   $('ditherPop').hidden=true; });
+/* pannello SECCHIELLO: contiguo (zona attaccata) / non contiguo (tutte le celle uguali della tela) — stesso pattern */
+let bucketMode=localStorage.getItem('hexagraph.bucketmode')==='all'?'all':'cont';
+function markBucketPop(){ $('bucketPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===bucketMode)); }
+function toggleBucketPop(){ const p=$('bucketPop');
+  if(p.hidden){ const r=$('bucket').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markBucketPop(); p.hidden=false; }
+  else p.hidden=true; }
+$('bucketPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
+  bucketMode=b.dataset.mode; localStorage.setItem('hexagraph.bucketmode',bucketMode); markBucketPop(); $('bucketPop').hidden=true; updateStatus(); }; });
+document.addEventListener('click',e=>{
+  if($('bucketPop').hidden) return;
+  if($('bucketPop').contains(e.target)||$('bucket').contains(e.target)) return;
+  $('bucketPop').hidden=true; });
+/* pannello SELEZIONA: il doppio clic prende le identiche CONTIGUE o TUTTE quelle della tela */
+let selMode=localStorage.getItem('hexagraph.selmode')==='cont'?'cont':'all';
+function markSelectPop(){ $('selectPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===selMode)); }
+function toggleSelectPop(){ const p=$('selectPop');
+  if(p.hidden){ const r=$('toolSelect').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markSelectPop(); p.hidden=false; }
+  else p.hidden=true; }
+$('selectPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
+  selMode=b.dataset.mode; localStorage.setItem('hexagraph.selmode',selMode); markSelectPop(); $('selectPop').hidden=true; updateStatus(); }; });
+document.addEventListener('click',e=>{
+  if($('selectPop').hidden) return;
+  if($('selectPop').contains(e.target)||$('toolSelect').contains(e.target)) return;
+  $('selectPop').hidden=true; });
 $('grid').onclick=()=>{showGrid=!showGrid;$('grid').classList.toggle('on',!showGrid);render();};
 /* ---- ridimensionamento CENTRATO ----
    Crescendo, il contenuto si sposta per restare al centro: in pratica una riga si aggiunge
@@ -3097,7 +3156,7 @@ function hintHTML(){
       ? `<b>Dither</b> · ${kb('⇧')}${tt('+clic su una tessera in libreria =')} <b>${tt('tessera B')}</b>`
       : `<b>Dither A→B</b> · <b>${tt('trascina')}</b> ${tt('= gradiente (')}${kb('⇧')} ${tt("blocca a 45°) · clic secco = 50/50 · 2° clic sull'icona = trama ·")} ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='bucket'){
-    h = `<b>${tt('Secchiello')}</b> · ${tt('clic riempie la zona connessa')}`+(hasSel?tt(' (dentro la selezione)'):'');
+    h = `<b>${tt('Secchiello')}${bucketMode==='all'?tt(' · non contiguo'):''}</b> · ${bucketMode==='all'?tt('clic riempie TUTTE le celle uguali'):tt('clic riempie la zona connessa')}`+(hasSel?tt(' (dentro la selezione)'):'')+` · ${tt("2° clic sull'icona = modalità")}`;
   } else if(tool==='lasso'){
     h = `<b>${tt('Lazo')}</b> · ${tt('clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il')} <b>${tt('primo esagono')}</b> ${tt('(o doppio clic /')} ${kb('↵')}) ${tt('chiude')} · ${kb('⇧')} ${tt('aggiunge')} · ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='erase'){
@@ -3107,7 +3166,9 @@ function hintHTML(){
   } else if(hasSel){
     h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${kb('⇧G')} ${tt('forgia ·')} ${kb(tt('Canc'))} ${tt('svuota')}`;
   } else {
-    h = `<b>${tt('Seleziona')}</b> · ${tt('clic una cella · trascina un rettangolo (')}${kb('⇧')} ${tt('aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)')}`;
+    h = `<b>${tt('Seleziona')}</b> · ${tt('clic una cella · trascina un rettangolo (')}${kb('⇧')} ${selMode==='cont'
+      ? tt('aggiunge) · doppio clic = identiche CONTIGUE · clic in libreria = pennello (a cursore piazzato: deposita)')
+      : tt('aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)')}`;
   }
   if(fus && (tool==='draw'||tool==='bucket'||hasSel)) h+=`${tt(' · fusione ')}<b>${fus}</b>`;
   if(symMode!=='none') h+=` · <b>${tt('simmetria')}</b>`;
