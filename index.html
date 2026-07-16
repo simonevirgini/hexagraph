@@ -367,6 +367,7 @@
         <div class="row">
           <button class="btn" id="addLayer">+ Nuovo livello</button>
           <button class="btn" id="dupLayer" title="duplica il livello attivo (con tutte le sue tessere)">⧉ Duplica</button>
+          <button class="btn" id="mergeAll" title="unisce tutti i livelli visibili in UNO solo mantenendo l'aspetto della tela (blend e opacità vengono cotti nei colori; i livelli nascosti si scartano; con la timeline vale per tutti i frame)">⇓ Unisci</button>
         </div>
       </div>
 
@@ -386,7 +387,7 @@
       <div class="group" data-sec="anim">
         <div class="glabel">Timeline</div>
         <button class="btn" id="animBtn">▶ Timeline</button>
-        <div class="legend" data-i18n="anim-legend">Frame in basso: clic = vai · trascina = riordina · ⧉ duplica · + vuoto · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> scorrono · fps modificabile durante il play · ◎ onion skin (coi suoi due colori: frame prima / frame dopo) · export WEBM (video) o sequenza PNG.</div>
+        <div class="legend" data-i18n="anim-legend">Frame in basso: clic = vai · trascina = riordina · ⧉ duplica · + vuoto · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> scorrono · <kbd>spazio</kbd> (tocco secco) = play/stop · fps modificabile durante il play · ◎ onion skin (coi suoi due colori: frame prima / frame dopo) · export WEBM (video) o sequenza PNG.</div>
       </div>
 
       <div class="group" data-sec="bgimg">
@@ -610,6 +611,11 @@ const I18N={
 'Livelli':'Layers','— trascina per riordinare · ⇧-clic = più livelli':'— drag to reorder · ⇧-click = multiple layers',
 '+ Nuovo livello':'+ New layer','⧉ Duplica':'⧉ Duplicate',
 'duplica il livello attivo (con tutte le sue tessere)':'duplicate the active layer (with all its tiles)',
+'unisce tutti i livelli visibili in UNO solo mantenendo l\'aspetto della tela (blend e opacità vengono cotti nei colori; i livelli nascosti si scartano; con la timeline vale per tutti i frame)':'merges all visible layers into ONE keeping the canvas look (blends and opacity get baked into the colors; hidden layers are discarded; with the timeline it applies to every frame)',
+'⇓ Unisci':'⇓ Merge',
+'Unito':'Merged',
+'c\'è già un solo livello':'there is already a single layer',
+'I livelli nascosti verranno scartati. Continuare?':'Hidden layers will be discarded. Continue?',
 'Colore':'Color','colore personalizzato':'custom color',
 'colore libero — si aggiunge ai':'free color — it is added to the','rapidi':'quick colors','in alto':'at the top',
 'Clic su un colore = prossimi timbri (e la selezione, se c\'è). Doppio clic su uno swatch = aggiungilo ai':'Click a color = next stamps (and the selection, if any). Double-click a swatch = add it to the',
@@ -747,7 +753,7 @@ const I18N={
 const I18N_HTML={
 'lib-legend':'<kbd>⌥</kbd>+click a tile = add to/remove from <b>Favorites</b>; <b>Recent</b> updates by itself. <b>Eyedropper</b>: <kbd>c</kbd> on the cursor cell, or <kbd>⌥</kbd>+click on the canvas, copies the tile with its look into the brush.',
 'stroke-legend':'Applies to the <b>next</b> stamps (each line remembers its own). <kbd>[</kbd>/<kbd>]</kbd> adjust the cell under the cursor.',
-'anim-legend':'Frames at the bottom: click = go · drag = reorder · ⧉ duplicate · + empty · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> step · fps adjustable during play · ◎ onion skin (with its two colors: previous / next frame) · export WEBM (video) or a PNG sequence.',
+'anim-legend':'Frames at the bottom: click = go · drag = reorder · ⧉ duplicate · + empty · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> step · <kbd>space</kbd> (quick tap) = play/stop · fps adjustable during play · ◎ onion skin (with its two colors: previous / next frame) · export WEBM (video) or a PNG sequence.',
 'move-legend':'Get around: trackpad scrolls · mouse wheel = zoom · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+wheel or pinch = zoom · <kbd>alt</kbd>+wheel rotates the brush · <kbd>space</kbd> or middle button = drag',
 };
 const i18nTextOrig=new Map(), i18nHtmlOrig=new Map();
@@ -993,13 +999,15 @@ function cellOps(cell){
 /* disegna le FIGURE di una cella nel colore del livello (negativo trasparente).
    inv = base = esagono pieno; la primaria lo scava (complemento). add=source-over, sub=destination-out,
    iso=destination-in (sicuro grazie al clip esagonale), xor='xor'. */
-function drawCellFigures(g, cell, color){
+function drawCellFigures(g, cell, color, flat){
   g.save(); g.scale(R,R); g.clip(HEX_UNIT_PATH);
   g.lineCap='round'; g.lineJoin='round';
   const OPMODE={add:'source-over', sub:'destination-out', iso:'destination-in', xor:'xor'};
   const draw=(st,op)=>{
     g.globalCompositeOperation=OPMODE[op];
-    const col=(op==='sub'||op==='iso')?'#000':color;           // per scavare/ritagliare basta una forma opaca
+    // per scavare/ritagliare basta una forma opaca; le op possono avere un COLORE PROPRIO (st.col,
+    // round 43: nasce con "Unisci livelli" che cuoce i blend nei colori); flat = forza il colore unico (onion skin)
+    const col=(op==='sub'||op==='iso')?'#000':(flat?color:(st.col||color));
     g.fillStyle=col; g.strokeStyle=col;
     drawStamp(g,st);
   };
@@ -2564,18 +2572,100 @@ layersEl.addEventListener('drop',e=>{ if(dragI==null) return; e.preventDefault()
   let to=layers.length-li;                    // slot di lista (0 = cima) → posizione nello stack (0 = fondo)
   if(from<to) to--;                           // l'indice è calcolato PRIMA della rimozione
   if(to!==from) moveLayer(from,to); else buildLayers(); });
-function addLayer(){ snapshot(); layers.push(newLayer()); setActive(layers.length-1); buildLayers(); render(); }
-/* duplica il livello attivo (tessere comprese) e lo mette SOPRA l'originale, come livello attivo */
+/* La STRUTTURA dei livelli (quanti e in che ordine) vale per TUTTI i frame della timeline
+   (richiesta round 43): aggiungere/eliminare/duplicare/riordinare un livello applica la stessa
+   operazione a ogni frame ≠ corrente (il corrente È `layers`, si committa al cambio frame).
+   Lo snapshot cattura già l'intera animazione → tutto undoabile in un colpo. */
+function eachOtherFrame(fn){ if(!anim.frames.length) return;
+  anim.frames.forEach((fr,fi)=>{ if(fi!==anim.cur) fn(fr); }); }
+function addLayer(){ snapshot(); const L=newLayer(); layers.push(L);
+  eachOtherFrame(fr=>fr.push({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[]}));
+  setActive(layers.length-1); buildLayers(); if(anim.on)buildTimeline(); render(); }
+/* duplica il livello attivo (tessere comprese) e lo mette SOPRA l'originale, come livello attivo;
+   negli altri frame si duplica il livello di QUEL frame (ognuno col suo contenuto) */
 function duplicateLayer(){ snapshot();
   const src=layers[active];
   const dup={name:src.name+tt(' copia'), color:src.color, blend:src.blend, opacity:src.opacity, visible:src.visible,
     cells:new Map(JSON.parse(JSON.stringify([...src.cells])))};   // deep-clone delle celle
-  layers.splice(active+1,0,dup); setActive(active+1); buildLayers(); render();
+  layers.splice(active+1,0,dup);
+  eachOtherFrame(fr=>{ const s=fr[active]; if(!s)return;
+    fr.splice(active+1,0,JSON.parse(JSON.stringify({...s,name:s.name+tt(' copia')}))); });
+  setActive(active+1); buildLayers(); if(anim.on)buildTimeline(); render();
 }
-function deleteLayer(i){ if(layers.length<=1)return; snapshot(); const wasActive=layers[active]; layers.splice(i,1); active=Math.max(0,layers.indexOf(wasActive)); if(active<0)active=Math.min(i,layers.length-1); setActive(active); buildLayers(); render(); }
-function moveLayer(from,to){ if(from==null||from===to)return; snapshot(); const cur=layers[active]; const [L]=layers.splice(from,1); layers.splice(to,0,L); active=layers.indexOf(cur); setActive(active); buildLayers(); render(); }
+function deleteLayer(i){ if(layers.length<=1)return; snapshot(); const wasActive=layers[active]; layers.splice(i,1);
+  eachOtherFrame(fr=>{ if(fr.length>1&&i<fr.length) fr.splice(i,1); });
+  active=Math.max(0,layers.indexOf(wasActive)); if(active<0)active=Math.min(i,layers.length-1); setActive(active); buildLayers(); if(anim.on)buildTimeline(); render(); }
+function moveLayer(from,to){ if(from==null||from===to)return; snapshot(); const cur=layers[active]; const [L]=layers.splice(from,1); layers.splice(to,0,L);
+  eachOtherFrame(fr=>{ if(from<fr.length&&to<fr.length){ const [F]=fr.splice(from,1); fr.splice(to,0,F); } });
+  active=layers.indexOf(cur); setActive(active); buildLayers(); if(anim.on)buildTimeline(); render(); }
+/* ---- UNISCI LIVELLI (round 43, richiesta di Simone) ----
+   Fonde i livelli VISIBILI in UN livello Normale opaco che mantiene l'aspetto della tela:
+   blend e opacità vengono COTTI nei colori delle celle (nasce op.col = colore per-forma).
+   Cell-wise: per ogni posizione si impila; le ⊖ delle celle superiori diventano "add" col colore
+   del sotto (il buco mostrava il livello sotto, non la carta). Fedele al pixel nei casi comuni
+   (celle sole, forme su celle piene); approssimato dove forme PARZIALI di colori diversi si
+   intersecano a metà, con ∩/⊻ fra livelli o sopra l'immagine di sfondo. */
+function hex2rgb(h){ h=(h||'').replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join('');
+  const n=parseInt(h||'000000',16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function rgb2hex(r,g,b){ return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join(''); }
+/* colore risultante di `col` (livello con blend+opacity) sopra `under` — stesse formule dei composite canvas */
+function cookCol(col, under, blend, opacity){
+  const s=hex2rgb(col), b=hex2rgb(under);
+  const f={'multiply':(a,c)=>a*c/255, 'screen':(a,c)=>255-(255-a)*(255-c)/255,
+           'darken':Math.min, 'lighten':Math.max}[blend] || (a=>a);
+  const o=opacity==null?1:opacity;
+  return rgb2hex(...s.map((v,i)=>b[i]+(f(v,b[i])-b[i])*o));
+}
+function mergedLayer(Ls){
+  const paper=pageDark?'#000':'#fff';
+  const out={name:tt('Unito'), color:LAYER_COLORS[0], blend:'source-over', opacity:1, visible:true, cells:new Map()};
+  const vis=Ls.filter(L=>L.visible);
+  const ks=new Set(); for(const L of vis) for(const k of L.cells.keys()) ks.add(k);
+  for(const k of ks){
+    let fused=null, base=paper;   // base = colore visibile "dominante" sotto la cella corrente
+    for(const L of vis){
+      const c=L.cells.get(k); if(!c) continue;
+      const cook=col=>cookCol(col||DEFAULT_INK, base, L.blend, L.opacity);
+      if(!fused){   // cella più in basso: clone con i colori cotti (sotto c'è la carta → sub/iso restano)
+        fused=JSON.parse(JSON.stringify(c));
+        fused.col=cook(c.col);
+        for(const lst of [fused.extra,fused.xor]) if(lst) for(const s of lst) if(s.col) s.col=cook(s.col);
+        base=fused.col;
+      } else {      // cella sopra: appendi le sue forme come op con colore proprio
+        if(c.inv) (fused.extra=fused.extra||[]).push({t:'ge_00',rot:0,flip:false,col:cook(c.col),q:nextQ(fused)});   // base del complemento = esagono pieno
+        for(const o of cellOps(c)){
+          if(o.st.t==null) continue;
+          const st={t:o.st.t,rot:o.st.rot,flip:o.st.flip,q:nextQ(fused)};
+          if(o.st.sw!=null) st.sw=o.st.sw;
+          if(o.op==='add'){ st.col=cook(o.st.col||c.col); (fused.extra=fused.extra||[]).push(st); }
+          else if(o.op==='sub'){ st.col=base; (fused.extra=fused.extra||[]).push(st); }   // il buco mostrava il SOTTO, non la carta
+          else if(o.op==='iso'){ (fused.iso=fused.iso||[]).push(st); }
+          else { st.col=cook(o.st.col||c.col); (fused.xor=fused.xor||[]).push(st); }
+        }
+        base=cook(c.col);
+      }
+    }
+    if(fused) out.cells.set(k,fused);
+  }
+  return out;
+}
+function flattenLayers(){
+  if(layers.length<=1){ flashStatus(tt("c'è già un solo livello")); return; }
+  if(layers.some(L=>!L.visible&&L.cells.size) && !confirm(tt('I livelli nascosti verranno scartati. Continuare?'))) return;
+  stopPlay(); snapshot();
+  if(anim.frames.length){   // la struttura livelli è del documento: si fonde OGNI frame (ognuno mantiene il suo aspetto)
+    animCommit();
+    anim.frames=anim.frames.map(fr=>{ const M=mergedLayer(layersFrom(fr));
+      return [JSON.parse(JSON.stringify({name:M.name,color:M.color,blend:M.blend,opacity:M.opacity,visible:M.visible,cells:[...M.cells]}))]; });
+    layers=layersFrom(anim.frames[anim.cur]);
+  } else layers=[mergedLayer(layers)];
+  active=0; setActive(0); buildLayers();
+  if(anim.on){ updateOnionLayers(); buildTimeline(); }
+  render(); updateStatus();
+}
 $('addLayer').onclick=addLayer;
 $('dupLayer').onclick=duplicateLayer;
+$('mergeAll').onclick=flattenLayers;
 /* ---- SFONDO IMMAGINE ---- */
 $('bgLoad').onclick=()=>$('bgFile').click();
 $('bgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const img=new Image(); img.onload=()=>{ bgImage=img; bgT={x:0,y:0,s:1,rot:0}; syncBgUI(); render(); }; img.src=URL.createObjectURL(f); e.target.value=''; };
@@ -2634,10 +2724,16 @@ document.querySelectorAll('.collapse').forEach(b=>{ b.onclick=()=>{ const bar=do
   bar.classList.toggle('collapsed'); const col=bar.classList.contains('collapsed'); b.textContent = col ? (left?'›':'‹') : (left?'‹':'›'); }; });
 /* ---- pan libero (stile grafino): spazio+trascina O tasto centrale, su tutto lo stage ---- */
 let spaceDown=false, panning=false, panStart=null;
-window.addEventListener('keydown',e=>{ if(e.code==='Space' && !['INPUT','TEXTAREA'].includes(e.target.tagName)){ spaceDown=true; board.style.cursor='grab'; e.preventDefault(); } });
-window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; panning=false; updateCursor(); } });
+let spaceTapT=0, spaceTapOk=false;   // tocco RAPIDO della barra (senza trascinare) = play/stop della timeline (round 43)
+window.addEventListener('keydown',e=>{ if(e.code==='Space' && !['INPUT','TEXTAREA'].includes(e.target.tagName)){ spaceDown=true; board.style.cursor='grab';
+  if(!e.repeat){ spaceTapT=Date.now(); spaceTapOk=true; }
+  e.preventDefault(); } });
+window.addEventListener('keyup',e=>{ if(e.code==='Space'){ spaceDown=false; panning=false; updateCursor();
+  if(spaceTapOk && Date.now()-spaceTapT<250 && anim.on && anim.frames.length>1) $('frPlay').click();   // tap secco: fa partire/ferma l'animazione
+  spaceTapOk=false; } });
 stageEl.addEventListener('pointerdown',e=>{
   if(!(spaceDown || e.button===1)) return;
+  spaceTapOk=false;   // spazio usato per il pan: niente play/stop al rilascio
   panning=true; board.style.cursor='grabbing'; panStart={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};
   stageEl.setPointerCapture(e.pointerId); e.preventDefault();
 });
@@ -2678,7 +2774,7 @@ function drawOnion(Ls,color,alpha){
   onionG.setTransform(ctx.getTransform());
   for(const L of Ls){ if(!L.visible) continue;
     for(const [k,cell] of L.cells){ const [c,r]=k.split(',').map(Number); const [cx,cy]=cellCenter(c,r);
-      onionG.save(); onionG.translate(cx,cy); drawCellFigures(onionG,cell,color); onionG.restore(); } }
+      onionG.save(); onionG.translate(cx,cy); drawCellFigures(onionG,cell,color,true); onionG.restore(); } }   // flat: silhouette monocroma anche con op.col
   ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=alpha; ctx.drawImage(onionC,0,0); ctx.restore();
 }
 function layersData(){ return JSON.parse(JSON.stringify(layers.map(L=>({name:L.name,color:L.color,blend:L.blend,opacity:L.opacity,visible:L.visible,cells:[...L.cells]})))); }
@@ -3188,7 +3284,7 @@ function svgLayersBody(W,H){
       for(const o of cellOps(cell)){
         const op=o.op;
         const st=[o.st];
-        const figC=stampsSVGList(st,col), figW=stampsSVGList(st,'#fff'), figB=stampsSVGList(st,'#000');
+        const figC=stampsSVGList(st,o.st.col||col), figW=stampsSVGList(st,'#fff'), figB=stampsSVGList(st,'#000');   // op.col = colore per-forma (round 43)
         if(op==='add'){ content+=figC; silW+=figW; silB+=figB; }
         else if(op==='sub'){ const m=mk(hexW+figB);   // tieni fuori dalla forma
           content=wrap(content,m); silW=wrap(silW,m); silB+=figW; }
