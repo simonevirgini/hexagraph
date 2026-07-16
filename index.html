@@ -158,6 +158,14 @@
   input[type=number]{width:100%;background:var(--bg);border:0;color:var(--text);border-radius:var(--rad);padding:6px 7px;font:inherit}
   button.btn{flex:1;background:var(--panel2);color:var(--text);border:0;border-radius:var(--rad);padding:8px 6px;cursor:pointer;font-size:12px;font-family:inherit}
   button.btn:hover{background:var(--panel3)}
+  button.btn:disabled{opacity:.35;cursor:default}
+  button.btn:disabled:hover{background:var(--panel2)}
+  /* avviso mobile: l'app per ora è solo desktop */
+  #mobileGate{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:28px}
+  #mobileGate svg{width:56px;height:56px;color:var(--text)}
+  #mobileGate .mgTitle{font-size:17px;font-weight:700;max-width:26ch;line-height:1.45}
+  #mobileGate .mgSub{font-size:13px;color:var(--muted);max-width:34ch;line-height:1.5}
+  #mobileGate button{flex:0 0 auto;background:transparent;color:var(--muted);border:1px dashed var(--line);border-radius:var(--rad);padding:7px 14px;cursor:pointer;font-size:12px;font-family:inherit;margin-top:10px}
   button.btn.on{background:var(--accent);color:var(--onink)}
   button.btn.on:hover{background:var(--accent)}
   button.btn.primary{background:var(--accent);color:var(--onink)}
@@ -367,7 +375,7 @@
         <div class="row">
           <button class="btn" id="addLayer">+ Nuovo livello</button>
           <button class="btn" id="dupLayer" title="duplica il livello attivo (con tutte le sue tessere)">⧉ Duplica</button>
-          <button class="btn" id="mergeAll" title="unisce tutti i livelli visibili in UNO solo mantenendo l'aspetto della tela (blend e opacità vengono cotti nei colori; i livelli nascosti si scartano; con la timeline vale per tutti i frame)">⇓ Unisci</button>
+          <button class="btn" id="mergeAll" disabled title="unisce i livelli selezionati in UNO mantenendo l'aspetto della tela — si attiva con ⇧-clic su 2+ livelli CONSECUTIVI (blend e opacità interni vengono cotti nei colori; con la timeline vale per tutti i frame)">⇓ Unisci</button>
         </div>
       </div>
 
@@ -536,6 +544,14 @@
 </div>
 <div id="coachSpot" hidden></div>
 
+<!-- avviso mobile: per ora l'app è pensata per il browser da computer -->
+<div id="mobileGate" hidden>
+  <svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>
+  <div class="mgTitle">Per ora Hexagraph funziona solo su browser da computer.</div>
+  <div class="mgSub">Aprilo da un PC o un Mac per disegnare: qui servono mouse e tastiera.</div>
+  <button id="mgAnyway">prova lo stesso</button>
+</div>
+
 <script src="tiles.js?v=3"></script>
 <script>
 "use strict";
@@ -611,11 +627,12 @@ const I18N={
 'Livelli':'Layers','— trascina per riordinare · ⇧-clic = più livelli':'— drag to reorder · ⇧-click = multiple layers',
 '+ Nuovo livello':'+ New layer','⧉ Duplica':'⧉ Duplicate',
 'duplica il livello attivo (con tutte le sue tessere)':'duplicate the active layer (with all its tiles)',
-'unisce tutti i livelli visibili in UNO solo mantenendo l\'aspetto della tela (blend e opacità vengono cotti nei colori; i livelli nascosti si scartano; con la timeline vale per tutti i frame)':'merges all visible layers into ONE keeping the canvas look (blends and opacity get baked into the colors; hidden layers are discarded; with the timeline it applies to every frame)',
+'unisce i livelli selezionati in UNO mantenendo l\'aspetto della tela — si attiva con ⇧-clic su 2+ livelli CONSECUTIVI (blend e opacità interni vengono cotti nei colori; con la timeline vale per tutti i frame)':'merges the selected layers into ONE keeping the canvas look — enable it with ⇧-click on 2+ CONSECUTIVE layers (internal blends and opacity get baked into the colors; with the timeline it applies to every frame)',
 '⇓ Unisci':'⇓ Merge',
-'Unito':'Merged',
-'c\'è già un solo livello':'there is already a single layer',
 'I livelli nascosti verranno scartati. Continuare?':'Hidden layers will be discarded. Continue?',
+'Per ora Hexagraph funziona solo su browser da computer.':'For now, Hexagraph only works in a desktop browser.',
+'Aprilo da un PC o un Mac per disegnare: qui servono mouse e tastiera.':'Open it on a PC or Mac to draw: it needs a mouse and a keyboard.',
+'prova lo stesso':'try anyway',
 'Colore':'Color','colore personalizzato':'custom color',
 'colore libero — si aggiunge ai':'free color — it is added to the','rapidi':'quick colors','in alto':'at the top',
 'Clic su un colore = prossimi timbri (e la selezione, se c\'è). Doppio clic su uno swatch = aggiungilo ai':'Click a color = next stamps (and the selection, if any). Double-click a swatch = add it to the',
@@ -2554,6 +2571,7 @@ function buildLayers(){
     handle.ondragend=()=>{ dragI=null; clearLayerIns(); row.classList.remove('dragsrc'); };
     el.appendChild(row);
   });
+  if(typeof updateMergeBtn==='function') updateMergeBtn();   // ⇓ Unisci: attivo solo con ≥2 livelli CONSECUTIVI ⇧-selezionati
 }
 /* drop dei livelli sul CONTENITORE con indice di inserimento dalla Y del mouse
    (la lista è mostrata invertita: riga in cima = cima dello stack) */
@@ -2598,13 +2616,16 @@ function deleteLayer(i){ if(layers.length<=1)return; snapshot(); const wasActive
 function moveLayer(from,to){ if(from==null||from===to)return; snapshot(); const cur=layers[active]; const [L]=layers.splice(from,1); layers.splice(to,0,L);
   eachOtherFrame(fr=>{ if(from<fr.length&&to<fr.length){ const [F]=fr.splice(from,1); fr.splice(to,0,F); } });
   active=layers.indexOf(cur); setActive(active); buildLayers(); if(anim.on)buildTimeline(); render(); }
-/* ---- UNISCI LIVELLI (round 43, richiesta di Simone) ----
-   Fonde i livelli VISIBILI in UN livello Normale opaco che mantiene l'aspetto della tela:
-   blend e opacità vengono COTTI nei colori delle celle (nasce op.col = colore per-forma).
-   Cell-wise: per ogni posizione si impila; le ⊖ delle celle superiori diventano "add" col colore
-   del sotto (il buco mostrava il livello sotto, non la carta). Fedele al pixel nei casi comuni
-   (celle sole, forme su celle piene); approssimato dove forme PARZIALI di colori diversi si
-   intersecano a metà, con ∩/⊻ fra livelli o sopra l'immagine di sfondo. */
+/* ---- UNISCI LIVELLI (round 43, poi rifinito su richiesta di Simone: SOLO il set ⇧-selezionato) ----
+   Fonde i livelli del set ⇧-selezionato (devono essere CONSECUTIVI, ≥2 — il bottone si abilita
+   solo allora) in UN livello che mantiene l'aspetto della tela: i blend/opacità INTERNI al
+   segmento vengono COTTI nei colori delle celle (op.col = colore per-forma), mentre il livello
+   fuso EREDITA nome/blend/opacità dal livello visibile più basso del segmento (che non si cuoce)
+   → il fuso continua a comporsi come prima con ciò che sta sotto. Cell-wise: per ogni posizione
+   si impila; le ⊖ delle celle superiori diventano "add" col colore del sotto (il buco mostrava
+   il livello sotto, non la carta). Fedele al pixel nei casi comuni (celle sole, forme su celle
+   piene, catene multiply); approssimato dove forme PARZIALI di colori diversi si intersecano a
+   metà, con ∩/⊻ fra livelli, sopra l'immagine di sfondo, o con un Normale sopra una base non-Normale. */
 function hex2rgb(h){ h=(h||'').replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join('');
   const n=parseInt(h||'000000',16); return [(n>>16)&255,(n>>8)&255,n&255]; }
 function rgb2hex(r,g,b){ return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join(''); }
@@ -2618,14 +2639,16 @@ function cookCol(col, under, blend, opacity){
 }
 function mergedLayer(Ls){
   const paper=pageDark?'#000':'#fff';
-  const out={name:tt('Unito'), color:LAYER_COLORS[0], blend:'source-over', opacity:1, visible:true, cells:new Map()};
   const vis=Ls.filter(L=>L.visible);
+  const baseL=vis[0]||Ls[0];   // il fuso eredita posto e compositing dal livello VISIBILE più basso del segmento
+  const out={name:baseL.name, color:baseL.color, blend:baseL.blend, opacity:baseL.opacity, visible:true, cells:new Map()};
   const ks=new Set(); for(const L of vis) for(const k of L.cells.keys()) ks.add(k);
   for(const k of ks){
     let fused=null, base=paper;   // base = colore visibile "dominante" sotto la cella corrente
     for(const L of vis){
       const c=L.cells.get(k); if(!c) continue;
-      const cook=col=>cookCol(col||DEFAULT_INK, base, L.blend, L.opacity);
+      // il livello-base NON si cuoce: blend/opacità restano vivi sul livello fuso (compositing)
+      const cook=L===baseL ? (col=>col||DEFAULT_INK) : (col=>cookCol(col||DEFAULT_INK, base, L.blend, L.opacity));
       if(!fused){   // cella più in basso: clone con i colori cotti (sotto c'è la carta → sub/iso restano)
         fused=JSON.parse(JSON.stringify(c));
         fused.col=cook(c.col);
@@ -2649,23 +2672,27 @@ function mergedLayer(Ls){
   }
   return out;
 }
-function flattenLayers(){
-  if(layers.length<=1){ flashStatus(tt("c'è già un solo livello")); return; }
-  if(layers.some(L=>!L.visible&&L.cells.size) && !confirm(tt('I livelli nascosti verranno scartati. Continuare?'))) return;
+/* [from,to] del set ⇧-selezionato se è valido per il merge (≥2 livelli CONSECUTIVI), altrimenti null */
+function mergeSelSpan(){ const a=[...activeSet].filter(i=>i>=0&&i<layers.length).sort((x,y)=>x-y);
+  return (a.length>=2 && a[a.length-1]-a[0]===a.length-1) ? [a[0],a[a.length-1]] : null; }
+function updateMergeBtn(){ const b=$('mergeAll'); if(b) b.disabled=!mergeSelSpan(); }
+function mergeSelected(){
+  const span=mergeSelSpan(); if(!span) return;
+  const [from,to]=span;
+  if(layers.slice(from,to+1).some(L=>!L.visible&&L.cells.size) && !confirm(tt('I livelli nascosti verranno scartati. Continuare?'))) return;
   stopPlay(); snapshot();
-  if(anim.frames.length){   // la struttura livelli è del documento: si fonde OGNI frame (ognuno mantiene il suo aspetto)
-    animCommit();
-    anim.frames=anim.frames.map(fr=>{ const M=mergedLayer(layersFrom(fr));
-      return [JSON.parse(JSON.stringify({name:M.name,color:M.color,blend:M.blend,opacity:M.opacity,visible:M.visible,cells:[...M.cells]}))]; });
-    layers=layersFrom(anim.frames[anim.cur]);
-  } else layers=[mergedLayer(layers)];
-  active=0; setActive(0); buildLayers();
+  layers.splice(from,to-from+1, mergedLayer(layers.slice(from,to+1)));
+  // struttura livelli = del documento: lo stesso segmento si fonde in OGNI frame (ognuno col suo contenuto)
+  eachOtherFrame(fr=>{ if(to>=fr.length) return;
+    const M=mergedLayer(layersFrom(fr.slice(from,to+1)));
+    fr.splice(from,to-from+1, JSON.parse(JSON.stringify({name:M.name,color:M.color,blend:M.blend,opacity:M.opacity,visible:M.visible,cells:[...M.cells]}))); });
+  setActive(from); buildLayers();
   if(anim.on){ updateOnionLayers(); buildTimeline(); }
   render(); updateStatus();
 }
 $('addLayer').onclick=addLayer;
 $('dupLayer').onclick=duplicateLayer;
-$('mergeAll').onclick=flattenLayers;
+$('mergeAll').onclick=mergeSelected;
 /* ---- SFONDO IMMAGINE ---- */
 $('bgLoad').onclick=()=>$('bgFile').click();
 $('bgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const img=new Image(); img.onload=()=>{ bgImage=img; bgT={x:0,y:0,s:1,rot:0}; syncBgUI(); render(); }; img.src=URL.createObjectURL(f); e.target.value=''; };
@@ -3455,6 +3482,26 @@ translateDOM(); markLang();
 $('langIt').onclick=()=>setLang('it');
 $('langEn').onclick=()=>setLang('en');
 buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
+/* avviso mobile: puntatore primario "grosso" (touch) + schermo piccolo = telefono.
+   I laptop touch hanno puntatore primario fine, i tablet grandi passano per la dimensione.
+   L'index non ha meta viewport (l'app è desktop): lo si inietta SOLO per centrare il gate
+   sullo schermo del telefono; con "prova lo stesso" si torna al layout largo zoomabile. */
+function viewportMeta(content){ let mv=document.querySelector('meta[name="viewport"]');
+  if(!mv){ mv=document.createElement('meta'); mv.name='viewport'; document.head.appendChild(mv); }
+  mv.content=content; }
+if(matchMedia('(pointer:coarse)').matches && Math.min(screen.width,screen.height)<768){
+  viewportMeta('width=device-width, initial-scale=1');
+  const g=$('mobileGate');
+  // il layout viewport può restare più largo dello schermo (l'app non è responsive):
+  // il gate si dimensiona sul VISUAL viewport, così il contenuto è centrato sullo schermo vero
+  const fit=()=>{ if(g.hidden||!window.visualViewport) return;
+    g.style.width=visualViewport.width+'px'; g.style.height=visualViewport.height+'px'; };
+  if(window.visualViewport) visualViewport.addEventListener('resize',fit);
+  g.hidden=false; fit();
+  document.documentElement.style.overflow='hidden';   // niente scroll sotto l'avviso
+}
+$('mgAnyway').onclick=()=>{ const g=$('mobileGate'); g.hidden=true; g.style.width=g.style.height='';
+  document.documentElement.style.overflow=''; viewportMeta('width=1200'); fitView(); };
 /* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
 let didFit=false;
 new ResizeObserver(()=>{ const r=stageEl.getBoundingClientRect(); if(r.width<2||r.height<2) return;
