@@ -1,8 +1,8 @@
 # Deploy di Hexagraph su Cloudflare Pages
 
 Il sito è statico e autoconsistente (nessun build framework, nessuna dipendenza di rete).
-La build serve solo a **pubblicare i file dell'app** (`index.html`, `tiles.js`, `_headers`; il font Sono è inline nell'index)
-lasciando fuori le note interne (HANDOFF, AUDIT), la `mobile.html` deprecata, `esempi/` e `.claude/`.
+La build serve solo a **pubblicare i file dell'app** (`index.html`, `tiles.js`, `og.png`, `_headers`; il font Sono è inline nell'index)
+lasciando fuori la `mobile.html` deprecata, `esempi/`, `packs/` e `tools/`.
 
 ## Impostazioni del progetto Cloudflare Pages
 
