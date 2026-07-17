@@ -9,8 +9,8 @@ browser, nothing to install).
 
 ![Hexagraph](og.png?v=2)
 
-Inspired by [glyphdrawing.club](https://glyphdrawing.club) (the square-grid
-original) and by Milimbo's "Graphic Blocks".
+Inspired by [glyphdrawing.club](https://glyphdrawing.club) and by Milimbo's
+"Graphic Blocks".
 
 > Hexagraph is in **beta**: it works, it's used daily, and it still changes
 > often. If something breaks, opening an issue helps a lot.
@@ -25,7 +25,7 @@ original) and by Milimbo's "Graphic Blocks".
   gradients**, eyedropper.
 - **Merges within one cell** — union ⊕, subtract ⊖, intersect ∩, exclude ⊻,
   applied in chronological order.
-- **Layers** — blend modes (risograph-style multiply and friends), opacity,
+- **Layers** — blend modes (multiply, screen, darken, lighten), opacity,
   multi-select, merge/flatten with baked colours.
 - **Symmetry** — mirrors and 2/3/6-fold rotations, drawn live.
 - **Pattern mode** — rectangle, strip, hexagon or rhombus unit, repeated live
