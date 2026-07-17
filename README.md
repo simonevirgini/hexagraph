@@ -51,7 +51,6 @@ you what you can do. Replay the guide from **Info** at the end of the library.
 - `tiles.js` — the base tile data.
 - `tools/gen_tiles.py` + `packs/` — a systematic tile generator (3,728 extra
   canonical tiles in packs, currently not loaded by the app).
-- `HANDOFF.md` — development notes (architecture, data model), in Italian.
 - UI font = **Sono** by Tyler Finck (SIL OFL), inlined as a data URI;
   licence in `Sono-OFL.txt`.
 

@@ -1,2 +1,5 @@
 .DS_Store
 dist/
+HANDOFF.md
+AUDIT_*.md
+.claude/
