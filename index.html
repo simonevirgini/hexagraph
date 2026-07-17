@@ -443,8 +443,8 @@
       <div class="group" data-sec="canvas">
         <div class="glabel">Canvas</div>
         <div class="row">
-          <label class="field">Colonne<input type="number" id="cols" min="2" max="80" value="21"></label>
-          <label class="field">Righe<input type="number" id="rows" min="2" max="80" value="21"></label>
+          <label class="field">Colonne<input type="number" id="cols" min="2" max="150" value="21"></label>
+          <label class="field">Righe<input type="number" id="rows" min="2" max="150" value="21"></label>
         </div>
         <div class="legend" id="patInfo" hidden></div>
         <div class="row" id="patRow" hidden>
@@ -516,8 +516,8 @@
       <button class="shape" data-shape="rhomb"><svg viewBox="0 0 44 30"><path d="M13 5 L39 5 L31 25 L5 25 Z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>rombo</button>
     </div>
     <div class="row" id="npSizeAB">
-      <label class="field" id="npAWrap">Colonne<input type="number" id="npA" min="2" max="80" value="12"></label>
-      <label class="field" id="npBWrap">Righe<input type="number" id="npB" min="2" max="80" value="12"></label>
+      <label class="field" id="npAWrap">Colonne<input type="number" id="npA" min="2" max="150" value="12"></label>
+      <label class="field" id="npBWrap">Righe<input type="number" id="npB" min="2" max="150" value="12"></label>
     </div>
     <div class="dlgnote" id="npNote"></div>
     <div class="row">
@@ -731,7 +731,8 @@ const I18N={
 'Personale':'Custom',
 'la tua palette: aggiungi i colori col quadratino +':'your own palette: add colors with the + square',
 'aggiungi un colore alla tua palette':'add a color to your palette',
-'fantasma del pennello nascosto — ⌘/Ctrl+D lo rimostra':'brush ghost hidden — ⌘/Ctrl+D shows it again',
+'vista pulita: niente cursore né anteprime — ⌘/Ctrl+D li rimostra':'clean view: no cursor or previews — ⌘/Ctrl+D brings them back',
+'la casella è già vuota':'the cell is already empty',
 'scegli un colore col picker':'pick a color with the picker',
 ' — clic: usa · doppio clic: aggiungi ai rapidi':' — click: use · double-click: add to the quick colors',
 'trascina per spostare la sezione':'drag to move the section','trascina per riordinare':'drag to reorder',
@@ -1266,11 +1267,11 @@ function render(hoverC,hoverR){
     ctx.beginPath(); ctx.arc(bx,by,4.5/z,0,7); ctx.fill();
     ctx.restore();
   }
-  // hover: contorno sottile
-  if(hoverC!=null && !(hoverC===cursor.c&&hoverR===cursor.r)) outline(hoverC,hoverR,2);
+  // hover: contorno sottile — salvo in VISTA PULITA (⌘D, ghostHide: la tela senza segni)
+  if(hoverC!=null && !ghostHide && !(hoverC===cursor.c&&hoverR===cursor.r)) outline(hoverC,hoverR,2);
   // cursore: contorno molto spesso — ma in matita col ghost attivo NO: lì il segno del cursore
   // è il tratteggio del fantasma (pieno sopra tratteggio lo nasconderebbe e confonderebbe di nuovo)
-  if(!(tool==='draw' && brush.tile)) outline(cursor.c,cursor.r,4.5);
+  if(!(tool==='draw' && brush.tile) && !ghostHide) outline(cursor.c,cursor.r,4.5);
   // miniatura del frame corrente aggiornata con calma mentre si disegna
   if(anim.on){ clearTimeout(thumbT); thumbT=setTimeout(()=>{ if(anim.on&&!previewing) updateThumb(anim.cur); },350); }
   updateHilites();   // libreria/slot in risalto se la selezione è una tessera semplice (guardia interna anti-lavoro-doppio)
@@ -1761,6 +1762,7 @@ board.addEventListener('pointerdown',e=>{
     ditherApply(); render(); updateStatus(); board.setPointerCapture(e.pointerId); return;
   }
   selection=null; snapshot(); painting=true; mode=(e.button===2||tool==='erase')?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
+  if(mode==='erase' && !cells.get(key(hit[0],hit[1]))) flashStatus(tt('la casella è già vuota'));
   ppChain=(tool==='draw' && mode==='stamp' && pencilMode==='line')?[]:null;   // linea pulita: parte la catena del tratto
   cursor.c=hit[0]; cursor.r=hit[1]; applyAt(hit); render(hit[0],hit[1]); updateStatus(); board.setPointerCapture(e.pointerId);
 });
@@ -2557,7 +2559,7 @@ function shiftEntries(entries, dc, dr){ const out=[];
      parità (colPhase) — le celle esistenti conservano lo sfalsamento verticale (vedi colPar).
    - il pan (view.x/y) compensa lo spostamento così la figura non salta (helper boardScreenOffset). */
 function resizeCanvas(nc, nr){
-  nc=Math.max(2,Math.min(80,nc|0)); nr=Math.max(2,Math.min(80,nr|0));
+  nc=Math.max(2,Math.min(150,nc|0)); nr=Math.max(2,Math.min(150,nr|0));
   const dc=nc-cols, dr=nr-rows; if(!dc&&!dr) return;
   const cb=contentBounds(false);
   const [Wold,Hold]=boardSize();
@@ -3247,10 +3249,12 @@ window.addEventListener('keydown',e=>{
   if(!$('newDlg').hidden||!$('patDlg').hidden){ if(e.key==='Escape'){ $('newDlg').hidden=true; $('patDlg').hidden=true; } return; }
   if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
   const k=e.key;
+  // ⌘/Ctrl+Z = annulla · ⌘/Ctrl+⇧+Z = ripeti (oltre a z/⇧Z nudi della mappa glyphdrawing)
+  if((e.metaKey||e.ctrlKey) && (k==='z'||k==='Z')){ if(e.shiftKey) doRedo(); else doUndo(); e.preventDefault(); updateStatus(); return; }
   // ⌘/Ctrl+D = deseleziona (e annulla il lazo in corso)
   if((e.metaKey||e.ctrlKey) && (k==='d'||k==='D')){ selection=null; lassoPts.length=0; lassoBase=null;
-    if(tool==='draw' && brush.tile){ ghostHide=!ghostHide;   // in matita ⌘D nasconde/rimostra anche il fantasma: tela pulita
-      if(ghostHide) flashStatus(tt('fantasma del pennello nascosto — ⌘/Ctrl+D lo rimostra')); }
+    ghostHide=!ghostHide;   // VISTA PULITA con qualsiasi strumento: niente fantasma, cursore né hover — la tela così com'è
+    if(ghostHide) flashStatus(tt('vista pulita: niente cursore né anteprime — ⌘/Ctrl+D li rimostra'));
     e.preventDefault(); render(); updateStatus(); return; }
   // ⌘/Ctrl+C = copia · ⌘/Ctrl+V = incolla SUL POSTO (⌘F di Illustrator): stessa posizione, livello attivo
   if((e.metaKey||e.ctrlKey) && (k==='c'||k==='C')){ copySel(); e.preventDefault(); return; }
@@ -3297,9 +3301,10 @@ window.addEventListener('keydown',e=>{
     case 'd': moveCursor(...arrowDir(1,0)); break;
     case 'q': case 'Enter': if(k==='Enter'&&tool==='lasso'&&lassoPts.length){ closeLasso(); break; }
       snapshot(); for(const t of symTargets(cursor.c,cursor.r)) stamp(t.c,t.r,t); advance(); break;
-    case 'e': snapshot(); for(const t of symTargets(cursor.c,cursor.r)) erase(t.c,t.r); advance(); break;
+    case 'e': if(!cells.get(key(cursor.c,cursor.r))) flashStatus(tt('la casella è già vuota'));
+      snapshot(); for(const t of symTargets(cursor.c,cursor.r)) erase(t.c,t.r); advance(); break;
     case ' ': break;   /* spazio = pan (gestito a parte), non avanza */
-    case 'Delete': if(selection&&selection.size){ selOp(erase,true); } else { snapshot(); erase(cursor.c,cursor.r); } break;   // canc: svuota selezione o cella al cursore
+    case 'Delete': if(selection&&selection.size){ selOp(erase,true); } else { if(!cells.get(key(cursor.c,cursor.r))) flashStatus(tt('la casella è già vuota')); snapshot(); erase(cursor.c,cursor.r); } break;   // canc: svuota selezione o cella al cursore
     case 'Backspace': if(selection&&selection.size){ selOp(erase,true); break; }   // con selezione = come canc
       retreat(); snapshot(); erase(cursor.c,cursor.r); break;
     case 'b': snapshot(); bgCell(cursor.c,cursor.r); advance(); break;
@@ -3461,12 +3466,12 @@ function syncNewDlg(){
   $('npNote').textContent=tt(note);
 }
 function createProject(){
-  const A=Math.max(2,Math.min(80,+$('npA').value||12)), B=Math.max(2,Math.min(80,+$('npB').value||12));
+  const A=Math.max(2,Math.min(150,+$("npA").value||12)), B=Math.max(2,Math.min(150,+$("npB").value||12));
   let nc=A, nr=B, pat=null;
   if(npMode==='pattern'){
     pat={shape:npShape};
     if(npShape==='hexa'){ const N=Math.max(1,Math.min(39,+$('npA').value||5)); nc=nr=2*N+1; }
-    else if(npShape==='rhomb'){ nr=Math.min(80,B+Math.floor((A-1)/2)); }   // righe = lato B + lo sbieco delle colonne
+    else if(npShape==='rhomb'){ nr=Math.min(150,B+Math.floor((A-1)/2)); }   // righe = lato B + lo sbieco delle colonne
   }
   stopPlay(); anim.on=false; $('animBtn').classList.remove('on'); $('timeline').hidden=true; document.body.classList.remove('anim');
   anim.frames=[]; anim.cur=0; anim.prevLayers=null; anim.nextLayers=null;
