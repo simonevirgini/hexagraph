@@ -7,7 +7,7 @@ boolean-style merges, colour, symmetry and print-ready export.
 **Try it now → [hexagraph.app](https://hexagraph.app)** (runs in any desktop
 browser, nothing to install).
 
-![Hexagraph](og.png)
+![Hexagraph](og.png?v=2)
 
 Inspired by [glyphdrawing.club](https://glyphdrawing.club) (the square-grid
 original) and by Milimbo's "Graphic Blocks".
