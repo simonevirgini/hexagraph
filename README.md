@@ -1,49 +1,74 @@
-# Hexagraph
+# Hexagraph <sup>beta</sup>
 
-Editor di disegno a **tessere esagonali**. Si compongono tessere geometriche
-in bianco e nero sui sei lati di una griglia a nido d'ape — con livelli,
-fusioni, colore, simmetrie, pattern, animazione ed export. Ispirato a
-[glyphdrawing.club](https://glyphdrawing.club) (versione quadrata) e ai
-Milimbo "Graphic Blocks".
+**A free hexagonal-tile drawing editor.** Place geometric tiles on a honeycomb
+grid and compose them into marks, patterns and animations — with layers,
+boolean-style merges, colour, symmetry and print-ready export.
 
-> **A hexagonal-tile drawing tool.** Place black-and-white geometric tiles on a
-> honeycomb grid, with layers, boolean-style merges, colour, symmetry, patterns,
-> animation and export.
+**Try it now → [hexagraph.app](https://hexagraph.app)** (runs in any desktop
+browser, nothing to install).
 
-## Come si usa
+![Hexagraph](og.png)
 
-È un **unico file HTML**, senza dipendenze né build. Bastano due strade:
+Inspired by [glyphdrawing.club](https://glyphdrawing.club) (the square-grid
+original) and by Milimbo's "Graphic Blocks".
 
-- **Aprilo e basta:** doppio clic su `index.html` (si apre nel browser).
-- **Online:** pubblica la cartella su un hosting statico qualsiasi.
+> Hexagraph is in **beta**: it works, it's used daily, and it still changes
+> often. If something breaks, opening an issue helps a lot.
 
-Alla prima apertura parte un breve **tutorial**; la **barra in basso** dice
-sempre cosa puoi fare. La guida si rigioca da **Info** (in fondo alla libreria).
+## What it does
 
-## Cosa sa fare
+- **Tile library** — 149 base geometric tiles (solids, rounds, frames, lines,
+  curves), plus tiles you **forge** in the app and tiles you **import from
+  SVG** (a template is provided; draw in Illustrator/Inkscape, import back).
+- **Tools** — pencil (with an Aseprite-style *pixel-perfect* mode), eraser,
+  bucket (contiguous or global), hex lasso, selection, **A→B dither
+  gradients**, eyedropper.
+- **Merges within one cell** — union ⊕, subtract ⊖, intersect ∩, exclude ⊻,
+  applied in chronological order.
+- **Layers** — blend modes (risograph-style multiply and friends), opacity,
+  multi-select, merge/flatten with baked colours.
+- **Symmetry** — mirrors and 2/3/6-fold rotations, drawn live.
+- **Pattern mode** — rectangle, strip, hexagon or rhombus unit, repeated live
+  on screen while you draw; exports the repetition as PNG or tiled SVG.
+- **Animation timeline** — frames with onion skin, ping-pong loop, GIF / WEBM /
+  PNG-sequence export.
+- **Export** — PNG, JPG, SVG (with physical mm size, ready for print or plotter).
+- Projects save/load as a single JSON file. UI in **English and Italian**.
 
-- **Libreria di tessere** geometriche (pieni, tondi, cornici, linee, curve) +
-  tessere **forgiate** da te.
-- **Strumenti:** matita, gomma, secchiello, lazo a esagoni, selezione,
-  **dither** A→B stile Aseprite, **contagocce**.
-- **Fusioni** nella stessa cella: unisci ⊕, sottrai ⊖, interseca ∩, escludi ⊻.
-- **Livelli** con blend risograph, **colore** per cella/livello.
-- **Simmetrie** (specchi e rotazioni), **modalità pattern** (rettangolo,
-  striscia, esagono, rombo) con anteprima ripetuta in tempo reale.
-- **Timeline** di animazione (onion skin, loop ping-pong, export GIF/WEBM/PNG).
-- **Export** PNG e SVG (con dimensioni in mm per la stampa).
-- Salva/carica progetti in JSON.
+## Run it
 
-## File del progetto
+It's a **single HTML file** with no dependencies and no build step:
 
-- `index.html` — tutta l'app (HTML + canvas + JS vanilla).
-- `tiles.js` — i dati delle tessere base.
-- Font dell'interfaccia = **Sono** (di Tyler Finck, SIL OFL), inline nell'index come data URI. Licenza in `Sono-OFL.txt`.
-- `HANDOFF.md` — note tecniche di sviluppo (architettura, modello dati).
+- **Online:** [hexagraph.app](https://hexagraph.app)
+- **Locally:** clone the repo (or download it) and double-click `index.html`.
 
-## Licenza
+A short tutorial starts on first launch; the bar at the bottom always tells
+you what you can do. Replay the guide from **Info** at the end of the library.
 
-Gratuito per uso **personale e commerciale**. Una **citazione è gradita**
-(ma non obbligatoria). Dettagli in [LICENSE](LICENSE).
+## Project files
 
-Fatto con cura da **Simone Virgini**. 🌸
+- `index.html` — the whole app (HTML + canvas + vanilla JS).
+- `tiles.js` — the base tile data.
+- `tools/gen_tiles.py` + `packs/` — a systematic tile generator (3,728 extra
+  canonical tiles in packs, currently not loaded by the app).
+- `HANDOFF.md` — development notes (architecture, data model), in Italian.
+- UI font = **Sono** by Tyler Finck (SIL OFL), inlined as a data URI;
+  licence in `Sono-OFL.txt`.
+
+## Support
+
+Hexagraph is free for **personal and commercial** use. If you enjoy it, a
+credit and a link are appreciated — and you can support development via the
+Sponsor button on this repo.
+
+## License
+
+[MIT](LICENSE) © 2026 Simone Virgini.
+
+---
+
+*In italiano:* Hexagraph è un editor di disegno a **tessere esagonali** —
+livelli, fusioni, simmetrie, pattern, animazione ed export per la stampa.
+Gratuito per uso personale e commerciale (licenza MIT), una citazione è
+gradita. Si usa su [hexagraph.app](https://hexagraph.app) o aprendo
+`index.html` in un browser desktop.

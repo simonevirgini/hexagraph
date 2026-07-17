@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hexagraph</title>
+<meta name="description" content="Free hexagonal-tile drawing editor — layers, merges, symmetry, patterns, animation and print-ready export. Runs in the browser, nothing to install.">
+<meta property="og:title" content="Hexagraph">
+<meta property="og:description" content="Free hexagonal-tile drawing editor — layers, merges, symmetry, patterns, animation and print-ready export.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://hexagraph.app/">
+<meta property="og:image" content="https://hexagraph.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-26 -23 52 46'%3E%3Cpolygon points='22,0 11,19 -11,19 -22,0 -11,-19 11,-19' fill='none' stroke='%23e9ebf1' stroke-width='3'/%3E%3Cpath d='M-9,0H9M0,-9V9' stroke='%23ff48b0' stroke-width='3'/%3E%3C/svg%3E">
 <style>
   /* Sono (mono) di Tyler Finck — SIL Open Font License, sostituisce Ahamono che era commerciale.
@@ -34,6 +43,7 @@
   #topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);min-height:48px}
   #topbar .brand{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-right:6px;user-select:none}
   #topbar .brand svg{width:19px;height:17px;display:block;flex:0 0 auto}
+  #topbar .brand .beta{font-size:9px;letter-spacing:1px;text-transform:lowercase;color:var(--accent);border:1px solid var(--accent);border-radius:var(--rad);padding:1px 5px;margin-left:2px}
   #topbar .tgroup{display:flex;gap:1px;align-items:center;background:var(--bg);border-radius:4px;padding:2px}
   #topbar .sep{display:none}
   .btn.ic{flex:0 0 auto;width:32px;height:30px;padding:0;font-size:15px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:var(--rad);color:var(--muted)}
@@ -251,7 +261,7 @@
 </head>
 <body>
 <header id="topbar">
-  <div class="brand" title="Hexagraph — tessere esagonali"><svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>Hexagraph</div>
+  <div class="brand" title="Hexagraph — tessere esagonali"><svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>Hexagraph<span class="beta">beta</span></div>
   <div class="tgroup"><!-- selezione -->
     <button class="btn ic on" id="toolSelect" title="Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo · clic di nuovo sull'icona = doppio clic contiguo/non contiguo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 L18 13.6 H11.9 L14.7 19.9 L11.9 21.1 L9.2 14.9 L7 17.3 Z" fill="currentColor"/></svg></button>
     <button class="btn ic" id="toolLasso" title="Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · ⇧ aggiunge alla selezione · destro/Esc annulla"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 13.5 8.5 4.5 19.5 7.5 16.5 19 7 19.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="3.2 2.2"/></svg></button>
