@@ -498,7 +498,7 @@
   <div class="sep"></div>
   <span id="frLabel">1/1</span>
   <button class="btn" style="flex:0 0 auto" id="frGif" title="esporta una GIF animata in loop (fps correnti, lato lungo max 800px)">GIF</button>
-  <button class="btn" style="flex:0 0 auto" id="frVideo" title="esporta un video .webm (2 giri di loop, fps correnti)">WEBM</button>
+  <button class="btn" style="flex:0 0 auto" id="frVideo" title="esporta un video MP4 — scegli ripetizioni del loop e risoluzione">MP4</button>
   <button class="btn" style="flex:0 0 auto" id="frExport" title="scarica tutti i frame come sequenza PNG">PNG ×n</button>
 </div>
 <!-- dialogo NUOVO PROGETTO: tela normale o tela per pattern (forma + dimensioni) -->
@@ -548,6 +548,21 @@
       <button class="btn" id="peCancel">Annulla</button>
       <button class="btn" id="peSvg">SVG</button>
       <button class="btn primary" id="pePng">PNG</button>
+    </div>
+  </div>
+</div>
+<!-- dialogo EXPORT VIDEO (MP4): ripetizioni del loop e risoluzione -->
+<div id="vidDlg" class="dlg" hidden>
+  <div class="dlgbox">
+    <div class="dlgtitle">Esporta video</div>
+    <div class="row">
+      <label class="field">Ripetizioni del loop<input type="number" id="vidLoops" min="1" max="20" value="2"></label>
+      <label class="field">Risoluzione (lato lungo, px)<input type="number" id="vidRes" min="240" max="4096" value="1080"></label>
+    </div>
+    <div class="dlgnote" id="vidNote"></div>
+    <div class="row">
+      <button class="btn" id="vidCancel">Annulla</button>
+      <button class="btn primary" id="vidGo">Esporta</button>
     </div>
   </div>
 </div>
@@ -690,7 +705,10 @@ const I18N={
 'onion skin: frame precedente e successivo in trasparenza, ognuno col suo colore':'onion skin: previous and next frame as tinted silhouettes',
 'colore onion skin del frame PRECEDENTE':'onion-skin color of the PREVIOUS frame','colore onion skin del frame SUCCESSIVO':'onion-skin color of the NEXT frame',
 'esporta una GIF animata in loop (fps correnti, lato lungo max 800px)':'export a looping animated GIF (current fps, long side max 800px)',
-'esporta un video .webm (2 giri di loop, fps correnti)':'export a .webm video (2 loops, current fps)',
+'esporta un video MP4 — scegli ripetizioni del loop e risoluzione':'export an MP4 video — choose loop repetitions and resolution',
+'Esporta video':'Export video','Ripetizioni del loop':'Loop repetitions','Risoluzione (lato lungo, px)':'Resolution (long side, px)',
+'Formato: MP4':'Format: MP4','Questo browser non registra MP4: uscirà un .webm':'This browser can\'t record MP4: you\'ll get a .webm',
+'(la registrazione dura altrettanto)':'(recording takes just as long)','Esporta':'Export',
 'scarica tutti i frame come sequenza PNG':'download all frames as a PNG sequence',
 'elimina questo frame':'delete this frame',
 /* — dialoghi — */
@@ -3068,33 +3086,59 @@ $('frGif').onclick=async()=>{
   animShow(keep);
 };
 
-/* export VIDEO: registra il canvas (a dimensione export, costante) frame per frame via MediaRecorder.
-   Fallback: senza track.requestFrame (Safari) cattura automatica a fps; senza webm prova mp4;
+/* export VIDEO MP4 (round 43e): il bottone apre un DIALOGO — ripetizioni del loop e risoluzione.
+   Si registra un canvas dedicato alla risoluzione scelta (carta piena sotto: l'mp4 non ha alpha),
+   frame per frame via MediaRecorder; MP4 se il browser lo sa registrare (Chrome/Safari recenti),
+   altrimenti .webm (avvisato nel dialogo). Fallback: senza track.requestFrame cattura a fps;
    se il file esce vuoto (bug visto il 6 lug: 110 byte) lo dice invece di scaricare spazzatura. */
-$('frVideo').onclick=async()=>{
-  if(anim.frames.length<2) return alert(tt('Servono almeno 2 frame.'));
-  if(!window.MediaRecorder) return alert(tt('Questo browser non sa registrare video: usa "PNG ×n".'));
-  stopPlay(); animCommit(); const keep=anim.cur;
+function vidMime(){ if(!window.MediaRecorder) return null;
+  return ['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||null; }
+function syncVidDlg(){
   const fps=Math.max(1,Math.min(30,+$('frFps').value||6));
+  const n=cycleOrder().length, L=Math.max(1,Math.min(20,+$('vidLoops').value||2));
+  const m=vidMime(), secs=n*L/fps;
+  $('vidNote').textContent=(m&&m.startsWith('video/mp4')?tt('Formato: MP4'):tt('Questo browser non registra MP4: uscirà un .webm'))
+    +` · ${n} frame × ${L} loop @ ${fps} fps ≈ ${secs.toFixed(1)}s `+tt('(la registrazione dura altrettanto)');
+}
+$('frVideo').onclick=()=>{
+  if(anim.frames.length<2) return alert(tt('Servono almeno 2 frame.'));
+  if(!vidMime()) return alert(tt('Questo browser non sa registrare video: usa "PNG ×n".'));
+  stopPlay(); syncVidDlg(); $('vidDlg').hidden=false;
+};
+$('vidLoops').oninput=syncVidDlg;
+$('vidCancel').onclick=()=>{ $('vidDlg').hidden=true; };
+$('vidGo').onclick=()=>{ $('vidDlg').hidden=true;
+  const loops=Math.max(1,Math.min(20,+$('vidLoops').value||2));
+  const res=Math.max(240,Math.min(4096,+$('vidRes').value||1080));
+  exportVideo(loops,res); };
+async function exportVideo(loops,res){
+  animCommit(); const keep=anim.cur;
+  const fps=Math.max(1,Math.min(30,+$('frFps').value||6));
+  const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
+  const s=res/Math.max(cw,ch);
+  const vw=Math.max(2,Math.round(cw*s)&~1), vh=Math.max(2,Math.round(ch*s)&~1);   // H.264 vuole lati PARI
+  const vc=document.createElement('canvas'); vc.width=vw; vc.height=vh; const vg=vc.getContext('2d');
   const showFrame=i=>{ layers=layersFrom(anim.frames[i]); setActive(Math.min(active,layers.length-1)); };
-  showFrame(0); drawExport();   // porta il canvas alla dimensione export PRIMA di aprire lo stream (dimensione costante)
-  let stream=board.captureStream(0), track=stream.getVideoTracks()[0], manual=true;
-  if(!track || typeof track.requestFrame!=='function'){ manual=false; stream=board.captureStream(fps); }
-  const mime=['video/webm;codecs=vp9','video/webm','video/mp4'].find(m=>MediaRecorder.isTypeSupported(m));
-  if(!mime){ animShow(keep); return alert(tt('Questo browser non sa registrare video: usa "PNG ×n".')); }
-  const rec=new MediaRecorder(stream,{mimeType:mime});
+  const paint=()=>{ vg.fillStyle=pageDark?'#000':'#fff'; vg.fillRect(0,0,vw,vh); vg.drawImage(board,0,0,vw,vh); };
+  showFrame(0); drawExport(); paint();
+  let stream=vc.captureStream(0), track=stream.getVideoTracks()[0], manual=true;
+  if(!track || typeof track.requestFrame!=='function'){ manual=false; stream=vc.captureStream(fps); }
+  const mime=vidMime();
+  const rec=new MediaRecorder(stream,{mimeType:mime, videoBitsPerSecond:Math.max(4e6,Math.min(50e6,vw*vh*fps*0.2))});
   const chunks=[]; rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
-  const stopped=new Promise(res=>rec.onstop=res);
+  const stopped=new Promise(r=>rec.onstop=r);
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const btn=$('frVideo'), oldTxt=btn.textContent; btn.disabled=true; btn.textContent='REC…';
   rec.start(100);   // timeslice: i dati arrivano man mano
-  for(let loop=0;loop<2;loop++)   // due giri di loop
-    for(const i of cycleOrder()){ showFrame(i); drawExport(); if(manual) track.requestFrame(); await sleep(1000/fps); }
+  for(let loop=0;loop<loops;loop++)
+    for(const i of cycleOrder()){ showFrame(i); drawExport(); paint(); if(manual) track.requestFrame(); await sleep(1000/fps); }
   rec.stop(); await stopped;
+  btn.disabled=false; btn.textContent=oldTxt;
   const blob=new Blob(chunks,{type:mime.split(';')[0]});
   if(blob.size<2000){ animShow(keep); return alert(tt('La registrazione è uscita vuota su questo browser: usa "PNG ×n" (i singoli fotogrammi) e monta il video altrove.')); }
   download('hexglyph.'+(mime.startsWith('video/mp4')?'mp4':'webm'), URL.createObjectURL(blob));
   animShow(keep);
-};
+}
 
 /* ---- save / load ---- */
 $('save').onclick=()=>{ if(anim.on) animCommit();
@@ -3246,7 +3290,7 @@ try{ if(!localStorage.getItem('hexagraph.tutdone')) setTimeout(coachStart,500); 
 /* ---- tastiera (mappa copiata da glyphdrawing.club) ---- */
 window.addEventListener('keydown',e=>{
   // con un dialogo aperto la tastiera non deve disegnare (Esc lo chiude)
-  if(!$('newDlg').hidden||!$('patDlg').hidden){ if(e.key==='Escape'){ $('newDlg').hidden=true; $('patDlg').hidden=true; } return; }
+  if(!$('newDlg').hidden||!$('patDlg').hidden||!$('vidDlg').hidden){ if(e.key==='Escape'){ $('newDlg').hidden=true; $('patDlg').hidden=true; $('vidDlg').hidden=true; } return; }
   if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;
   const k=e.key;
   // ⌘/Ctrl+Z = annulla · ⌘/Ctrl+⇧+Z = ripeti (oltre a z/⇧Z nudi della mappa glyphdrawing)
