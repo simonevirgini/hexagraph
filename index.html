@@ -251,6 +251,13 @@
   .seg{flex:1;background:transparent;color:var(--muted);border:0;border-radius:var(--rad);padding:7px 4px;cursor:pointer;font-size:12px;font-family:inherit}
   .seg:hover{background:var(--panel2);color:var(--text)}
   .seg.on{color:var(--onink);background:var(--accent)}
+  /* ---- modalità UI Base/Completo (progressive disclosure) ---- */
+  .modeseg{flex:0 0 auto}
+  .modeseg .seg{flex:0 0 auto;padding:5px 9px;font-size:11px}
+  body.uibase .advtb,
+  body.uibase [data-sec="conn"], body.uibase [data-sec="forge"], body.uibase [data-sec="svgtiles"],
+  body.uibase [data-sec="bgimg"],
+  body.uibase [data-sec="layers"]:not(.inuse), body.uibase [data-sec="anim"]:not(.inuse){display:none!important}
   .shapegrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
   .shape{background:var(--panel2);color:var(--muted);border:0;border-radius:var(--rad);padding:9px 6px;cursor:pointer;font-size:12px;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:4px}
   .shape svg{width:44px;height:30px;display:block}
@@ -271,17 +278,17 @@
     <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull'icona = contiguo/non contiguo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
-    <button class="btn ic" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
+    <button class="btn ic advtb" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
   </div>
   <div class="sep"></div>
-  <div class="tgroup"><!-- fusioni (stile pathfinder): come il timbro/il gruppo trascinato si fonde con ciò che trova -->
+  <div class="tgroup advtb"><!-- fusioni (stile pathfinder): come il timbro/il gruppo trascinato si fonde con ciò che trova -->
     <button class="btn ic" id="merge" title="Unisci (u): la forma si SOMMA a quella presente"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg></button>
     <button class="btn ic" id="sub" title="Sottrai (x): la forma SCAVA quella presente"><svg viewBox="0 0 24 24" aria-hidden="true"><mask id="ic_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#ic_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg></button>
     <button class="btn ic" id="iso" title="Interseca: resta SOLO dove le forme si sovrappongono"><svg viewBox="0 0 24 24" aria-hidden="true"><clipPath id="ic_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#ic_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg></button>
     <button class="btn ic" id="xor" title="Escludi: restano solo le parti che NON si sovrappongono"><svg viewBox="0 0 24 24" aria-hidden="true"><clipPath id="ic_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="ic_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#ic_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#ic_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg></button>
   </div>
   <div class="sep"></div>
-  <div class="tgroup" title="Simmetria: ogni timbro si ripete specchiato/ruotato attorno al centro della tela — nessun asse disegnato, la simmetria la vedi dalle tessere (e dal ghost del pennello)">
+  <div class="tgroup advtb" title="Simmetria: ogni timbro si ripete specchiato/ruotato attorno al centro della tela — nessun asse disegnato, la simmetria la vedi dalle tessere (e dal ghost del pennello)">
     <span style="color:var(--muted);font-size:11px;padding:0 2px">sym</span>
     <select id="symSel">
       <option value="none">no</option>
@@ -308,7 +315,11 @@
   </div>
   <div class="rcluster">
     <div class="qcolors" id="quickcols" title="colori rapidi — clic usa · +/doppio clic cambia col picker · destro toglie"></div>
-    <div class="slots" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · in Seleziona, clic/0-9 deposita al cursore (dopo averlo piazzato)"></div>
+    <div class="slots advtb" id="slots" title="slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · in Seleziona, clic/0-9 deposita al cursore (dopo averlo piazzato)"></div>
+    <div class="segrow modeseg" id="modeSeg" title="Interfaccia: Base = solo l'essenziale · Completo = tutte le funzioni (livelli, animazione, fusioni, forgia, simmetrie…)">
+      <button class="seg" id="modeBase">Base</button>
+      <button class="seg" id="modeFull">Completo</button>
+    </div>
   </div>
 </header>
 <div id="pencilPop" class="pop" hidden>
@@ -784,11 +795,17 @@ const I18N={
 'Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.':'Grab the <b>pencil</b> ✎ and <b>click the grid</b> to lay the tile down. Drag to paint a run.',
 '3 · Orienta il pennello':'3 · Orient the brush',
 '<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.':'<kbd>r</kbd> rotates · <kbd>f</kbd> mirrors · <kbd>i</kbd> inverts. The preview at the top right always shows the active brush.',
-'4 · Combina le forme':'4 · Combine shapes',
-'In alto ci sono quattro modi di combinare le forme —':'At the top there are four ways to combine shapes —',
-'Scegline uno e timbra sopra una cella.':'Pick one and stamp over a cell.',
-'5 · Colori e livelli':'5 · Colors and layers',
+'4 · Colora':'4 · Add color',
+'Nella barra a destra c\'è la sezione <b>Colore</b>: clic su un colore e i prossimi timbri lo usano (o la selezione, se c\'è).':'On the right there\'s the <b>Color</b> section: click a color and the next stamps use it (or the selection, if there is one).',
+'4 · Colori e livelli':'4 · Colors and layers',
 'Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.':'The bar on the right holds the <b>colors</b> and the <b>layers</b>.',
+'5 · C\'è di più, quando vuoi':'5 · There\'s more, when you want it',
+'Stai vedendo solo l\'<b>essenziale</b>. Livelli, animazione, fusioni tra forme e altro si accendono con <b>Completo</b>, qui in alto a destra.':'You\'re seeing the <b>essentials</b> only. Layers, animation, shape merges and more switch on with <b>Full</b>, up here on the right.',
+/* — modalità UI Base/Completo — */
+'Base':'Basic','Completo':'Full',
+'Interfaccia: Base = solo l\'essenziale · Completo = tutte le funzioni (livelli, animazione, fusioni, forgia, simmetrie…)':'Interface: Basic = essentials only · Full = every feature (layers, animation, merges, forge, symmetry…)',
+'interfaccia <b>Base</b>: solo l\'essenziale — il resto torna con <b>Completo</b>':'<b>Basic</b> interface: essentials only — everything else comes back with <b>Full</b>',
+'interfaccia <b>Completa</b>: tutte le funzioni':'<b>Full</b> interface: every feature',
 'Tutto qui':'That\'s it',
 'La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.':'The <b>bottom bar</b> always tells you what you can do. Reopen this guide from <b>About</b>, at the bottom of the library.',
 'Salta':'Skip','Indietro':'Back','Avanti':'Next','Avanti ✓':'Next ✓','Prova tu…':'Your turn…','Fine':'Done',
@@ -903,6 +920,14 @@ let ghostHide=false;               // ⌘/Ctrl+D in matita nasconde il fantasma 
 let pattern=null;
 let patBounds=localStorage.getItem('hexagraph.patbounds')!=='0';   // confine della tavola nel preview del pattern
 let stampMode=null;                // null (sostituisci) | 'merge' ⊕ | 'sub' ⊖ | 'iso' ∩ | 'xor' ⊻ — vale per timbro E rilascio del trascinamento
+/* MODALITÀ UI (progressive disclosure): 'base' = solo l'essenziale · 'full' = tutte le funzioni.
+   Senza scelta salvata: chi ha tracce d'uso avanzato in localStorage parte in full, i nuovi in base. */
+let uiMode=(()=>{ try{
+  const v=localStorage.getItem('hexagraph.uimode'); if(v==='base'||v==='full') return v;
+  const pro=['hexagraph.forged','hexagraph.custom','hexagraph.custompal','hexagraph.onion','hexagraph.palcols'].some(k=>localStorage.getItem(k)!=null)
+        || Object.keys(localStorage).some(k=>k.startsWith('hexagraph.sections.'));
+  return pro?'full':'base';
+}catch(e){ return 'full'; } })();
 /* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
 const DEFAULT_INK='#111111';   // inchiostro di default (nero riso): fallback per celle/preset senza colore (§8.15: il colore è SEMPRE per-cella, mai ereditato dal livello)
@@ -2040,7 +2065,7 @@ function updateBrushPreview(){
    Scegliere B attiva lo strumento dither: il gesto dichiara l'intenzione. */
 function setTileB(id){
   brush.tileB=(brush.tileB===id)?null:id;
-  if(brush.tileB && tool!=='dither') setTool('dither');
+  if(brush.tileB && tool!=='dither' && uiMode!=='base') setTool('dither');
   buildPalette(); buildQuickTiles(); updateBrushPreview(); updateStatus();
 }
 /* applica un preset di slot al pennello (tessera + rotazione + specchio + inversione) */
@@ -3199,6 +3224,7 @@ $('loadFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=ne
     for(const fr of anim.frames) for(const Ld of fr) for(const kv of (Ld.cells||[])) if(!kv[1].col) kv[1].col=Ld.color||DEFAULT_INK;
     buildSlots();
     undoStack.length=0; redoStack.length=0; refreshUndo(); buildLayers(); render();
+    applyUIMode();   // in Base: se il progetto usa livelli/animazione, quelle sezioni si mostrano
   }catch(err){alert(tt('File non valido'));} };
   rd.readAsText(f); e.target.value=''; };
 
@@ -3222,7 +3248,7 @@ function hintHTML(){
   } else if(tool==='draw'){
     h = `<b>${tt('Matita')}${pencilMode==='line'?tt(' · linea pulita'):''}</b> · ${tt('clic timbra · trascina dipinge · destro cancella ·')} ${kb('r')} ${kb('f')} ${kb('i')} ${tt('orienta ·')} ${kb('c')} ${tt("contagocce · clic sull'icona = modalità")}`;
   } else if(hasSel){
-    h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${kb('⇧G')} ${tt('forgia ·')} ${kb(tt('Canc'))} ${tt('svuota')}`;
+    h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${uiMode!=='base'?`${kb('⇧G')} ${tt('forgia ·')} `:''}${kb(tt('Canc'))} ${tt('svuota')}`;
   } else {
     h = `<b>${tt('Seleziona')}</b> · ${tt('clic una cella · trascina un rettangolo (')}${kb('⇧')} ${selMode==='cont'
       ? tt('aggiunge) · doppio clic = identiche CONTIGUE · clic in libreria = pennello (a cursore piazzato: deposita)')
@@ -3244,21 +3270,23 @@ let flashT=null;
 function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.innerHTML='<span class="hint">'+msg+'</span>';
   clearTimeout(flashT); flashT=setTimeout(()=>{ flashT=null; st.classList.remove('warn'); updateStatus(); },2600); }
 
-/* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ---- */
+/* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ----
+   I passi dipendono da uiMode: in Base niente livelli e un passo finale che presenta "Completo". */
 function buildCoach(){
-  const icoU='<svg viewBox="0 0 24 24"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></svg>';
-  const icoS='<svg viewBox="0 0 24 24"><mask id="tut_sub"><rect width="24" height="24" fill="#fff"/><circle cx="14.6" cy="12" r="5.5" fill="#000"/></mask><circle cx="9.4" cy="12" r="5.5" fill="currentColor" mask="url(#tut_sub)"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg>';
-  const icoI='<svg viewBox="0 0 24 24"><clipPath id="tut_iso"><circle cx="9.4" cy="12" r="5.5"/></clipPath><circle cx="14.6" cy="12" r="5.5" fill="currentColor" clip-path="url(#tut_iso)"/><circle cx="9.4" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><circle cx="14.6" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/></svg>';
-  const icoX='<svg viewBox="0 0 24 24"><clipPath id="tut_xor_c"><circle cx="9.4" cy="12" r="5.5"/></clipPath><mask id="tut_xor"><rect width="24" height="24" fill="#fff"/><g clip-path="url(#tut_xor_c)"><circle cx="14.6" cy="12" r="5.5" fill="#000"/></g></mask><g mask="url(#tut_xor)"><circle cx="9.4" cy="12" r="5.5" fill="currentColor"/><circle cx="14.6" cy="12" r="5.5" fill="currentColor"/></g></svg>';
-  return [
+  const base=(uiMode==='base');
+  const steps=[
  {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Poche mosse, un minuto.'),sel:null},
  {t:tt('1 · Scegli una tessera'),b:tt('Nella <b>libreria</b> a sinistra scegli una forma: diventa il tuo pennello.'),sel:'[data-sec="tiles"]',ev:'tile'},
  {t:tt('2 · Matita e timbra'),b:tt('Prendi la <b>matita</b> ✎ e <b>clicca sulla griglia</b> per posare la tessera. Trascina per dipingere in fila.'),sel:'#toolDraw',ev:'stamp'},
  {t:tt('3 · Orienta il pennello'),b:tt('<kbd>r</kbd> ruota · <kbd>f</kbd> specchia · <kbd>i</kbd> inverti. L\'anteprima in alto a destra mostra sempre il pennello attivo.'),sel:'#stagePrev'},
- {t:tt('4 · Combina le forme'),b:tt('In alto ci sono quattro modi di combinare le forme —')+' '+icoU+' '+tt('unisci')+', '+icoS+' '+tt('sottrai')+', '+icoI+' '+tt('interseca')+', '+icoX+' '+tt('escludi')+'. '+tt('Scegline uno e timbra sopra una cella.'),sel:'#merge'},
- {t:tt('5 · Colori e livelli'),b:tt('Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.'),sel:'[data-sec="color"]'},
- {t:tt('Tutto qui'),b:tt('La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.'),sel:'#status'},
-];}
+ base
+ ? {t:tt('4 · Colora'),b:tt('Nella barra a destra c\'è la sezione <b>Colore</b>: clic su un colore e i prossimi timbri lo usano (o la selezione, se c\'è).'),sel:'[data-sec="color"]'}
+ : {t:tt('4 · Colori e livelli'),b:tt('Nella barra a destra hai i <b>colori</b> e i <b>livelli</b>.'),sel:'[data-sec="color"]'},
+  ];
+  if(base) steps.push({t:tt('5 · C\'è di più, quando vuoi'),b:tt('Stai vedendo solo l\'<b>essenziale</b>. Livelli, animazione, fusioni tra forme e altro si accendono con <b>Completo</b>, qui in alto a destra.'),sel:'#modeSeg'});
+  steps.push({t:tt('Tutto qui'),b:tt('La <b>barra in basso</b> ti dice sempre cosa puoi fare. Riapri questa guida da <b>Info</b>, in fondo alla libreria.'),sel:'#status'});
+  return steps;
+}
 let COACH=buildCoach();
 let coachI=-1;
 function coachSpot(sel){ const sp=$('coachSpot'); const el=sel&&document.querySelector(sel);
@@ -3278,7 +3306,33 @@ function coachNext(){ if(coachI<COACH.length-1) coachShow(coachI+1); else coachE
 /* avanza automaticamente quando l'utente compie l'azione del passo corrente */
 function coachEvent(tag){ if(coachI>=0 && COACH[coachI] && COACH[coachI].ev===tag){ const n=$('coachNext');
   if(n.disabled){ n.disabled=false; n.classList.add('primary'); n.textContent=tt('Avanti ✓'); } } }
-function coachStart(){ coachShow(0); }
+function coachStart(){ COACH=buildCoach(); coachShow(0); }   // rigenerato: i passi dipendono da uiMode
+
+/* ---- modalità UI Base/Completo (progressive disclosure) ---- */
+function applyUIMode(){
+  document.body.classList.toggle('uibase',uiMode==='base');
+  /* eccezione di sicurezza: se il progetto USA livelli multipli o l'animazione, quelle sezioni restano visibili anche in Base */
+  const L=document.querySelector('[data-sec="layers"]'), A=document.querySelector('[data-sec="anim"]');
+  if(L) L.classList.toggle('inuse',layers.length>1);
+  if(A) A.classList.toggle('inuse',!!(anim.on||anim.frames.length));
+  $('modeBase').classList.toggle('on',uiMode==='base');
+  $('modeFull').classList.toggle('on',uiMode==='full');
+  if(coachI<0) COACH=buildCoach();   // il tutorial segue il modo (se non è in corso)
+}
+function setUIMode(m){
+  if(m!==uiMode){
+    uiMode=m; try{ localStorage.setItem('hexagraph.uimode',m); }catch(e){}
+    if(m==='base'){   // niente stati attivi su comandi nascosti
+      if(stampMode) setStampMode(stampMode);
+      if(tool==='dither') setTool('select');
+      if(symMode!=='none'){ $('symSel').value='none'; $('symSel').dispatchEvent(new Event('change')); }
+      flashStatus(tt('interfaccia <b>Base</b>: solo l\'essenziale — il resto torna con <b>Completo</b>'));
+    } else flashStatus(tt('interfaccia <b>Completa</b>: tutte le funzioni'));
+  }
+  applyUIMode(); updateStatus();
+}
+$('modeBase').onclick=()=>setUIMode('base');
+$('modeFull').onclick=()=>setUIMode('full');
 $('coachNext').onclick=coachNext;
 $('coachPrev').onclick=()=>{ if(coachI>0) coachShow(coachI-1); };
 $('coachSkip').onclick=coachEnd;
@@ -3325,7 +3379,7 @@ window.addEventListener('keydown',e=>{
       case 'J': shiftSel(0,1); break;
       case 'K': shiftSel(0,-1); break;
       case 'Z': doRedo(); break;
-      case 'G': forgeFromCell(); break;
+      case 'G': if(uiMode!=='base') forgeFromCell(); break;
       case '<': if(anim.on){ stopPlay(); animGoto(anim.cur-1); } break;
       case '>': if(anim.on){ stopPlay(); animGoto(anim.cur+1); } break;
       default: h=false;
@@ -3357,10 +3411,10 @@ window.addEventListener('keydown',e=>{
     case 'i': xformInv(); break;
     case 'Escape': if(ditherDrag){ ditherCancel(); break; } if(bgMoveMode){ setBgMove(false); break; } lassoPts.length=0; lassoBase=null; selection=null; break;
     case 'h': showGrid=!showGrid; $('grid').classList.toggle('on',!showGrid); break;
-    case 'u': $('merge').click(); break;
-    case 'x': $('sub').click(); break;
+    case 'u': if(uiMode!=='base') $('merge').click(); break;
+    case 'x': if(uiMode!=='base') $('sub').click(); break;
     case 'g': $('bucket').click(); break;
-    case 't': $('dither').click(); break;
+    case 't': if(uiMode!=='base') $('dither').click(); break;
     case 'c': { // contagocce: preleva la cella SOTTO IL MOUSE (fallback: cursore tastiera)
       const h=hoverPt?cellAt(...hoverPt):null;
       const tc=h?h[0]:cursor.c, tr=h?h[1]:cursor.r;
@@ -3603,7 +3657,7 @@ initSections(); loadForged(); loadCustom(); applyPalCols();
 translateDOM(); markLang();
 $('langIt').onclick=()=>setLang('it');
 $('langEn').onclick=()=>setLang('en');
-buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
+buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); applyUIMode(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
 /* avviso mobile: puntatore primario "grosso" (touch) + schermo piccolo = telefono.
    I laptop touch hanno puntatore primario fine, i tablet grandi passano per la dimensione.
    L'index non ha meta viewport (l'app è desktop): lo si inietta SOLO per centrare il gate
