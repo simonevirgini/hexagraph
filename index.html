@@ -293,8 +293,14 @@
     border-top:1px solid var(--line);border-radius:14px 14px 0 0;max-height:72dvh;box-shadow:0 -12px 34px rgba(0,0,0,.5);
     padding:0 14px calc(14px + env(safe-area-inset-bottom));transition:transform .18s ease}
   body.mobile #mbSheet[hidden]{display:none}
-  .mbgrip{flex:0 0 auto;width:44px;height:5px;border-radius:3px;background:var(--line);margin:8px auto 12px;touch-action:none}
-  .mbpage{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:20px;counter-reset:sec;padding-bottom:6px;min-height:120px}
+  .mbgriparea{flex:0 0 auto;padding:11px 0 13px;touch-action:none;cursor:grab}   /* presa GRANDE, tutta la larghezza: la barretta è solo il segno */
+  .mbgrip{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto;pointer-events:none}
+  body.mobile #mbSheet.dragging{transition:none}
+  .mbpage{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:20px;counter-reset:sec;padding-bottom:6px;min-height:120px}
+  .mbpage select{max-width:100%;min-width:0}   /* le option lunghe non devono allargare la pagina */
+  .mbpage .row{flex-wrap:wrap}
+  /* tutorial: quando un cassetto è aperto il fumetto sale sotto la topbar, così non copre nulla */
+  body.mobile.sheetopen #coach{bottom:auto;top:calc(66px + env(safe-area-inset-top))}
   /* tasti e controlli più grandi dentro il cassetto */
   body.mobile button.btn{padding:12px 10px;font-size:13px}
   body.mobile .seg{padding:11px 8px;font-size:13px}
@@ -670,7 +676,7 @@
 <!-- cassetto MOBILE dal basso (round 46): le sezioni delle barre laterali ci vengono spostate al load -->
 <div id="mbShade" hidden></div>
 <div id="mbSheet" hidden>
-  <div class="mbgrip" id="mbGrip"></div>
+  <div class="mbgriparea" id="mbGrip"><div class="mbgrip"></div></div>
   <div class="mbpage" id="mbPageTiles" hidden></div>
   <div class="mbpage" id="mbPageColor" hidden></div>
   <div class="mbpage" id="mbPageLayers" hidden></div>
@@ -3797,8 +3803,19 @@ function viewportMeta(content){ let mv=document.querySelector('meta[name="viewpo
    una penna disegna mentre due dita navigano, stile Procreate) ---- */
 if(IS_TOUCH||IS_MOBILE){
   const tpts=new Map();   // pointerId → {x,y,x0,y0}
-  let tg=null;            // gesto in corso {t0,maxPts,moved,cx,cy,d,sx,sy,lp}
+  let tg=null;            // gesto in corso {t0,maxPts,moved,base,lp}
   let tgUndoBase=0, tgSelBase=null, lpT=null;
+  /* GRACE PERIOD (stile Procreate): il 1° tocco NON diventa subito un tratto — si aspetta
+     qualche centesimo (o il primo vero movimento) per capire se sta arrivando un 2° dito.
+     Le dita di un gesto non toccano mai insieme al 100%: senza questa attesa il tap a due
+     dita timbrava e il pinch partiva sporco. Allo scadere, il tocco viene consegnato alla
+     tela come pointerdown sintetico (flag __tg per non re-intercettarlo). */
+  const GRACE=70; let pend=null, pendT=null;   // {id,x,y}
+  const _spc=board.setPointerCapture.bind(board);
+  board.setPointerCapture=function(id){ try{ _spc(id); }catch(e){} };   // i down sintetici non hanno un pointer attivo: la capture fallisce senza rompere il handler
+  function releasePending(){ if(!pend) return; const p=pend; pend=null; clearTimeout(pendT); pendT=null;
+    const ev=new PointerEvent('pointerdown',{pointerId:p.id,pointerType:'touch',clientX:p.x,clientY:p.y,bubbles:true,cancelable:true,isPrimary:true,button:0,buttons:1});
+    ev.__tg=true; board.dispatchEvent(ev); }
   /* annulla in silenzio ciò che il 1° dito aveva iniziato (senza sporcare il redo):
      il tocco del 2° dito dichiara "volevo navigare, non disegnare" */
   function tgCancelStroke(){
@@ -3835,35 +3852,39 @@ if(IS_TOUCH||IS_MOBILE){
   }
   /* capture phase: gli eventi si vedono PRIMA della tela, così il 2°/3° dito non disegna mai */
   stageEl.addEventListener('pointerdown',e=>{
-    if(e.pointerType!=='touch') return;
+    if(e.pointerType!=='touch'||e.__tg) return;           // __tg = eco del down sintetico: passa alla tela
     const first=tpts.size===0;
     tpts.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
     if(first && !tg){
       tgUndoBase=undoStack.length;
       tgSelBase=selection?new Set(selection):null;
-      if(tool==='draw'||tool==='erase'||tool==='bucket'){   // pressione lunga (ferma) = contagocce
+      e.stopPropagation();                                 // il tocco resta IN ATTESA: tratto o gesto?
+      pend={id:e.pointerId,x:e.clientX,y:e.clientY};
+      clearTimeout(pendT); pendT=setTimeout(releasePending,GRACE);
+      if(tool==='draw'||tool==='erase'||tool==='bucket'){  // pressione lunga (ferma) = contagocce
         const pid=e.pointerId;
         clearTimeout(lpT);
         lpT=setTimeout(()=>{ lpT=null;
           if(tg||tpts.size!==1||!tpts.has(pid)) return;
-          const p=tpts.get(pid); if(Math.hypot(p.x-p.x0,p.y-p.y0)>9) return;
+          const p=tpts.get(pid); if(Math.hypot(p.x-p.x0,p.y-p.y0)>10) return;
           tgCancelStroke();
           const hit=cellAt(...localXY({clientX:p.x,clientY:p.y}));
           if(hit&&pickBrush(hit[0],hit[1])){ flashStatus(tt('contagocce: presa la tessera della cella')); try{navigator.vibrate&&navigator.vibrate(25)}catch(_){} }
           tg={lp:true,t0:performance.now(),maxPts:1,moved:999,base:null};   // blocca il resto del tocco
           render(); updateStatus();
-        },550);
+        },650);
       }
-      return;   // il 1° dito passa alla tela: disegna/seleziona come un clic
+      return;
     }
     e.stopPropagation(); e.preventDefault();   // dal 2° dito in poi si naviga: la tela non li vede
+    clearTimeout(pendT); pendT=null; pend=null;           // il 1° tocco non diventerà mai un tratto: niente da annullare
     clearTimeout(lpT); lpT=null;
     if(tg && tg.lp){ tg.lp=false; tg.moved=999; }        // dopo il contagocce si può continuare a navigare
     if(!tg){
       const ps=[...tpts.values()];
       const m1=Math.hypot(ps[0].x-ps[0].x0,ps[0].y-ps[0].y0);
       tgCancelStroke();
-      tg={t0:performance.now(),maxPts:tpts.size,moved:m1>12?999:0,base:null};
+      tg={t0:performance.now(),maxPts:tpts.size,moved:m1>16?999:m1,base:null};
     }
     tg.maxPts=Math.max(tg.maxPts,tpts.size);
     tg.base=null; if(!tg.lp) tgNav();   // baseline fissata SUBITO, con le posizioni sincrone del down (al 1° move sarebbero già sfasate)
@@ -3871,14 +3892,22 @@ if(IS_TOUCH||IS_MOBILE){
   stageEl.addEventListener('pointermove',e=>{
     if(e.pointerType!=='touch'||!tpts.has(e.pointerId)) return;
     const p=tpts.get(e.pointerId); p.x=e.clientX; p.y=e.clientY;
+    if(pend && pend.id===e.pointerId){                    // tocco in attesa: si muove davvero → è un tratto, parte ORA
+      if(Math.hypot(p.x-p.x0,p.y-p.y0)>6){ releasePending(); return; }   // il down sintetico è appena partito; questo move prosegue verso la tela
+      e.stopPropagation(); return;                        // ancora fermo in attesa: la tela non vede nulla
+    }
     if(tg){ e.stopPropagation(); e.preventDefault();
       tg.moved=Math.max(tg.moved,Math.hypot(p.x-p.x0,p.y-p.y0));
       if(!tg.lp) tgNav();
       return; }
-    if(lpT && Math.hypot(p.x-p.x0,p.y-p.y0)>9){ clearTimeout(lpT); lpT=null; }   // il dito si muove: niente contagocce
+    if(lpT && Math.hypot(p.x-p.x0,p.y-p.y0)>10){ clearTimeout(lpT); lpT=null; }   // il dito si muove: niente contagocce
   },{capture:true});
   const tgEnd=e=>{
     if(e.pointerType!=='touch'||!tpts.has(e.pointerId)) return;
+    if(pend && pend.id===e.pointerId){                    // tap più corto del grace
+      if(e.type==='pointercancel'){ pend=null; clearTimeout(pendT); pendT=null; }   // il sistema ha rubato il tocco: niente timbro
+      else releasePending();                              // consegna il down ora; l'up che segue completa il timbro
+    }
     tpts.delete(e.pointerId);
     if(lpT){ clearTimeout(lpT); lpT=null; }
     if(!tg) return;                                       // nessun gesto: il rilascio arriva alla tela come sempre
@@ -3886,7 +3915,7 @@ if(IS_TOUCH||IS_MOBILE){
     tg.base=null; if(tpts.size && !tg.lp) tgNav();        // il gesto continua con le dita rimaste: ribasa subito
     if(tpts.size===0){                                    // ultime dita su: tocco secco = annulla/ripeti
       const dt=performance.now()-tg.t0;
-      if(!tg.lp && dt<320 && tg.moved<12){
+      if(!tg.lp && dt<450 && tg.moved<16){
         if(tg.maxPts===2){ doUndo(); flashStatus(tt('annullato')); }
         else if(tg.maxPts>=3){ doRedo(); flashStatus(tt('ripetuto')); }
       }
@@ -3936,11 +3965,13 @@ function enterMobile(){
   const MBP={tiles:pgT,color:pgC,layers:pgL,menu:pgM};
   const mbSync=()=>{ $('mbTile').classList.toggle('on',mbCur==='tiles'); $('mbColor').classList.toggle('on',mbCur==='color');
     $('mbLayers').classList.toggle('on',mbCur==='layers'); $('mbMenu').classList.toggle('on',mbCur==='menu'); };
-  window.mbSheetClose=()=>{ mbCur=null; $('mbShade').hidden=true; const sh=$('mbSheet'); sh.hidden=true; sh.style.transform=''; mbSync(); };
+  window.mbSheetClose=()=>{ mbCur=null; $('mbShade').hidden=true; const sh=$('mbSheet'); sh.hidden=true; sh.style.transform=''; sh.classList.remove('dragging');
+    document.body.classList.remove('sheetopen'); mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
   let mbCur=null;
   const mbOpen=p=>{ if(mbCur===p) return mbSheetClose();
     mbCur=p; for(const k in MBP) MBP[k].hidden=(k!==p);
-    $('mbShade').hidden=false; const sh=$('mbSheet'); sh.hidden=false; sh.style.transform=''; mbSync(); };
+    $('mbShade').hidden=false; const sh=$('mbSheet'); sh.hidden=false; sh.style.transform='';
+    document.body.classList.add('sheetopen'); mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };   // sheetopen: il tutorial sale in alto per non coprire
   $('mbMenu').onclick=()=>mbOpen('menu'); $('mbTile').onclick=()=>mbOpen('tiles');
   $('mbColor').onclick=()=>mbOpen('color'); $('mbLayers').onclick=()=>mbOpen('layers');
   $('mbShade').onclick=()=>mbSheetClose();
@@ -3948,9 +3979,12 @@ function enterMobile(){
   $('mbLayers').title=tt('livelli'); $('mbMore').title=tt('Altri strumenti');
   /* la maniglia si trascina in giù per chiudere */
   let gd=null; const grip=$('mbGrip');
-  grip.addEventListener('pointerdown',e=>{ gd={y0:e.clientY,dy:0}; grip.setPointerCapture(e.pointerId); e.preventDefault(); });
+  grip.addEventListener('pointerdown',e=>{ gd={y0:e.clientY,dy:0};
+    $('mbSheet').classList.add('dragging');   // niente transition durante il drag: la tendina segue il dito
+    try{ grip.setPointerCapture(e.pointerId); }catch(_){ } e.preventDefault(); });
   grip.addEventListener('pointermove',e=>{ if(!gd) return; gd.dy=Math.max(0,e.clientY-gd.y0); $('mbSheet').style.transform='translateY('+gd.dy+'px)'; });
-  const gup=()=>{ if(!gd) return; const dy=gd.dy; gd=null; if(dy>70) mbSheetClose(); else $('mbSheet').style.transform=''; };
+  const gup=()=>{ if(!gd) return; const dy=gd.dy; gd=null; $('mbSheet').classList.remove('dragging');
+    if(dy>60) mbSheetClose(); else $('mbSheet').style.transform=''; };
   grip.addEventListener('pointerup',gup); grip.addEventListener('pointercancel',gup);
   /* scegliere una tessera o un colore chiude il cassetto: si torna subito a disegnare */
   let lpTile=null, lpTileDone=false;
