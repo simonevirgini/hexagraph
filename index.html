@@ -283,7 +283,7 @@
   body.mobile #mbBar .btn.ic svg,body.mobile #mbTop .btn.ic svg{width:24px;height:24px}
   body.mobile #mbBar .btn.ic.on{color:var(--onink)}
   .mbsp{flex:1}
-  #mbTilePrev{display:block;width:34px;height:34px;border-radius:3px;overflow:hidden;background:#fff;pointer-events:none}
+  #mbTilePrev{display:block;flex:0 0 auto;width:34px;height:34px;border-radius:3px;overflow:hidden;background:#fff;pointer-events:none}
   #mbTilePrev canvas{display:block;width:100%;height:100%}
   #mbColorDot{display:block;width:26px;height:26px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.25);pointer-events:none}
   /* cassetto dal basso */
@@ -296,13 +296,12 @@
   .mbgriparea{flex:0 0 auto;padding:11px 0 13px;touch-action:none;cursor:grab}   /* presa GRANDE, tutta la larghezza: la barretta è solo il segno */
   .mbgrip{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto;pointer-events:none}
   body.mobile #mbSheet.dragging{transition:none}
-  .mbpage{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:20px;counter-reset:sec;padding-bottom:6px;min-height:120px}
+  .mbpage{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:20px;counter-reset:sec;padding-bottom:6px;min-height:120px}
   .mbpage select{max-width:100%;min-width:0}   /* le option lunghe non devono allargare la pagina */
   .mbpage .row{flex-wrap:wrap}
-  /* tutorial: quando un cassetto è aperto il fumetto sale sotto la topbar, così non copre nulla */
-  body.mobile.sheetopen #coach{bottom:auto;top:calc(66px + env(safe-area-inset-top))}
   /* tasti e controlli più grandi dentro il cassetto */
   body.mobile button.btn{padding:12px 10px;font-size:13px}
+  body.mobile .btn.ic{padding:0}   /* i bottoni-icona restano senza padding: col padding l'anteprima della forma si deformava */
   body.mobile .seg{padding:11px 8px;font-size:13px}
   body.mobile .modeseg{display:flex;width:100%}
   body.mobile .modeseg .seg{flex:1;padding:11px 8px;font-size:13px}
@@ -321,7 +320,7 @@
   body.mobile .vbtn{min-width:40px;height:38px}
   body.mobile #viewbar #zOut,body.mobile #viewbar #zIn{display:none}   /* lo zoom è il pinch; resta il tasto % = adatta */
   body.mobile #timeline .btn.ic{width:42px;height:42px}
-  body.mobile #coach{bottom:calc(84px + env(safe-area-inset-bottom));width:min(370px,94vw)}
+  body.mobile #coach{bottom:auto;top:calc(66px + env(safe-area-inset-top));width:min(370px,94vw)}   /* SEMPRE in alto: in basso copriva maniglia, zoom e barra strumenti */
   body.mobile *{-webkit-tap-highlight-color:transparent}
   /* popover ⋯ della barra strumenti: griglia di icone grandi con etichetta */
   .mbmore{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px}
@@ -922,7 +921,7 @@ const I18N={
 'tessera B del dither impostata':'dither tile B set',
 'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.':'You draw by laying <b>hexagonal tiles</b> on a honeycomb grid. One minute and you\'re ready.',
 'Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.':'Tap the <b>tile</b> button up here: the shape library opens. Tap a shape: it becomes your brush.',
-'2 · Timbra sulla griglia':'2 · Stamp on the grid',
+'2 · Disegna sulla griglia':'2 · Draw on the grid',
 'Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.':'With the <b>pencil</b> ✎ tap the grid to lay the tile, drag to paint a row. The <b>↺ ↻ ⇋</b> buttons down here rotate and mirror it.',
 '3 · Muoviti con due dita':'3 · Move with two fingers',
 '<b>Due dita</b>: trascina per spostarti, allarga o stringi per lo zoom. <b>Tocco secco con due dita = annulla</b> · con tre = ripeti. Tieni premuto su una tessera posata = la riprendi nel pennello.':'<b>Two fingers</b>: drag to move around, spread or pinch to zoom. <b>Quick two-finger tap = undo</b> · three fingers = redo. Press and hold a placed tile = pick it back into the brush.',
@@ -3397,7 +3396,7 @@ function buildCoach(){
   if(IS_MOBILE) return [   // tutorial touch: pochi passi, sui gesti e sui bottoni della UI mobile
  {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.'),sel:null},
  {t:tt('1 · Scegli una tessera'),b:tt('Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.'),sel:'#mbTile',ev:'tile'},
- {t:tt('2 · Timbra sulla griglia'),b:tt('Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.'),sel:'#mbBar',ev:'stamp'},
+ {t:tt('2 · Disegna sulla griglia'),b:tt('Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.'),sel:'#mbBar',ev:'stamp'},
  {t:tt('3 · Muoviti con due dita'),b:tt('<b>Due dita</b>: trascina per spostarti, allarga o stringi per lo zoom. <b>Tocco secco con due dita = annulla</b> · con tre = ripeti. Tieni premuto su una tessera posata = la riprendi nel pennello.'),sel:null},
  {t:tt('4 · Colora'),b:tt('Il <b>pallino colorato</b> in alto apre i colori: i prossimi timbri usano quello scelto.'),sel:'#mbColor'},
  {t:tt('C\'è di più, quando vuoi'),b:tt('Dal menu <b>☰</b> salvi, esporti e accendi l\'interfaccia <b>Completa</b> (livelli, animazione, fusioni…). Rivedi questa guida da ☰ → Info.'),sel:'#mbMenu'},
@@ -3870,6 +3869,7 @@ if(IS_TOUCH||IS_MOBILE){
           tgCancelStroke();
           const hit=cellAt(...localXY({clientX:p.x,clientY:p.y}));
           if(hit&&pickBrush(hit[0],hit[1])){ flashStatus(tt('contagocce: presa la tessera della cella')); try{navigator.vibrate&&navigator.vibrate(25)}catch(_){} }
+          else flashStatus(tt('cella vuota: niente da prelevare'));
           tg={lp:true,t0:performance.now(),maxPts:1,moved:999,base:null};   // blocca il resto del tocco
           render(); updateStatus();
         },650);
@@ -3966,12 +3966,12 @@ function enterMobile(){
   const mbSync=()=>{ $('mbTile').classList.toggle('on',mbCur==='tiles'); $('mbColor').classList.toggle('on',mbCur==='color');
     $('mbLayers').classList.toggle('on',mbCur==='layers'); $('mbMenu').classList.toggle('on',mbCur==='menu'); };
   window.mbSheetClose=()=>{ mbCur=null; $('mbShade').hidden=true; const sh=$('mbSheet'); sh.hidden=true; sh.style.transform=''; sh.classList.remove('dragging');
-    document.body.classList.remove('sheetopen'); mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
+    mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
   let mbCur=null;
   const mbOpen=p=>{ if(mbCur===p) return mbSheetClose();
     mbCur=p; for(const k in MBP) MBP[k].hidden=(k!==p);
     $('mbShade').hidden=false; const sh=$('mbSheet'); sh.hidden=false; sh.style.transform='';
-    document.body.classList.add('sheetopen'); mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };   // sheetopen: il tutorial sale in alto per non coprire
+    mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
   $('mbMenu').onclick=()=>mbOpen('menu'); $('mbTile').onclick=()=>mbOpen('tiles');
   $('mbColor').onclick=()=>mbOpen('color'); $('mbLayers').onclick=()=>mbOpen('layers');
   $('mbShade').onclick=()=>mbSheetClose();
@@ -3986,6 +3986,23 @@ function enterMobile(){
   const gup=()=>{ if(!gd) return; const dy=gd.dy; gd=null; $('mbSheet').classList.remove('dragging');
     if(dy>60) mbSheetClose(); else $('mbSheet').style.transform=''; };
   grip.addEventListener('pointerup',gup); grip.addEventListener('pointercancel',gup);
+  /* chiusura anche con uno SCROLL DECISO verso il basso sul contenuto (il tutorial può coprire la
+     maniglia): se la pagina è già in cima e tiri giù, il trascinamento prende la tendina intera;
+     touch events con preventDefault SOLO in quel caso — lo scroll normale della lista resta nativo */
+  const shEl=$('mbSheet'); let pdrag=null;
+  shEl.addEventListener('touchstart',e=>{ const pg=e.target.closest('.mbpage'); if(!pg) return;
+    pdrag={pg,y0:e.touches[0].clientY,dy:0,active:false}; },{passive:true});
+  shEl.addEventListener('touchmove',e=>{ if(!pdrag) return;
+    const dy=e.touches[0].clientY-pdrag.y0;
+    if(!pdrag.active){
+      if(pdrag.pg.scrollTop<=0 && dy>8){ pdrag.active=true; shEl.classList.add('dragging'); }
+      else if(dy<-4 || pdrag.pg.scrollTop>0){ pdrag=null; return; }   // sta scorrendo la lista: non è un gesto di chiusura
+    }
+    if(pdrag && pdrag.active){ e.preventDefault(); pdrag.dy=Math.max(0,dy); shEl.style.transform='translateY('+pdrag.dy+'px)'; }
+  },{passive:false});
+  const pdEnd=()=>{ if(!pdrag) return; const a=pdrag.active, dy=pdrag.dy; pdrag=null; shEl.classList.remove('dragging');
+    if(a){ if(dy>90) mbSheetClose(); else shEl.style.transform=''; } };
+  shEl.addEventListener('touchend',pdEnd); shEl.addEventListener('touchcancel',pdEnd);
   /* scegliere una tessera o un colore chiude il cassetto: si torna subito a disegnare */
   let lpTile=null, lpTileDone=false;
   pgT.addEventListener('click',e=>{ if(lpTileDone) return;
