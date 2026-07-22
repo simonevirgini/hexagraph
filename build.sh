@@ -5,5 +5,6 @@
 set -euo pipefail
 mkdir -p dist
 cp index.html tiles.js _headers og.png dist/
+cp manifest.webmanifest sw.js icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png dist/   # PWA (round 46d)
 # NB: packs/ NON si pubblica — i pack generati (tools/gen_tiles.py) vivono nel repo
 # ma sono staccati dall'app dal round 42 (decisione di Simone). Vedi HANDOFF §6.

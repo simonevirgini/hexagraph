@@ -14,6 +14,13 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-26 -23 52 46'%3E%3Cpolygon points='22,0 11,19 -11,19 -22,0 -11,-19 11,-19' fill='none' stroke='%23e9ebf1' stroke-width='3'/%3E%3Cpath d='M-9,0H9M0,-9V9' stroke='%23ff48b0' stroke-width='3'/%3E%3C/svg%3E">
+<!-- PWA: installabile dalla schermata Home (manifest + service worker; icone stile "registro") -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#31353d">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Hexagraph">
 <style>
   /* Sono (mono) di Tyler Finck — SIL Open Font License, sostituisce Ahamono che era commerciale.
      Inline come data URI woff2: davvero un solo file, nessuna dipendenza esterna, funziona anche col doppio click.
@@ -919,6 +926,7 @@ const I18N={
 'annullato':'undone','ripetuto':'redone',
 'contagocce: presa la tessera della cella':'eyedropper: picked the tile from the cell',
 'tessera B del dither impostata':'dither tile B set',
+'scegli la tessera B: <b>tieni premuto</b> su una tessera in libreria':'pick tile B: <b>press and hold</b> a tile in the library',
 'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.':'You draw by laying <b>hexagonal tiles</b> on a honeycomb grid. One minute and you\'re ready.',
 'Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.':'Tap the <b>tile</b> button up here: the shape library opens. Tap a shape: it becomes your brush.',
 '2 · Disegna sulla griglia':'2 · Draw on the grid',
@@ -1905,7 +1913,7 @@ board.addEventListener('pointerdown',e=>{
   if(tool==='bucket' && e.button!==2){   // secchiello: riempi la zona connessa
     cursor.c=hit[0]; cursor.r=hit[1]; bucketFill(hit[0],hit[1]); updateStatus(); return; }
   if(tool==='dither' && e.button!==2){   // dither: zona del secchiello, trascina = gradiente A→B
-    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus(tt('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria')); return; }
+    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus(IS_MOBILE?tt('scegli la tessera B: <b>tieni premuto</b> su una tessera in libreria'):tt('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria')); return; }
     if(!brush.tile) return;
     cursor.c=hit[0]; cursor.r=hit[1];
     ditherDrag={start:pt, cur:pt, region:floodRegion(hit[0],hit[1]), saved:new Map(cells)};
@@ -4029,6 +4037,11 @@ function enterMobile(){
   try{ matchMedia('(orientation: portrait)').addEventListener('change',()=>setTimeout(fitView,150)); }catch(e){}
 }
 if(IS_MOBILE) enterMobile();
+/* PWA: service worker rete-prima (mai versioni vecchie con la rete, offline = ultima vista).
+   Solo su https/localhost: aperta col doppio click (file://) l'app resta com'è. */
+if('serviceWorker' in navigator && (location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname))){
+  addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 /* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
 let didFit=false;
 new ResizeObserver(()=>{ const r=stageEl.getBoundingClientRect(); if(r.width<2||r.height<2) return;
