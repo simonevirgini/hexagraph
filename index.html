@@ -337,6 +337,18 @@
   .mbmi.wide{grid-column:1/-1;flex-direction:row;justify-content:flex-start;gap:8px;padding:4px 2px}
   .mbmi.wide>span{flex:0 0 auto}
   .mbmi.wide select{flex:1;background:var(--bg);border:0;color:var(--text);border-radius:var(--rad);font:inherit;font-size:13px;padding:9px 6px}
+  /* ---- TABLET (round 46f): stessa UI touch, ma i cassetti sono PANNELLI che scendono
+     dai bottoni della topbar (tessere/colore/livelli a destra, menu ☰ a sinistra) e la
+     tela resta protagonista — niente colonne desktop, niente sheet a tutto schermo ---- */
+  body.tablet #mbSheet{left:auto;right:10px;top:calc(64px + env(safe-area-inset-top));bottom:auto;
+    width:min(440px,56vw);max-height:min(74dvh,820px);border-radius:12px;border:1px solid var(--line);
+    box-shadow:0 18px 44px rgba(0,0,0,.5);padding:8px 14px 16px;transition:none}
+  body.tablet #mbSheet.mleft{left:10px;right:auto}
+  body.tablet .mbgriparea{display:none}   /* pannello ancorato in alto: si chiude dal bottone o toccando fuori */
+  body.tablet #mbShade{background:rgba(0,0,0,.2)}
+  body.tablet #mbBar{justify-content:center;gap:10px}
+  body.tablet #mbBar .btn.ic{flex:0 0 52px;max-width:52px}
+  body.tablet #status.warn{max-width:min(70vw,600px)}
 </style>
 </head>
 <body>
@@ -1043,6 +1055,15 @@ const IS_MOBILE=(()=>{ try{ const q=new URLSearchParams(location.search);
   if(q.has('desktop')) return false; if(q.has('mobile')) return true;
   return matchMedia('(pointer:coarse)').matches && Math.min(screen.width,screen.height)<768;
 }catch(e){ return false; } })();
+/* TABLET (round 46f): schermo touch grande (iPad & co.) = stessa interfaccia touch del telefono
+   (tela piena, tasti grandi) ma i cassetti diventano PANNELLI che scendono dai bottoni, senza
+   mangiare la tela come facevano le colonne del layout desktop. ?tablet forza (test). */
+const IS_TABLET=(()=>{ try{ const q=new URLSearchParams(location.search);
+  if(q.has('desktop')||q.has('mobile')) return false;
+  if(q.has('tablet')) return true;
+  return !IS_MOBILE && matchMedia('(pointer:coarse)').matches;
+}catch(e){ return false; } })();
+const IS_TOUCHUI=IS_MOBILE||IS_TABLET;   // layout touch (telefono o tablet)
 /* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
 const DEFAULT_INK='#111111';   // inchiostro di default (nero riso): fallback per celle/preset senza colore (§8.15: il colore è SEMPRE per-cella, mai ereditato dal livello)
@@ -1969,7 +1990,7 @@ board.addEventListener('pointerdown',e=>{
   if(tool==='bucket' && e.button!==2){   // secchiello: riempi la zona connessa
     cursor.c=hit[0]; cursor.r=hit[1]; bucketFill(hit[0],hit[1]); updateStatus(); return; }
   if(tool==='dither' && e.button!==2){   // dither: zona del secchiello, trascina = gradiente A→B
-    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus(IS_MOBILE?tt('scegli la tessera B: <b>tieni premuto</b> su una tessera in libreria'):tt('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria')); return; }
+    if(!brush.tileB || !tileById(brush.tileB)){ flashStatus(IS_TOUCHUI?tt('scegli la tessera B: <b>tieni premuto</b> su una tessera in libreria'):tt('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria')); return; }
     if(!brush.tile) return;
     cursor.c=hit[0]; cursor.r=hit[1];
     ditherDrag={start:pt, cur:pt, region:floodRegion(hit[0],hit[1]), saved:new Map(cells)};
@@ -3458,7 +3479,7 @@ function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.in
 /* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ----
    I passi dipendono da uiMode: in Base niente livelli e un passo finale che presenta "Completo". */
 function buildCoach(){
-  if(IS_MOBILE) return [   // tutorial touch: pochi passi, sui gesti e sui bottoni della UI mobile
+  if(IS_TOUCHUI) return [   // tutorial touch (telefono E tablet): pochi passi, sui gesti e sui bottoni della UI mobile
  {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.'),sel:null},
  {t:tt('1 · Scegli una tessera'),b:tt('Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.'),sel:'#mbTile',ev:'tile'},
  {t:tt('2 · Disegna sulla griglia'),b:tt('Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.'),sel:'#mbBar',ev:'stamp'},
@@ -4021,6 +4042,7 @@ if(IS_TOUCH||IS_MOBILE){
 function enterMobile(){
   viewportMeta('width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
   document.body.classList.add('mobile');
+  if(IS_TABLET) document.body.classList.add('tablet');   // stessa UI touch, ma i cassetti diventano pannelli
   try{ if(!localStorage.getItem('hexagraph.uimode')) localStorage.setItem('hexagraph.uimode',uiMode); }catch(e){}   // l'init salva palcols comunque: senza uimode fissato, l'euristica "pro" scatterebbe al 2° avvio
   /* topbar: menu · undo/redo · tessera · colore · livelli */
   const sp=document.querySelector('#mbTop .mbsp');
@@ -4062,6 +4084,7 @@ function enterMobile(){
   const mbOpen=p=>{ if(mbCur===p) return mbSheetClose();
     mbCur=p; for(const k in MBP) MBP[k].hidden=(k!==p);
     $('mbShade').hidden=false; const sh=$('mbSheet'); sh.hidden=false; sh.style.transform='';
+    sh.classList.toggle('mleft', p==='menu');   // su tablet il pannello del ☰ scende a sinistra, sotto il suo bottone
     mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
   $('mbMenu').onclick=()=>mbOpen('menu'); $('mbTile').onclick=()=>mbOpen('tiles');
   $('mbColor').onclick=()=>mbOpen('color'); $('mbLayers').onclick=()=>mbOpen('layers');
@@ -4081,7 +4104,8 @@ function enterMobile(){
      maniglia): se la pagina è già in cima e tiri giù, il trascinamento prende la tendina intera;
      touch events con preventDefault SOLO in quel caso — lo scroll normale della lista resta nativo */
   const shEl=$('mbSheet'); let pdrag=null;
-  shEl.addEventListener('touchstart',e=>{ const pg=e.target.closest('.mbpage'); if(!pg) return;
+  shEl.addEventListener('touchstart',e=>{ if(IS_TABLET) return;   // pannello ancorato in alto: niente tira-giù-per-chiudere
+    const pg=e.target.closest('.mbpage'); if(!pg) return;
     pdrag={pg,y0:e.touches[0].clientY,dy:0,active:false}; },{passive:true});
   shEl.addEventListener('touchmove',e=>{ if(!pdrag) return;
     const dy=e.touches[0].clientY-pdrag.y0;
@@ -4119,7 +4143,7 @@ function enterMobile(){
   fitView();   // il layout mobile è appena stato applicato (sincrono): adatta subito, senza aspettare il ResizeObserver
   try{ matchMedia('(orientation: portrait)').addEventListener('change',()=>setTimeout(fitView,150)); }catch(e){}
 }
-if(IS_MOBILE) enterMobile();
+if(IS_TOUCHUI) enterMobile();
 /* PWA: service worker rete-prima (mai versioni vecchie con la rete, offline = ultima vista).
    Solo su https/localhost: aperta col doppio click (file://) l'app resta com'è. */
 if('serviceWorker' in navigator && (location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname))){
