@@ -177,12 +177,6 @@
   button.btn:hover{background:var(--panel3)}
   button.btn:disabled{opacity:.35;cursor:default}
   button.btn:disabled:hover{background:var(--panel2)}
-  /* avviso mobile: l'app per ora è solo desktop */
-  #mobileGate{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:28px}
-  #mobileGate svg{width:56px;height:56px;color:var(--text)}
-  #mobileGate .mgTitle{font-size:17px;font-weight:700;max-width:26ch;line-height:1.45}
-  #mobileGate .mgSub{font-size:13px;color:var(--muted);max-width:34ch;line-height:1.5}
-  #mobileGate button{flex:0 0 auto;background:transparent;color:var(--muted);border:1px dashed var(--line);border-radius:var(--rad);padding:7px 14px;cursor:pointer;font-size:12px;font-family:inherit;margin-top:10px}
   button.btn.on{background:var(--accent);color:var(--onink)}
   button.btn.on:hover{background:var(--accent)}
   button.btn.primary{background:var(--accent);color:var(--onink)}
@@ -193,7 +187,7 @@
   .legend svg{width:15px;height:15px;vertical-align:-3px;color:var(--text)}
   kbd{display:inline-block;min-width:14px;text-align:center;background:var(--bg);border:0;border-radius:2px;padding:1px 5px;font:11px 'Sono',ui-monospace,monospace;color:var(--text)}
   details summary{cursor:pointer;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;outline:none}
-  #stage{flex:1;position:relative;overflow:hidden}
+  #stage{flex:1;position:relative;overflow:hidden;touch-action:none}
   #board{display:block;position:absolute;left:0;top:0;transform-origin:0 0;touch-action:none;cursor:crosshair}
   /* comandi vista (zoom + mano) fluttuanti in basso a destra della tavola */
   #viewbar{position:absolute;right:12px;bottom:12px;display:flex;gap:2px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px;z-index:4;box-shadow:0 4px 12px rgba(0,0,0,.28)}
@@ -271,6 +265,66 @@
   .shape:hover{background:var(--panel3);color:var(--text)}
   .shape.on{color:var(--text);box-shadow:inset 0 0 0 1.5px var(--accent)}
   .dlgnote{font-size:11px;color:var(--muted);line-height:1.6;min-height:2.2em}
+  /* ================== MOBILE (round 46): layout touch stile Procreate Pocket ==================
+     La stessa app cambia vestito su telefono (body.mobile, deciso al load in enterMobile):
+     topbar minima + barra strumenti in basso (tasti grandi) + pannelli a cassetto dal basso.
+     I controlli sono GLI STESSI NODI del desktop, spostati nei nuovi contenitori: stati e
+     logica restano unici. Tutto ciò che segue è inerte senza body.mobile. */
+  #mbTop,#mbBar,#mbSheet,#mbShade{display:none}
+  body.mobile{height:100dvh;overscroll-behavior:none}
+  body.mobile #topbar,body.mobile #leftbar,body.mobile #rightbar,body.mobile #status,body.mobile #stagePrev{display:none}
+  body.mobile #status.warn{display:flex;bottom:calc(74px + env(safe-area-inset-bottom));z-index:80;max-width:94vw}   /* gli avvisi restano, come toast sopra la barra */
+  body.mobile #mbTop{display:flex;align-items:center;gap:6px;background:var(--panel);border-bottom:1px solid var(--line);
+    padding:6px max(10px,env(safe-area-inset-right)) 6px max(10px,env(safe-area-inset-left));padding-top:calc(6px + env(safe-area-inset-top));touch-action:manipulation}
+  body.mobile #mbBar{display:flex;align-items:center;justify-content:space-around;gap:2px;background:var(--panel);border-top:1px solid var(--line);
+    padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));touch-action:manipulation}
+  body.mobile #mbTop .btn.ic{width:46px;height:44px;font-size:19px;flex:0 0 auto;color:var(--text)}
+  body.mobile #mbBar .btn.ic{flex:1 1 0;max-width:58px;height:48px;font-size:20px;color:var(--text)}
+  body.mobile #mbBar .btn.ic svg,body.mobile #mbTop .btn.ic svg{width:24px;height:24px}
+  body.mobile #mbBar .btn.ic.on{color:var(--onink)}
+  .mbsp{flex:1}
+  #mbTilePrev{display:block;width:34px;height:34px;border-radius:3px;overflow:hidden;background:#fff;pointer-events:none}
+  #mbTilePrev canvas{display:block;width:100%;height:100%}
+  #mbColorDot{display:block;width:26px;height:26px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.25);pointer-events:none}
+  /* cassetto dal basso */
+  body.mobile #mbShade{display:block;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:45}
+  body.mobile #mbShade[hidden]{display:none}
+  body.mobile #mbSheet{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--panel);
+    border-top:1px solid var(--line);border-radius:14px 14px 0 0;max-height:72dvh;box-shadow:0 -12px 34px rgba(0,0,0,.5);
+    padding:0 14px calc(14px + env(safe-area-inset-bottom));transition:transform .18s ease}
+  body.mobile #mbSheet[hidden]{display:none}
+  .mbgrip{flex:0 0 auto;width:44px;height:5px;border-radius:3px;background:var(--line);margin:8px auto 12px;touch-action:none}
+  .mbpage{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:20px;counter-reset:sec;padding-bottom:6px;min-height:120px}
+  /* tasti e controlli più grandi dentro il cassetto */
+  body.mobile button.btn{padding:12px 10px;font-size:13px}
+  body.mobile .seg{padding:11px 8px;font-size:13px}
+  body.mobile .modeseg{display:flex;width:100%}
+  body.mobile .modeseg .seg{flex:1;padding:11px 8px;font-size:13px}
+  body.mobile .sechdr{padding:9px 0}
+  body.mobile .layerRow{padding:11px 8px}
+  body.mobile .layerRow .lvis,body.mobile .layerRow .ldel{width:26px;font-size:15px}
+  body.mobile .swgrid{grid-template-columns:repeat(6,1fr);gap:7px}
+  body.mobile #mbPageColor #quickcols{display:flex;flex-wrap:wrap;gap:12px;padding:2px 0}
+  body.mobile #mbPageColor .qsw{width:28px;height:28px}
+  body.mobile .palsel button{padding:10px 4px}
+  body.mobile input[type=number]{padding:10px 8px;font-size:14px}
+  body.mobile .pz{width:30px;height:30px;font-size:15px}
+  body.mobile .tilex{opacity:.85}   /* niente hover sul touch: la × per eliminare è sempre visibile */
+  body.mobile #cellCol{width:44px;height:38px}
+  body.mobile .pop .popitem{padding:13px 12px;font-size:14px}
+  body.mobile .vbtn{min-width:40px;height:38px}
+  body.mobile #viewbar #zOut,body.mobile #viewbar #zIn{display:none}   /* lo zoom è il pinch; resta il tasto % = adatta */
+  body.mobile #timeline .btn.ic{width:42px;height:42px}
+  body.mobile #coach{bottom:calc(84px + env(safe-area-inset-bottom));width:min(370px,94vw)}
+  body.mobile *{-webkit-tap-highlight-color:transparent}
+  /* popover ⋯ della barra strumenti: griglia di icone grandi con etichetta */
+  .mbmore{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px}
+  .mbmi{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .mbmi .btn.ic{width:52px;height:44px;font-size:19px;color:var(--text)}
+  .mbmi>span{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .mbmi.wide{grid-column:1/-1;flex-direction:row;justify-content:flex-start;gap:8px;padding:4px 2px}
+  .mbmi.wide>span{flex:0 0 auto}
+  .mbmi.wide select{flex:1;background:var(--bg);border:0;color:var(--text);border-radius:var(--rad);font:inherit;font-size:13px;padding:9px 6px}
 </style>
 </head>
 <body>
@@ -329,6 +383,14 @@
     </div>
   </div>
 </header>
+<!-- topbar MOBILE (round 46): menu · undo/redo (spostati qui al load) · tessera · colore · livelli -->
+<div id="mbTop">
+  <button class="btn ic" id="mbMenu">☰</button>
+  <span class="mbsp"></span>
+  <button class="btn ic" id="mbTile"><span id="mbTilePrev"></span></button>
+  <button class="btn ic" id="mbColor"><span id="mbColorDot"></span></button>
+  <button class="btn ic" id="mbLayers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 8 12 13 3 8Z" fill="currentColor"/><path d="M3 12.5 12 17.5 21 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 16.5 12 21.5 21 16.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" opacity=".55"/></svg></button>
+</div>
 <div id="pencilPop" class="pop" hidden>
   <div class="pophdr">Modalità della matita</div>
   <button class="popitem" data-mode="free">Libera</button>
@@ -349,6 +411,11 @@
   <div class="pophdr">Doppio clic sulla tela</div>
   <button class="popitem" data-mode="cont">Contiguo <span>identiche solo attaccate</span></button>
   <button class="popitem" data-mode="all">Non contiguo <span>identiche in tutta la tela</span></button>
+</div>
+<!-- popover ⋯ della barra strumenti mobile: gli strumenti meno frequenti (popolato al load) -->
+<div id="mbMorePop" class="pop" hidden>
+  <div class="pophdr" id="mbMoreHdr">Altri strumenti</div>
+  <div class="mbmore" id="mbMoreGrid"></div>
 </div>
 
 <div id="main">
@@ -519,6 +586,8 @@
   <button class="btn" style="flex:0 0 auto" id="frVideo" title="esporta un video MP4 — scegli ripetizioni del loop e risoluzione">MP4</button>
   <button class="btn" style="flex:0 0 auto" id="frExport" title="scarica tutti i frame come sequenza PNG">PNG ×n</button>
 </div>
+<!-- barra strumenti MOBILE in basso (round 46): gli strumenti veri ci vengono spostati al load -->
+<div id="mbBar"><button class="btn ic" id="mbMore">⋯</button></div>
 <!-- dialogo NUOVO PROGETTO: tela normale o tela per pattern (forma + dimensioni) -->
 <div id="newDlg" class="dlg" hidden>
   <div class="dlgbox">
@@ -598,12 +667,14 @@
 </div>
 <div id="coachSpot" hidden></div>
 
-<!-- avviso mobile: per ora l'app è pensata per il browser da computer -->
-<div id="mobileGate" hidden>
-  <svg viewBox="-26 -23 52 46" aria-hidden="true"><polygon points="22,0 11,19 -11,19 -22,0 -11,-19 11,-19" fill="none" stroke="currentColor" stroke-width="3"/><path d="M-9,0H9M0,-9V9" stroke="var(--accent)" stroke-width="3"/></svg>
-  <div class="mgTitle">Per ora Hexagraph funziona solo su browser da computer.</div>
-  <div class="mgSub">Aprilo da un PC o un Mac per disegnare: qui servono mouse e tastiera.</div>
-  <button id="mgAnyway">prova lo stesso</button>
+<!-- cassetto MOBILE dal basso (round 46): le sezioni delle barre laterali ci vengono spostate al load -->
+<div id="mbShade" hidden></div>
+<div id="mbSheet" hidden>
+  <div class="mbgrip" id="mbGrip"></div>
+  <div class="mbpage" id="mbPageTiles" hidden></div>
+  <div class="mbpage" id="mbPageColor" hidden></div>
+  <div class="mbpage" id="mbPageLayers" hidden></div>
+  <div class="mbpage" id="mbPageMenu" hidden></div>
 </div>
 
 <script src="tiles.js?v=3"></script>
@@ -837,6 +908,22 @@ const I18N={
 'aggiunge) · doppio clic = tutte le identiche · clic in libreria = pennello (a cursore piazzato: deposita)':'adds) · double-click = all identical · click in the library = brush (cursor placed: drops)',
 ' · fusione ':' · merge mode ','simmetria':'symmetry',
 'specchiato':'mirrored','dritto':'straight','Canc':'Del',
+/* — mobile (round 46): topbar/barra strumenti/cassetto, gesti, tutorial touch — */
+'menu':'menu','tessere':'tiles','colore':'color','livelli':'layers',
+'lazo':'lasso','inverti':'invert','Altri strumenti':'More tools','Interfaccia':'Interface',
+'annullato':'undone','ripetuto':'redone',
+'contagocce: presa la tessera della cella':'eyedropper: picked the tile from the cell',
+'tessera B del dither impostata':'dither tile B set',
+'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.':'You draw by laying <b>hexagonal tiles</b> on a honeycomb grid. One minute and you\'re ready.',
+'Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.':'Tap the <b>tile</b> button up here: the shape library opens. Tap a shape: it becomes your brush.',
+'2 · Timbra sulla griglia':'2 · Stamp on the grid',
+'Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.':'With the <b>pencil</b> ✎ tap the grid to lay the tile, drag to paint a row. The <b>↺ ↻ ⇋</b> buttons down here rotate and mirror it.',
+'3 · Muoviti con due dita':'3 · Move with two fingers',
+'<b>Due dita</b>: trascina per spostarti, allarga o stringi per lo zoom. <b>Tocco secco con due dita = annulla</b> · con tre = ripeti. Tieni premuto su una tessera posata = la riprendi nel pennello.':'<b>Two fingers</b>: drag to move around, spread or pinch to zoom. <b>Quick two-finger tap = undo</b> · three fingers = redo. Press and hold a placed tile = pick it back into the brush.',
+'4 · Colora':'4 · Add color',
+'Il <b>pallino colorato</b> in alto apre i colori: i prossimi timbri usano quello scelto.':'The <b>colored dot</b> up top opens the colors: the next stamps use the one you pick.',
+'C\'è di più, quando vuoi':'There\'s more, when you want it',
+'Dal menu <b>☰</b> salvi, esporti e accendi l\'interfaccia <b>Completa</b> (livelli, animazione, fusioni…). Rivedi questa guida da ☰ → Info.':'From the <b>☰</b> menu you save, export and switch on the <b>Full</b> interface (layers, animation, boolean blends…). Replay this guide from ☰ → Info.',
 };
 /* traduzioni a BLOCCO (innerHTML intero) per le legende con markup misto <kbd>/<b> */
 const I18N_HTML={
@@ -935,6 +1022,14 @@ let uiMode=(()=>{ try{
         || Object.keys(localStorage).some(k=>k.startsWith('hexagraph.sections.'));
   return pro?'full':'base';
 }catch(e){ return 'full'; } })();
+/* MOBILE (round 46): puntatore primario "grosso" (touch) + schermo piccolo = telefono → layout touch.
+   I laptop touch hanno puntatore fine; i tablet grandi (iPad) tengono il layout desktop ma coi GESTI touch.
+   ?mobile forza il layout touch (test e tablet), ?desktop lo spegne. */
+const IS_TOUCH=matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0;
+const IS_MOBILE=(()=>{ try{ const q=new URLSearchParams(location.search);
+  if(q.has('desktop')) return false; if(q.has('mobile')) return true;
+  return matchMedia('(pointer:coarse)').matches && Math.min(screen.width,screen.height)<768;
+}catch(e){ return false; } })();
 /* Il canvas è grande quanto il VIEWPORT (non quanto la tavola): zoom e pan sono dentro la
    trasformazione di disegno → nitido a qualsiasi ingrandimento, memoria costante. */
 const DEFAULT_INK='#111111';   // inchiostro di default (nero riso): fallback per celle/preset senza colore (§8.15: il colore è SEMPRE per-cella, mai ereditato dal livello)
@@ -2067,6 +2162,13 @@ function cellPreviewNode(cell, s){
 function updateBrushPreview(){
   const big=document.getElementById('stagePrev');   // anteprima GRANDE del pennello sulla tela (composita o singola)
   if(big){ big.innerHTML=''; big.appendChild(cellPreviewNode(brushCell(),96)); }
+  if(document.body.classList.contains('mobile')){   // topbar mobile: bottone-tessera e pallino-colore seguono il pennello
+    const mt=document.getElementById('mbTilePrev');
+    if(mt){ mt.innerHTML=''; mt.appendChild(cellPreviewNode(brushCell(),40)); }
+    const mc=document.getElementById('mbColorDot'); if(mc) mc.style.background=brush.col||DEFAULT_INK;
+    const mm=document.getElementById('mbMore');     // il ⋯ si accende se uno dei suoi strumenti è attivo
+    if(mm) mm.classList.toggle('on', tool==='lasso'||tool==='dither'||!!stampMode||symMode!=='none');
+  }
 }
 /* imposta/toglie la tessera B del dither (⇧+clic in libreria; ⇧+clic sulla stessa o clic sull'anteprima = rimuovi).
    Scegliere B attiva lo strumento dither: il gesto dichiara l'intenzione. */
@@ -2538,8 +2640,14 @@ $('dither').onclick=()=>{ if(tool!=='dither') setTool('dither'); else toggleDith
 /* pannello modalità matita (libera / linea pulita) — stesso pattern del dither */
 let pencilMode=localStorage.getItem('hexagraph.pencil')==='line'?'line':'free';
 function markPencilPop(){ $('pencilPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===pencilMode)); }
+/* posiziona un .pop vicino al suo bottone: sotto se c'è spazio, sopra se il bottone è in basso
+   (la barra strumenti mobile sta sul fondo dello schermo) — clampa dentro il viewport */
+function placePop(p,btn){ const r=btn.getBoundingClientRect(); p.hidden=false;
+  const w=p.offsetWidth, h=p.offsetHeight;
+  p.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';
+  p.style.top=((r.bottom+5+h>innerHeight-8)?Math.max(8,r.top-5-h):(r.bottom+5))+'px'; }
 function togglePencilPop(){ const p=$('pencilPop');
-  if(p.hidden){ const r=$('toolDraw').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markPencilPop(); p.hidden=false; }
+  if(p.hidden){ markPencilPop(); placePop(p,$('toolDraw')); }
   else p.hidden=true; }
 $('pencilPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
   pencilMode=b.dataset.mode; localStorage.setItem('hexagraph.pencil',pencilMode); markPencilPop(); $('pencilPop').hidden=true; updateStatus(); }; });
@@ -2549,7 +2657,7 @@ document.addEventListener('click',e=>{   // clic fuori dal pannello (e non sull'
   $('pencilPop').hidden=true; });
 function markDitherPop(){ $('ditherPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.pat===ditherPat)); }
 function toggleDitherPop(){ const p=$('ditherPop');
-  if(p.hidden){ const r=$('dither').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markDitherPop(); p.hidden=false; }
+  if(p.hidden){ markDitherPop(); placePop(p,$('dither')); }
   else p.hidden=true; }
 $('ditherPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
   ditherPat=b.dataset.pat; localStorage.setItem('hexagraph.dither',ditherPat); markDitherPop(); $('ditherPop').hidden=true; }; });
@@ -2561,7 +2669,7 @@ document.addEventListener('click',e=>{   // clic fuori dal pannello (e non sull'
 let bucketMode=localStorage.getItem('hexagraph.bucketmode')==='all'?'all':'cont';
 function markBucketPop(){ $('bucketPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===bucketMode)); }
 function toggleBucketPop(){ const p=$('bucketPop');
-  if(p.hidden){ const r=$('bucket').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markBucketPop(); p.hidden=false; }
+  if(p.hidden){ markBucketPop(); placePop(p,$('bucket')); }
   else p.hidden=true; }
 $('bucketPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
   bucketMode=b.dataset.mode; localStorage.setItem('hexagraph.bucketmode',bucketMode); markBucketPop(); $('bucketPop').hidden=true; updateStatus(); }; });
@@ -2573,7 +2681,7 @@ document.addEventListener('click',e=>{
 let selMode=localStorage.getItem('hexagraph.selmode')==='cont'?'cont':'all';
 function markSelectPop(){ $('selectPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===selMode)); }
 function toggleSelectPop(){ const p=$('selectPop');
-  if(p.hidden){ const r=$('toolSelect').getBoundingClientRect(); p.style.left=r.left+'px'; p.style.top=(r.bottom+5)+'px'; markSelectPop(); p.hidden=false; }
+  if(p.hidden){ markSelectPop(); placePop(p,$('toolSelect')); }
   else p.hidden=true; }
 $('selectPop').querySelectorAll('.popitem').forEach(b=>{ b.onclick=()=>{
   selMode=b.dataset.mode; localStorage.setItem('hexagraph.selmode',selMode); markSelectPop(); $('selectPop').hidden=true; updateStatus(); }; });
@@ -2660,7 +2768,7 @@ $('gridRotR').onclick=()=>rotateBoard(90);
 $('connSW').oninput=()=>{ brush.sw=connSW=+$('connSW').value; $('swVal').textContent=connSW.toFixed(2); updateBrushPreview(); render(); };   // connSW resta come fallback per le celle senza sw (vecchi salvataggi)
 $('connSW').onchange=()=>buildPalette();   // aggiorna le anteprime della palette al rilascio
 /* zoom della libreria tessere: + = tessere più grandi (meno colonne) */
-let palCols=6; try{ palCols=Math.min(9,Math.max(3,+localStorage.getItem('hexagraph.palcols')||6)); }catch(e){}
+let palCols=6; try{ palCols=Math.min(9,Math.max(3,+localStorage.getItem('hexagraph.palcols')||(IS_MOBILE?4:6))); }catch(e){}   // su telefono il default è 4 colonne: tessere grandi da toccare
 function applyPalCols(){ const v='repeat('+palCols+',1fr)'; $('palette').style.gridTemplateColumns=v; $('palfav').style.gridTemplateColumns=v; localStorage.setItem('hexagraph.palcols',palCols); }
 $('palMinus').onclick=e=>{ e.stopPropagation(); palCols=Math.min(9,palCols+1); applyPalCols(); };
 $('palPlus').onclick=e=>{ e.stopPropagation(); palCols=Math.max(3,palCols-1); applyPalCols(); };
@@ -3280,6 +3388,14 @@ function flashStatus(msg){ const st=$('status'); st.classList.add('warn'); st.in
 /* ---- TUTORIAL / onboarding a passi (§8.11), sul modello del coach di grafino ----
    I passi dipendono da uiMode: in Base niente livelli e un passo finale che presenta "Completo". */
 function buildCoach(){
+  if(IS_MOBILE) return [   // tutorial touch: pochi passi, sui gesti e sui bottoni della UI mobile
+ {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.'),sel:null},
+ {t:tt('1 · Scegli una tessera'),b:tt('Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.'),sel:'#mbTile',ev:'tile'},
+ {t:tt('2 · Timbra sulla griglia'),b:tt('Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.'),sel:'#mbBar',ev:'stamp'},
+ {t:tt('3 · Muoviti con due dita'),b:tt('<b>Due dita</b>: trascina per spostarti, allarga o stringi per lo zoom. <b>Tocco secco con due dita = annulla</b> · con tre = ripeti. Tieni premuto su una tessera posata = la riprendi nel pennello.'),sel:null},
+ {t:tt('4 · Colora'),b:tt('Il <b>pallino colorato</b> in alto apre i colori: i prossimi timbri usano quello scelto.'),sel:'#mbColor'},
+ {t:tt('C\'è di più, quando vuoi'),b:tt('Dal menu <b>☰</b> salvi, esporti e accendi l\'interfaccia <b>Completa</b> (livelli, animazione, fusioni…). Rivedi questa guida da ☰ → Info.'),sel:'#mbMenu'},
+  ];
   const base=(uiMode==='base');
   const steps=[
  {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Poche mosse, un minuto.'),sel:null},
@@ -3324,6 +3440,9 @@ function applyUIMode(){
   if(A) A.classList.toggle('inuse',!!(anim.on||anim.frames.length));
   $('modeBase').classList.toggle('on',uiMode==='base');
   $('modeFull').classList.toggle('on',uiMode==='full');
+  /* mobile: il tasto Livelli in alto segue la stessa regola delle sezioni (in Base solo se in uso) */
+  const mbl=$('mbLayers');
+  if(mbl) mbl.hidden = uiMode==='base' && layers.length<=1 && !(anim.on||anim.frames.length);
   if(coachI<0) COACH=buildCoach();   // il tutorial segue il modo (se non è in corso)
 }
 function setUIMode(m){
@@ -3665,26 +3784,200 @@ translateDOM(); markLang();
 $('langIt').onclick=()=>setLang('it');
 $('langEn').onclick=()=>setLang('en');
 buildPalette(); buildQuickTiles(); buildPalsel(); buildQuickCols(); buildSlots(); buildLayers(); applyUIMode(); refreshUndo(); syncBrushUI(); updateStatus(); render(); applyView(); fitView();
-/* avviso mobile: puntatore primario "grosso" (touch) + schermo piccolo = telefono.
-   I laptop touch hanno puntatore primario fine, i tablet grandi passano per la dimensione.
-   L'index non ha meta viewport (l'app è desktop): lo si inietta SOLO per centrare il gate
-   sullo schermo del telefono; con "prova lo stesso" si torna al layout largo zoomabile. */
+/* ==================== MOBILE (round 46): layout touch + gesti ====================
+   Stessa app, vestito touch: su telefono (IS_MOBILE) la UI passa a topbar minima + barra
+   strumenti in basso + pannelli a cassetto; su QUALSIASI schermo touch (anche iPad col
+   layout desktop) si accendono i gesti: 2 dita = sposta/zoom · tocco secco a 2 dita =
+   annulla, a 3 = ripeti · pressione lunga sulla tela = contagocce. */
 function viewportMeta(content){ let mv=document.querySelector('meta[name="viewport"]');
   if(!mv){ mv=document.createElement('meta'); mv.name='viewport'; document.head.appendChild(mv); }
   mv.content=content; }
-if(matchMedia('(pointer:coarse)').matches && Math.min(screen.width,screen.height)<768){
-  viewportMeta('width=device-width, initial-scale=1');
-  const g=$('mobileGate');
-  // il layout viewport può restare più largo dello schermo (l'app non è responsive):
-  // il gate si dimensiona sul VISUAL viewport, così il contenuto è centrato sullo schermo vero
-  const fit=()=>{ if(g.hidden||!window.visualViewport) return;
-    g.style.width=visualViewport.width+'px'; g.style.height=visualViewport.height+'px'; };
-  if(window.visualViewport) visualViewport.addEventListener('resize',fit);
-  g.hidden=false; fit();
-  document.documentElement.style.overflow='hidden';   // niente scroll sotto l'avviso
+
+/* ---- gesti touch (solo pointerType 'touch': mouse, trackpad e penna restano com'erano;
+   una penna disegna mentre due dita navigano, stile Procreate) ---- */
+if(IS_TOUCH||IS_MOBILE){
+  const tpts=new Map();   // pointerId → {x,y,x0,y0}
+  let tg=null;            // gesto in corso {t0,maxPts,moved,cx,cy,d,sx,sy,lp}
+  let tgUndoBase=0, tgSelBase=null, lpT=null;
+  /* annulla in silenzio ciò che il 1° dito aveva iniziato (senza sporcare il redo):
+     il tocco del 2° dito dichiara "volevo navigare, non disegnare" */
+  function tgCancelStroke(){
+    clearTimeout(lpT); lpT=null;
+    if(painting){ painting=false; lastPaintPt=null; ppChain=null; lastKey=null; }
+    if(selecting){ selecting=false; selection=tgSelBase?new Set(tgSelBase):null; baseSel=null; selAnchorKey=null; }
+    if(dragMove) dragMove=null;
+    if(bgDrag){ bgT.x=bgDrag.x0; bgT.y=bgDrag.y0; bgDrag=null; }
+    if(ditherDrag) ditherCancel();
+    if(lassoDrag){ lassoDrag=false;
+      if(lassoDragAdded){ lassoPts.length=0; lassoBase=null; }      // mano libera a metà: annulla il tratto
+      else if(lassoPts.length) lassoPts.pop();                      // tap poligonale: togli solo il punto appena messo
+      lassoDragAdded=0; }
+    if(undoStack.length>tgUndoBase){                                // matita/secchiello avevano già scritto: torna a prima del tocco
+      const st=undoStack[tgUndoBase]; undoStack.length=tgUndoBase; restoreState(st); refreshUndo(); }
+    render();
+  }
+  function tgNav(){   // pan+zoom ASSOLUTI rispetto alla baseline del gesto (niente deriva: le due dita
+    const ps=[...tpts.values()];                       // mandano i move alternati, l'incrementale accumulerebbe errore)
+    if(!ps.length) return;
+    const r=stageEl.getBoundingClientRect();
+    const cx=(ps.length>=2?(ps[0].x+ps[1].x)/2:ps[0].x)-r.left;
+    const cy=(ps.length>=2?(ps[0].y+ps[1].y)/2:ps[0].y)-r.top;
+    const d=ps.length>=2?Math.max(24,Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y)):null;
+    if(!tg.base || tg.base.n!==ps.length){             // nuova baseline: a inizio gesto e quando cambia il numero di dita
+      tg.base={n:ps.length,cx0:cx,cy0:cy,d0:d,zoom0:view.zoom,
+               ux:(cx-view.x)/view.zoom,uy:(cy-view.y)/view.zoom};   // punto di contenuto sotto il centroide: resta incollato alle dita
+      return;
+    }
+    const b=tg.base;
+    const nz=b.d0?Math.min(8,Math.max(0.12,b.zoom0*(d/b.d0))):view.zoom;
+    view.zoom=nz; view.x=cx-b.ux*nz; view.y=cy-b.uy*nz;
+    applyView();
+  }
+  /* capture phase: gli eventi si vedono PRIMA della tela, così il 2°/3° dito non disegna mai */
+  stageEl.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='touch') return;
+    const first=tpts.size===0;
+    tpts.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
+    if(first && !tg){
+      tgUndoBase=undoStack.length;
+      tgSelBase=selection?new Set(selection):null;
+      if(tool==='draw'||tool==='erase'||tool==='bucket'){   // pressione lunga (ferma) = contagocce
+        const pid=e.pointerId;
+        clearTimeout(lpT);
+        lpT=setTimeout(()=>{ lpT=null;
+          if(tg||tpts.size!==1||!tpts.has(pid)) return;
+          const p=tpts.get(pid); if(Math.hypot(p.x-p.x0,p.y-p.y0)>9) return;
+          tgCancelStroke();
+          const hit=cellAt(...localXY({clientX:p.x,clientY:p.y}));
+          if(hit&&pickBrush(hit[0],hit[1])){ flashStatus(tt('contagocce: presa la tessera della cella')); try{navigator.vibrate&&navigator.vibrate(25)}catch(_){} }
+          tg={lp:true,t0:performance.now(),maxPts:1,moved:999,base:null};   // blocca il resto del tocco
+          render(); updateStatus();
+        },550);
+      }
+      return;   // il 1° dito passa alla tela: disegna/seleziona come un clic
+    }
+    e.stopPropagation(); e.preventDefault();   // dal 2° dito in poi si naviga: la tela non li vede
+    clearTimeout(lpT); lpT=null;
+    if(tg && tg.lp){ tg.lp=false; tg.moved=999; }        // dopo il contagocce si può continuare a navigare
+    if(!tg){
+      const ps=[...tpts.values()];
+      const m1=Math.hypot(ps[0].x-ps[0].x0,ps[0].y-ps[0].y0);
+      tgCancelStroke();
+      tg={t0:performance.now(),maxPts:tpts.size,moved:m1>12?999:0,base:null};
+    }
+    tg.maxPts=Math.max(tg.maxPts,tpts.size);
+    tg.base=null; if(!tg.lp) tgNav();   // baseline fissata SUBITO, con le posizioni sincrone del down (al 1° move sarebbero già sfasate)
+  },{capture:true});
+  stageEl.addEventListener('pointermove',e=>{
+    if(e.pointerType!=='touch'||!tpts.has(e.pointerId)) return;
+    const p=tpts.get(e.pointerId); p.x=e.clientX; p.y=e.clientY;
+    if(tg){ e.stopPropagation(); e.preventDefault();
+      tg.moved=Math.max(tg.moved,Math.hypot(p.x-p.x0,p.y-p.y0));
+      if(!tg.lp) tgNav();
+      return; }
+    if(lpT && Math.hypot(p.x-p.x0,p.y-p.y0)>9){ clearTimeout(lpT); lpT=null; }   // il dito si muove: niente contagocce
+  },{capture:true});
+  const tgEnd=e=>{
+    if(e.pointerType!=='touch'||!tpts.has(e.pointerId)) return;
+    tpts.delete(e.pointerId);
+    if(lpT){ clearTimeout(lpT); lpT=null; }
+    if(!tg) return;                                       // nessun gesto: il rilascio arriva alla tela come sempre
+    e.stopPropagation();
+    tg.base=null; if(tpts.size && !tg.lp) tgNav();        // il gesto continua con le dita rimaste: ribasa subito
+    if(tpts.size===0){                                    // ultime dita su: tocco secco = annulla/ripeti
+      const dt=performance.now()-tg.t0;
+      if(!tg.lp && dt<320 && tg.moved<12){
+        if(tg.maxPts===2){ doUndo(); flashStatus(tt('annullato')); }
+        else if(tg.maxPts>=3){ doRedo(); flashStatus(tt('ripetuto')); }
+      }
+      tg=null; updateCursor();
+    }
+  };
+  stageEl.addEventListener('pointerup',tgEnd,{capture:true});
+  stageEl.addEventListener('pointercancel',tgEnd,{capture:true});
 }
-$('mgAnyway').onclick=()=>{ const g=$('mobileGate'); g.hidden=true; g.style.width=g.style.height='';
-  document.documentElement.style.overflow=''; viewportMeta('width=1200'); fitView(); };
+
+/* ---- layout mobile: sposta i controlli veri nei contenitori touch ---- */
+function enterMobile(){
+  viewportMeta('width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  document.body.classList.add('mobile');
+  try{ if(!localStorage.getItem('hexagraph.uimode')) localStorage.setItem('hexagraph.uimode',uiMode); }catch(e){}   // l'init salva palcols comunque: senza uimode fissato, l'euristica "pro" scatterebbe al 2° avvio
+  /* topbar: menu · undo/redo · tessera · colore · livelli */
+  const sp=document.querySelector('#mbTop .mbsp');
+  $('mbTop').insertBefore($('undo'),sp); $('mbTop').insertBefore($('redo'),sp);
+  /* barra strumenti in basso: essenziali + trasformazioni del pennello + ⋯ */
+  const more=$('mbMore');
+  for(const id of ['toolSelect','toolDraw','toolErase','bucket','rotL','rotR','flip']) $('mbBar').insertBefore($(id),more);
+  /* popover ⋯: strumenti meno frequenti (gli avanzati spariscono in Base come sul desktop) */
+  const grid=$('mbMoreGrid');
+  for(const [id,lab,adv] of [['toolLasso','lazo',0],['inv','inverti',0],['dither','dither',1],['merge','unisci',1],['sub','sottrai',1],['iso','interseca',1],['xor','escludi',1]]){
+    const w=document.createElement('div'); w.className='mbmi'+(adv?' advtb':'');
+    w.appendChild($(id)); const s=document.createElement('span'); s.textContent=tt(lab); w.appendChild(s); grid.appendChild(w);
+  }
+  const ws=document.createElement('div'); ws.className='mbmi wide advtb';
+  const wl=document.createElement('span'); wl.textContent=tt('simmetria'); ws.appendChild(wl);
+  ws.appendChild($('symSel')); ws.appendChild($('symAxes')); grid.appendChild(ws);
+  $('mbMoreHdr').textContent=tt('Altri strumenti');
+  $('mbMore').onclick=()=>{ const p=$('mbMorePop'); if(p.hidden) placePop(p,$('mbMore')); else p.hidden=true; };
+  document.addEventListener('click',e=>{ const p=$('mbMorePop'); if(p.hidden) return;
+    if(p.contains(e.target)||$('mbMore').contains(e.target)) return; p.hidden=true; });
+  grid.addEventListener('click',e=>{ if(e.target.closest('button')) setTimeout(()=>{ $('mbMorePop').hidden=true; },60); });
+  /* cassetto: le sezioni delle barre laterali, pagina per pagina */
+  const pgT=$('mbPageTiles'), pgC=$('mbPageColor'), pgL=$('mbPageLayers'), pgM=$('mbPageMenu');
+  const sec=s=>document.querySelector('[data-sec="'+s+'"]');
+  for(const s of ['tiles','conn','forge','svgtiles']){ const n=sec(s); if(n) pgT.appendChild(n); }
+  pgC.appendChild($('quickcols')); pgC.appendChild(sec('color'));
+  for(const s of ['layers','anim']){ const n=sec(s); if(n) pgL.appendChild(n); }
+  const mw=document.createElement('div'); mw.className='group';
+  const ml=document.createElement('div'); ml.className='glabel'; ml.textContent=tt('Interfaccia');
+  mw.appendChild(ml); mw.appendChild($('modeSeg')); pgM.appendChild(mw);
+  for(const s of ['saveexp','canvas','bgimg','info']){ const n=sec(s); if(n) pgM.appendChild(n); }
+  /* apertura/chiusura del cassetto */
+  const MBP={tiles:pgT,color:pgC,layers:pgL,menu:pgM};
+  const mbSync=()=>{ $('mbTile').classList.toggle('on',mbCur==='tiles'); $('mbColor').classList.toggle('on',mbCur==='color');
+    $('mbLayers').classList.toggle('on',mbCur==='layers'); $('mbMenu').classList.toggle('on',mbCur==='menu'); };
+  window.mbSheetClose=()=>{ mbCur=null; $('mbShade').hidden=true; const sh=$('mbSheet'); sh.hidden=true; sh.style.transform=''; mbSync(); };
+  let mbCur=null;
+  const mbOpen=p=>{ if(mbCur===p) return mbSheetClose();
+    mbCur=p; for(const k in MBP) MBP[k].hidden=(k!==p);
+    $('mbShade').hidden=false; const sh=$('mbSheet'); sh.hidden=false; sh.style.transform=''; mbSync(); };
+  $('mbMenu').onclick=()=>mbOpen('menu'); $('mbTile').onclick=()=>mbOpen('tiles');
+  $('mbColor').onclick=()=>mbOpen('color'); $('mbLayers').onclick=()=>mbOpen('layers');
+  $('mbShade').onclick=()=>mbSheetClose();
+  $('mbMenu').title=tt('menu'); $('mbTile').title=tt('tessere'); $('mbColor').title=tt('colore');
+  $('mbLayers').title=tt('livelli'); $('mbMore').title=tt('Altri strumenti');
+  /* la maniglia si trascina in giù per chiudere */
+  let gd=null; const grip=$('mbGrip');
+  grip.addEventListener('pointerdown',e=>{ gd={y0:e.clientY,dy:0}; grip.setPointerCapture(e.pointerId); e.preventDefault(); });
+  grip.addEventListener('pointermove',e=>{ if(!gd) return; gd.dy=Math.max(0,e.clientY-gd.y0); $('mbSheet').style.transform='translateY('+gd.dy+'px)'; });
+  const gup=()=>{ if(!gd) return; const dy=gd.dy; gd=null; if(dy>70) mbSheetClose(); else $('mbSheet').style.transform=''; };
+  grip.addEventListener('pointerup',gup); grip.addEventListener('pointercancel',gup);
+  /* scegliere una tessera o un colore chiude il cassetto: si torna subito a disegnare */
+  let lpTile=null, lpTileDone=false;
+  pgT.addEventListener('click',e=>{ if(lpTileDone) return;
+    const t=e.target.closest('.tile'); if(t && !e.target.closest('.tilex')) setTimeout(mbSheetClose,60); });
+  pgC.addEventListener('click',e=>{ if(e.target.closest('.sw')||e.target.closest('.qsw')) setTimeout(mbSheetClose,60); });
+  /* pressione lunga su una tessera in libreria = tessera B del dither (al posto di ⇧+clic; solo in Completo) */
+  pgT.addEventListener('pointerdown',e=>{ if(e.pointerType!=='touch'||uiMode==='base') return;
+    const t=e.target.closest('.tile'); if(!t||!t.dataset.id) return;
+    const x0=e.clientX,y0=e.clientY;
+    const cancel=()=>{ clearTimeout(lpTile); lpTile=null;
+      pgT.removeEventListener('pointermove',mv); pgT.removeEventListener('pointerup',up); pgT.removeEventListener('pointercancel',up); };
+    const mv=ev=>{ if(Math.hypot(ev.clientX-x0,ev.clientY-y0)>9) cancel(); };
+    const up=()=>{ cancel(); setTimeout(()=>{ lpTileDone=false; },120); };
+    lpTile=setTimeout(()=>{ lpTileDone=true; setTileB(t.dataset.id);
+      flashStatus(tt('tessera B del dither impostata')); try{navigator.vibrate&&navigator.vibrate(25)}catch(_){} },500);
+    pgT.addEventListener('pointermove',mv); pgT.addEventListener('pointerup',up); pgT.addEventListener('pointercancel',up);
+  });
+  pgT.addEventListener('click',e=>{ if(lpTileDone){ e.stopPropagation(); e.preventDefault(); } },true);
+  pgT.addEventListener('contextmenu',e=>e.preventDefault());   // il long-press non deve aprire il menu di sistema
+  /* si parte disegnando, come Procreate; la vista si adatta al layout appena applicato
+     (senza aspettare il ResizeObserver) e si ri-adatta quando il telefono ruota */
+  setTool('draw'); applyUIMode(); updateStatus();
+  fitView();   // il layout mobile è appena stato applicato (sincrono): adatta subito, senza aspettare il ResizeObserver
+  try{ matchMedia('(orientation: portrait)').addEventListener('change',()=>setTimeout(fitView,150)); }catch(e){}
+}
+if(IS_MOBILE) enterMobile();
 /* lo stage può avere dimensione 0 al primo load: adatta la vista appena ha una dimensione reale */
 let didFit=false;
 new ResizeObserver(()=>{ const r=stageEl.getBoundingClientRect(); if(r.width<2||r.height<2) return;
