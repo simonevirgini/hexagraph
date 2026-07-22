@@ -1227,15 +1227,52 @@ function setupOff(){
   lctx.setTransform(1,0,0,1,0,0); lctx.clearRect(0,0,lc.width,lc.height);
   lctx.setTransform(ctx.getTransform());
 }
+/* ---- CACHE DI RENDERING (round 46e) ----
+   Su griglie grandi con più livelli, ridisegnare OGNI cella di OGNI livello (più carta e
+   griglia) a ogni frame strozzava i telefoni. Qui: i livelli su cui NON si sta disegnando
+   e lo sfondo (carta+griglia+immagine) vengono tenuti come bitmap alla vista corrente e
+   solo INCOLLATI, finché vista e contenuti non cambiano; il livello attivo resta live.
+   Zero differenze visive: blend e opacità si applicano comunque al momento del composite.
+   Invalidazione: bumpCaches() da snapshot() (ogni modifica passa di lì), restoreState()
+   (undo/redo/caricamenti) e buildLayers() (operazioni sui livelli); la chiave include la
+   vista, quindi pan/zoom/resize invalidano da soli. */
+let cacheGen=0;
+function bumpCaches(){ cacheGen++; }
+function cachesOn(){ return board.width*board.height<=6e6 && layers.length<=10; }   // canvas enormi: meglio niente bitmap extra in RAM
+const layerCacheMap=new WeakMap();   // livello → {cv, key} (si svuota da sola coi livelli morti)
+let bgRefSeen=null, bgRefId=0;
+function bgSig(){ if(bgImage!==bgRefSeen){ bgRefSeen=bgImage; bgRefId++; }
+  return bgImage ? 'bg'+bgRefId+','+bgOpacity+','+bgT.x+','+bgT.y+','+bgT.s+','+bgT.rot : 'nobg'; }
+function viewKey(){ return board.width+','+board.height+','+view.zoom+','+view.x+','+view.y+','+boardRot+','+cols+','+rows+','+colPhase; }
+function setupLayerCv(cv){
+  if(cv.width!==board.width||cv.height!==board.height){ cv.width=board.width; cv.height=board.height; }
+  const g=cv.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,cv.width,cv.height);
+  g.setTransform(ctx.getTransform()); return g;
+}
+function paintLayerCells(g,L){
+  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
+    const [cx,cy]=cellCenter(c,r); g.save(); g.translate(cx,cy); drawCellFigures(g,cell,cell.col||DEFAULT_INK); g.restore(); }
+}
 /* compone i livelli visibili sul canvas principale, con blend e opacità.
-   Ls/alpha servono all'onion skin (livelli di un altro frame, smorzati). */
-function compositeLayers(Ls,alpha){
+   Ls/alpha servono all'onion skin (livelli di un altro frame, smorzati); quelle chiamate
+   e l'export (noCache) NON toccano le cache. */
+function compositeLayers(Ls,alpha,noCache){
+  const std=!Ls && alpha==null && !noCache && cachesOn();   // solo la chiamata standard di render() usa le cache
   Ls=Ls||layers; alpha=alpha==null?1:alpha;
-  for(const L of Ls){ if(!L.visible || L.cells.size===0) continue;
-    setupOff();
-    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
-      const [cx,cy]=cellCenter(c,r); lctx.save(); lctx.translate(cx,cy); drawCellFigures(lctx,cell,cell.col||DEFAULT_INK); lctx.restore(); }
-    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(lc,0,0); ctx.restore();
+  const vk=std ? viewKey()+'|g'+cacheGen : null;
+  for(let li=0; li<Ls.length; li++){ const L=Ls[li];
+    if(!L.visible || L.cells.size===0) continue;
+    const canCache=std && li!==active && !(activeSet && activeSet.has(li));   // i livelli in lavorazione restano live
+    if(canCache){
+      let rec=layerCacheMap.get(L);
+      if(!rec){ rec={cv:document.createElement('canvas'), key:''}; layerCacheMap.set(L,rec); }
+      if(rec.key!==vk){ const g=setupLayerCv(rec.cv); paintLayerCells(g,L); rec.key=vk; }
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(rec.cv,0,0); ctx.restore();
+    } else {
+      setupOff();
+      paintLayerCells(lctx,L);
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(lc,0,0); ctx.restore();
+    }
   }
 }
 function drawBgImage(W,H,g){ if(!bgImage)return; g=g||ctx; g.save(); g.globalAlpha=bgOpacity;
@@ -1276,7 +1313,7 @@ function setupExportBoard(){
 function drawExport(){
   const [W,H]=setupExportBoard();
   drawBgImage(W,H);
-  compositeLayers();
+  compositeLayers(null,null,true);   // canvas a misura tavola: niente cache (chiavi e memoria del viewport)
 }
 function inSel(c,r){ return !!(selection && selection.has(key(c,r))); }
 
@@ -1306,11 +1343,31 @@ function boardScreenOffset(p, W, H){
   const dx=p[0]-W/2, dy=p[1]-H/2;
   return [view.zoom*(dx*cos-dy*sin+cw/2), view.zoom*(dx*sin+dy*cos+ch/2)];
 }
-/* path-unione degli esagoni della griglia (per clip carta/immagine) — in modalità pattern solo il dominio */
-function gridClipPath(){ const p=new Path2D();
-  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r);
-    p.addPath(HEX_UNIT_PATH, new DOMMatrix().translateSelf(cx,cy).scaleSelf(R)); }
-  return p; }
+/* path-unione degli esagoni della griglia (per clip carta/immagine) — in modalità pattern solo il dominio.
+   Memoizzato (round 46e): 900 addPath a ogni frame pesavano; cambia solo con griglia/fase/pattern. */
+let gcpKey='', gcpPath=null;
+function gridClipPath(){
+  const k=cols+','+rows+','+colPhase+'|'+(pattern?JSON.stringify(pattern):'');
+  if(gcpKey!==k || !gcpPath){ const p=new Path2D();
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r);
+      p.addPath(HEX_UNIT_PATH, new DOMMatrix().translateSelf(cx,cy).scaleSelf(R)); }
+    gcpPath=p; gcpKey=k; }
+  return gcpPath; }
+/* carta + immagine di sfondo + linee griglia, con cache bitmap alla vista corrente (round 46e) */
+const bgCv=document.createElement('canvas'); let bgCvKey='';
+function drawPaperGrid(W,H,paper){
+  const gridOn=showGrid && !previewing;
+  const paint=g=>{
+    g.save(); g.clip(gridClipPath()); g.fillStyle=paper; g.fillRect(0,0,W,H); drawBgImage(W,H,g); g.restore();
+    if(gridOn){ g.save(); g.strokeStyle=pageDark?'rgba(255,255,255,.16)':'rgba(0,0,0,.16)';
+      for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r);
+        g.save(); g.translate(cx,cy); g.scale(R,R); g.lineWidth=1/R; g.stroke(HEX_UNIT_PATH); g.restore(); } g.restore(); }
+  };
+  if(!cachesOn() || pattern){ paint(ctx); return; }   // in pattern la scena cambia con le copie: percorso classico
+  const k=viewKey()+'|'+paper+'|'+gridOn+'|'+bgSig();
+  if(bgCvKey!==k){ const g=setupLayerCv(bgCv); paint(g); bgCvKey=k; }
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(bgCv,0,0); ctx.restore();
+}
 function render(hoverC,hoverR){
   const paper=pageDark?'#000':'#fff';
   const uibg=(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#2b2e35').trim();
@@ -1331,11 +1388,8 @@ function render(hoverC,hoverR){
       ctx.drawImage(puC, ox, oy, W, H);
     }
   }
-  // carta + immagine SOLO dentro gli esagoni (clip alla honeycomb / al dominio del pattern)
-  ctx.save(); ctx.clip(gridClipPath()); ctx.fillStyle=paper; ctx.fillRect(0,0,W,H); drawBgImage(W,H); ctx.restore();
-  // linee griglia (sotto i livelli)
-  if(showGrid && !previewing){ ctx.save(); ctx.strokeStyle=pageDark?'rgba(255,255,255,.16)':'rgba(0,0,0,.16)';
-    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const [cx,cy]=cellCenter(c,r); ctx.save(); ctx.translate(cx,cy); ctx.scale(R,R); ctx.lineWidth=1/R; ctx.stroke(HEX_UNIT_PATH); ctx.restore(); } ctx.restore(); }
+  // carta + immagine SOLO dentro gli esagoni + linee griglia (bitmap-cache fuori dal pattern, round 46e)
+  drawPaperGrid(W,H,paper);
   // onion skin: frame precedente e successivo come silhouette colorate, sotto quello corrente
   if(anim.on && anim.onion && !previewing){
     if(anim.prevLayers) drawOnion(anim.prevLayers, anim.pastCol, 0.3);
@@ -1467,6 +1521,7 @@ function docState(){
   return JSON.stringify(o);
 }
 function restoreState(s){ const o=JSON.parse(s);
+  bumpCaches();   // undo/redo/caricamenti: le bitmap dei livelli non valgono più
   const resized=(o.cols!==cols||o.rows!==rows);   // undo/redo di un RESIZE: ripristina anche il pan, così la figura non salta
   cols=o.cols; rows=o.rows; boardRot=o.boardRot; colPhase=o.colPhase||0;
   if(resized && o.view){ view.x=o.view.x; view.y=o.view.y; }
@@ -1494,7 +1549,8 @@ function restoreState(s){ const o=JSON.parse(s);
   document.documentElement.style.setProperty('--boardRot',boardRot+'deg');
   buildLayers();
 }
-function snapshot(){ const s=docState(); if(undoStack.length && undoStack[undoStack.length-1]===s) return;   // niente doppioni no-op
+function snapshot(){ bumpCaches();   // ogni modifica passa di qui PRIMA di toccare le celle: le bitmap si rifanno al prossimo frame
+  const s=docState(); if(undoStack.length && undoStack[undoStack.length-1]===s) return;   // niente doppioni no-op
   const cap=anim.frames.length?30:80;   // con l'animazione ogni snapshot pesa (tutti i frame): stack più corto
   undoStack.push(s); while(undoStack.length>cap)undoStack.shift(); redoStack.length=0; refreshUndo(); }
 function brushCell(){ if(brush.cell) return JSON.parse(JSON.stringify(brush.cell));   // pennello composito: l'intera combinazione
@@ -2788,6 +2844,7 @@ $('palPlus').onclick=e=>{ e.stopPropagation(); palCols=Math.max(3,palCols-1); ap
 /* ---- LIVELLI ---- */
 let dragI=null;
 function buildLayers(){
+  bumpCaches();   // ogni operazione sulla struttura dei livelli passa di qui
   const el=$('layers'); el.innerHTML='';
   layers.map((L,i)=>({L,i})).reverse().forEach(({L,i})=>{   // alto dello stack in cima alla lista
     const row=document.createElement('div'); row.className='layerRow'+(i===active?' active':(activeSet.has(i)?' multisel':'')); row.dataset.i=i;
@@ -3840,6 +3897,29 @@ if(IS_TOUCH||IS_MOBILE){
       const st=undoStack[tgUndoBase]; undoStack.length=tgUndoBase; restoreState(st); refreshUndo(); }
     render();
   }
+  /* FAST-PATH del gesto (round 46e): al primo movimento si fotografa il canvas così com'è e
+     durante il pan/pinch si trasforma SOLO quella bitmap (un drawImage a frame invece di
+     migliaia di path). Pan puro = nitido identico; nel pinch la scala può sfocare un pelo,
+     ma è in movimento: al rilascio delle dita arriva il render pieno nitido. */
+  let navC=null;
+  function tgNavCapture(){
+    if(!cachesOn()){ tg.nav={slow:true}; return; }      // canvas enormi: si resta sul render classico
+    if(!navC) navC=document.createElement('canvas');
+    if(navC.width!==board.width||navC.height!==board.height){ navC.width=board.width; navC.height=board.height; }
+    const g=navC.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,navC.width,navC.height); g.drawImage(board,0,0);
+    tg.nav={z:view.zoom,x:view.x,y:view.y,
+      bg:(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#2b2e35').trim()};
+  }
+  function tgNavPaint(){
+    updateZoomLabel();
+    if(!tg||!tg.nav||tg.nav.slow){ scheduleRender(); return; }
+    const dpr=window.devicePixelRatio||1, k=view.zoom/tg.nav.z;
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,board.width,board.height);
+    ctx.fillStyle=tg.nav.bg; ctx.fillRect(0,0,board.width,board.height);   // le zone che il pan scopre
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.translate(view.x-tg.nav.x*k, view.y-tg.nav.y*k); ctx.scale(k,k);
+    ctx.drawImage(navC,0,0,navC.width/dpr,navC.height/dpr);
+  }
   function tgNav(){   // pan+zoom ASSOLUTI rispetto alla baseline del gesto (niente deriva: le due dita
     const ps=[...tpts.values()];                       // mandano i move alternati, l'incrementale accumulerebbe errore)
     if(!ps.length) return;
@@ -3848,6 +3928,7 @@ if(IS_TOUCH||IS_MOBILE){
     const cy=(ps.length>=2?(ps[0].y+ps[1].y)/2:ps[0].y)-r.top;
     const d=ps.length>=2?Math.max(24,Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y)):null;
     if(!tg.base || tg.base.n!==ps.length){             // nuova baseline: a inizio gesto e quando cambia il numero di dita
+      if(!tg.nav) tgNavCapture();                      // la fotografia va fatta UNA volta, prima che la vista si muova
       tg.base={n:ps.length,cx0:cx,cy0:cy,d0:d,zoom0:view.zoom,
                ux:(cx-view.x)/view.zoom,uy:(cy-view.y)/view.zoom};   // punto di contenuto sotto il centroide: resta incollato alle dita
       return;
@@ -3855,7 +3936,7 @@ if(IS_TOUCH||IS_MOBILE){
     const b=tg.base;
     const nz=b.d0?Math.min(8,Math.max(0.12,b.zoom0*(d/b.d0))):view.zoom;
     view.zoom=nz; view.x=cx-b.ux*nz; view.y=cy-b.uy*nz;
-    applyView();
+    tgNavPaint();
   }
   /* capture phase: gli eventi si vedono PRIMA della tela, così il 2°/3° dito non disegna mai */
   stageEl.addEventListener('pointerdown',e=>{
@@ -3923,11 +4004,13 @@ if(IS_TOUCH||IS_MOBILE){
     tg.base=null; if(tpts.size && !tg.lp) tgNav();        // il gesto continua con le dita rimaste: ribasa subito
     if(tpts.size===0){                                    // ultime dita su: tocco secco = annulla/ripeti
       const dt=performance.now()-tg.t0;
+      const hadNav=!!(tg.nav && !tg.nav.slow);
       if(!tg.lp && dt<450 && tg.moved<16){
         if(tg.maxPts===2){ doUndo(); flashStatus(tt('annullato')); }
         else if(tg.maxPts>=3){ doRedo(); flashStatus(tt('ripetuto')); }
       }
       tg=null; updateCursor();
+      if(hadNav) render();                               // fine gesto: torna il disegno pieno, nitido
     }
   };
   stageEl.addEventListener('pointerup',tgEnd,{capture:true});
