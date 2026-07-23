@@ -3763,6 +3763,72 @@ function stampsSVGList(stampList,color){
     fig+=`<g transform="rotate(${st.rot*60}) scale(${sx},${R})"><g clip-path="url(#hx)">${tileFigSVG(tile,color,st.sw??connSW,'e'+(svgUid++))}</g></g>`; }
   return fig;
 }
+/* ---- EXPORT SVG "pulito per Illustrator" (round 46k, richiesta di Simone: file pieni di
+   gruppi/clip da separare e Pathfinder che lasciava filetti sui bordi) ----
+   Le celle SEMPLICI (niente inverso/scavi/intersezioni) diventano PATH NUDI in coordinate
+   ASSOLUTE, quantizzate al centesimo con la STESSA funzione per tutti: i vertici condivisi
+   di esagoni adiacenti escono con la stringa IDENTICA → l'unione col Pathfinder è perfetta.
+   Le tessere base e le forgiate sono polilinee per costruzione (M/L/Z): si possono "cuocere";
+   curve/archi importati o celle con maschere restano sul percorso classico (fedele). */
+const fq=v=>{ const r=Math.round(v*100)/100; return String(Object.is(r,-0)?0:r); };
+function parsePolyPath(d){
+  const toks=d.match(/[A-Za-z]|-?\d*\.?\d+(?:e-?\d+)?/gi); if(!toks) return null;
+  const subs=[]; let cur=null, x=0, y=0, i=0, cmd=null;
+  const num=()=>parseFloat(toks[i++]);
+  while(i<toks.length){
+    const t=toks[i];
+    if(/^[A-Za-z]$/.test(t)){ cmd=t; i++;
+      if(cmd==='Z'||cmd==='z'){ if(cur) cur.closed=true; cmd=null; continue; } }
+    if(!cmd) return null;
+    let nx=x, ny=y;
+    switch(cmd){
+      case 'M': nx=num(); ny=num(); subs.push(cur={pts:[],closed:false}); cur.pts.push([nx,ny]); cmd='L'; break;
+      case 'm': nx=x+num(); ny=y+num(); subs.push(cur={pts:[],closed:false}); cur.pts.push([nx,ny]); cmd='l'; break;
+      case 'L': nx=num(); ny=num(); cur.pts.push([nx,ny]); break;
+      case 'l': nx=x+num(); ny=y+num(); cur.pts.push([nx,ny]); break;
+      case 'H': nx=num(); cur.pts.push([nx,y]); break;
+      case 'h': nx=x+num(); cur.pts.push([nx,y]); break;
+      case 'V': ny=num(); cur.pts.push([x,ny]); break;
+      case 'v': ny=y+num(); cur.pts.push([x,ny]); break;
+      default: return null;                       // curve/archi: questo timbro non si cuoce
+    }
+    x=nx; y=ny;
+  }
+  return subs;
+}
+function bakeTilePaths(tile,m,color,swAbs){       // parts di una tessera → path assoluti (null = impossibile)
+  let out='';
+  for(const pp of tile.parts){
+    if(pp.tf) return null;                        // importate da SVG: matrici/curve → percorso classico
+    const subs=parsePolyPath(pp.d); if(!subs) return null;
+    let dd='';
+    for(const s of subs){ if(!s.pts.length) continue;
+      dd+='M'+s.pts.map(([px,py])=>{ const p=m.transformPoint(new DOMPoint(px,py)); return fq(p.x)+','+fq(p.y); }).join('L');
+      if(s.closed) dd+='Z';
+    }
+    if(!dd) continue;
+    out+=pp.sw
+      ? `<path d="${dd}" fill="none" stroke="${color}" stroke-width="${fq(swAbs)}" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<path d="${dd}" fill="${color}"${pp.eo?' fill-rule="evenodd"':''}/>`;
+  }
+  return out;
+}
+function bakeStamp(st,cx,cy,color){               // un timbro alla sua cella → path assoluti (null = usa il classico)
+  const tile=tileById(st.t); if(!tile) return '';
+  const base=new DOMMatrix().translateSelf(cx,cy).rotateSelf((st.rot||0)*60).scaleSelf(st.flip?-R:R,R);
+  if(tile.stamps){                                // forgiata: si cuoce solo se è SOLO somme di tessere base
+    let out='';
+    for(const s of forgedOps(tile)){
+      if(s.op && s.op!=='add') return null;
+      const inner=tileById(s.t); if(!inner || inner.stamps) return null;
+      const m=base.multiply(new DOMMatrix().rotateSelf((s.rot||0)*60).scaleSelf(s.flip?-1:1,1));
+      const frag=bakeTilePaths(inner,m,color,(s.sw??st.sw??connSW)*R); if(frag==null) return null;
+      out+=frag;
+    }
+    return out;
+  }
+  return bakeTilePaths(tile,base,color,(st.sw??connSW)*R);
+}
 /* corpo SVG dei livelli della tavola (defs con le mask + gruppi livello) — riusato
    dall'export normale e dall'export pattern; in modalità pattern filtra il dominio.
    Le fusioni sono applicate in ORDINE CRONOLOGICO come su canvas (orderedOps): si mantengono
@@ -3773,11 +3839,29 @@ function stampsSVGList(stampList,color){
 function svgLayersBody(W,H){
   let defs='';
   let mN=0, layersSvg='';
-  layers.forEach(L=>{ if(!L.visible||L.cells.size===0)return;
+  const usedIds=new Set();
+  layers.forEach((L,li)=>{ if(!L.visible||L.cells.size===0)return;
     const blend={'source-over':'normal','multiply':'multiply','screen':'screen','darken':'darken','lighten':'lighten'}[L.blend];
-    let g=`<g style="mix-blend-mode:${blend}" opacity="${L.opacity}">`;
+    /* gruppo del livello: id col NOME (Illustrator lo mostra), niente attributi superflui */
+    let gid=(L.name||'Livello').replace(/[^\w\- ]/g,'').trim().replace(/ +/g,'_')||('Livello_'+(li+1));
+    while(usedIds.has(gid)) gid+='_';
+    usedIds.add(gid);
+    const gAttrs=[`id="${gid}"`];
+    if(blend && blend!=='normal') gAttrs.push(`style="mix-blend-mode:${blend}"`);
+    if(L.opacity<1) gAttrs.push(`opacity="${L.opacity}"`);
+    let g=`<g ${gAttrs.join(' ')}>`;
     for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue; const [cx,cy]=cellCenter(c,r);
       const col=cell.col||DEFAULT_INK, tr=`translate(${cx.toFixed(2)},${cy.toFixed(2)})`;
+      /* cella SEMPLICE (solo somme, niente inverso): path nudi in coordinate assolute quantizzate
+         — nessun gruppo, nessuna clip: modificabile al volo in Illustrator, Pathfinder pulito */
+      if(!cell.inv){
+        const ops=cellOps(cell);
+        if(ops.every(o=>o.op==='add')){
+          let flat='', ok=true;
+          for(const o of ops){ const frag=bakeStamp(o.st,cx,cy,o.st.col||col); if(frag==null){ ok=false; break; } flat+=frag; }
+          if(ok){ g+=flat; continue; }
+        }
+      }
       const hexW=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#fff"/></g>`;
       const hexB=`<g transform="scale(${R})"><path d="${HEX_UNIT_D}" fill="#000"/></g>`;
       const MR=`x="${(-R*1.3).toFixed(1)}" y="${(-R*1.3).toFixed(1)}" width="${(R*2.6).toFixed(1)}" height="${(R*2.6).toFixed(1)}"`;
@@ -3826,7 +3910,10 @@ $('exportSvg').onclick=()=>{
   const [W,H]=boardSize(); const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
   const u=svgLayersBody(W,H);
   const defs=`<clipPath id="hx" clipPathUnits="userSpaceOnUse"><path d="${HEX_UNIT_D}"/></clipPath>`+u.defs;
-  const body=`<defs>${defs}</defs><g transform="translate(${cw/2},${ch/2}) rotate(${boardRot}) translate(${-W/2},${-H/2})">${svgBgImage(W,H)}${u.layersSvg}</g>`;
+  const inner=svgBgImage(W,H)+u.layersSvg;
+  // a tavola non ruotata il wrapper sarebbe un'identità: via un livello di gruppo da "separare"
+  const content=boardRot ? `<g transform="translate(${cw/2},${ch/2}) rotate(${boardRot}) translate(${-W/2},${-H/2})">${inner}</g>` : inner;
+  const body=`<defs>${defs}</defs>${content}`;
   download('hexglyph.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgWrap(cw,ch,body)));
 };
 function bgToDataURL(){ const tc=document.createElement('canvas'); tc.width=bgImage.naturalWidth||bgImage.width; tc.height=bgImage.naturalHeight||bgImage.height; tc.getContext('2d').drawImage(bgImage,0,0); try{return tc.toDataURL('image/jpeg',0.85);}catch(e){return '';} }
