@@ -1265,40 +1265,76 @@ function setupOff(){
    vista, quindi pan/zoom/resize invalidano da soli. */
 let cacheGen=0;
 function bumpCaches(){ cacheGen++; }
-function cachesOn(){ return board.width*board.height<=6e6 && layers.length<=10; }   // canvas enormi: meglio niente bitmap extra in RAM
-const layerCacheMap=new WeakMap();   // livello → {cv, key} (si svuota da sola coi livelli morti)
+function cachesOn(){ return layers.length<=10; }
+const layerCacheMap=new WeakMap();   // livello → {cv, key, q} (si svuota da sola coi livelli morti)
 let bgRefSeen=null, bgRefId=0;
 function bgSig(){ if(bgImage!==bgRefSeen){ bgRefSeen=bgImage; bgRefId++; }
   return bgImage ? 'bg'+bgRefId+','+bgOpacity+','+bgT.x+','+bgT.y+','+bgT.s+','+bgT.rot : 'nobg'; }
-function viewKey(){ return board.width+','+board.height+','+view.zoom+','+view.x+','+view.y+','+boardRot+','+cols+','+rows+','+colPhase; }
-function setupLayerCv(cv){
-  if(cv.width!==board.width||cv.height!==board.height){ cv.width=board.width; cv.height=board.height; }
-  const g=cv.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,cv.width,cv.height);
-  g.setTransform(ctx.getTransform()); return g;
-}
-function paintLayerCells(g,L){
-  for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
+/* ---- round 46j: le bitmap sono la TAVOLA INTERA (non la finestra visibile) a risoluzione q ----
+   Così pan/zoom/rotazione le riusano SEMPRE (drawImage nella trasformazione del mondo): durante
+   il gesto a due dita si vede tutta la scena — prima, zoomando indietro, ciò che era fuori
+   schermo restava vuoto fino al rilascio. q insegue zoom*dpr (pixel-perfect) con un tetto di
+   memoria (LCAP); oltre il tetto quel livello si disegna live col CULLING (a zoom alto le celle
+   visibili sono poche). Il rebake per cambio di risoluzione avviene solo FUORI dal gesto. */
+const LCAP=3000;   // lato massimo in px delle bitmap-tavola
+function boardKey(){ return cols+','+rows+','+colPhase; }   // niente boardRot: la rotazione vive nella trasformazione
+function wantQ(){ return view.zoom*(window.devicePixelRatio||1); }
+function capQ(){ const [W,H]=boardSize(); return LCAP/Math.max(W,H); }
+function paintLayerCells(g,L,rg){
+  const c0=rg?rg.c0:0, c1=rg?rg.c1:cols-1, r0=rg?rg.r0:0, r1=rg?rg.r1:rows-1;
+  for(let c=c0;c<=c1;c++)for(let r=r0;r<=r1;r++){ if(!inDomain(c,r))continue; const cell=L.cells.get(key(c,r)); if(!cell)continue;
     const [cx,cy]=cellCenter(c,r); g.save(); g.translate(cx,cy); drawCellFigures(g,cell,cell.col||DEFAULT_INK); g.restore(); }
+}
+/* range di celle visibili nel viewport corrente (per i percorsi LIVE): stima larga dai 4 angoli */
+function visibleRange(){
+  const inv=ctx.getTransform().inverse();
+  const pts=[[0,0],[board.width,0],[0,board.height],[board.width,board.height]]
+    .map(([x,y])=>{ const p=inv.transformPoint(new DOMPoint(x,y)); return [p.x,p.y]; });
+  const x0=Math.min(...pts.map(p=>p[0])), x1=Math.max(...pts.map(p=>p[0]));
+  const y0=Math.min(...pts.map(p=>p[1])), y1=Math.max(...pts.map(p=>p[1]));
+  const colW=R*1.5, rowH=Math.sqrt(3)*R;
+  return {c0:Math.max(0,Math.floor(x0/colW)-2), c1:Math.min(cols-1,Math.ceil(x1/colW)+2),
+          r0:Math.max(0,Math.floor(y0/rowH)-2), r1:Math.min(rows-1,Math.ceil(y1/rowH)+2)};
+}
+/* (ri)disegna la bitmap-tavola di un livello a risoluzione q */
+function bakeLayer(rec,L,q){
+  const [W,H]=boardSize();
+  const w=Math.max(1,Math.round(W*q)), h=Math.max(1,Math.round(H*q));
+  if(rec.cv.width!==w||rec.cv.height!==h){ rec.cv.width=w; rec.cv.height=h; }
+  const g=rec.cv.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,w,h);
+  g.setTransform(q,0,0,q,0,0);
+  paintLayerCells(g,L);
+  rec.q=q; rec.key=boardKey()+'|g'+cacheGen;
 }
 /* compone i livelli visibili sul canvas principale, con blend e opacità.
    Ls/alpha servono all'onion skin (livelli di un altro frame, smorzati); quelle chiamate
    e l'export (noCache) NON toccano le cache. */
+let navGesture=false;   // pinch/pan a due dita in corso: si scala la bitmap che c'è, il rebake aspetta il rilascio
 function compositeLayers(Ls,alpha,noCache){
   const std=!Ls && alpha==null && !noCache && cachesOn();   // solo la chiamata standard di render() usa le cache
   Ls=Ls||layers; alpha=alpha==null?1:alpha;
-  const vk=std ? viewKey()+'|g'+cacheGen : null;
   const busy=painting || !!ditherDrag;   // si sta scrivendo SOTTO il dito: il livello attivo va disegnato live
+  const kb=std ? boardKey()+'|g'+cacheGen : null;
+  const q=std ? Math.min(wantQ(),capQ()) : 0;
+  const hiZoom=std && wantQ()>capQ()*1.02;                 // oltre il tetto di memoria: live col culling (celle visibili poche)
+  const rg=(std && (busy||hiZoom)) ? visibleRange() : null;
+  const [W,H]=boardSize();
   for(let li=0; li<Ls.length; li++){ const L=Ls[li];
     if(!L.visible || L.cells.size===0) continue;
-    const canCache=std && !(busy && (li===active || (activeSet && activeSet.has(li))));   // da fermo anche l'attivo sta in bitmap (tela piena = hover/gesti gratis); le scritture fuori-tratto invalidano via snapshot→bumpActiveLayers
-    if(canCache){
+    const liveBusy=busy && (li===active || (activeSet && activeSet.has(li)));
+    if(std && !liveBusy && !hiZoom){
       let rec=layerCacheMap.get(L);
-      if(!rec){ rec={cv:document.createElement('canvas'), key:''}; layerCacheMap.set(L,rec); }
-      if(rec.key!==vk){ const g=setupLayerCv(rec.cv); paintLayerCells(g,L); rec.key=vk; }
-      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(rec.cv,0,0); ctx.restore();
+      if(!rec){ rec={cv:document.createElement('canvas'), key:'', q:0}; layerCacheMap.set(L,rec); }
+      const wrongRes=rec.q<q*0.98 || rec.q>q*2.6;          // serve più risoluzione (zoom-in) o downscale eccessivo
+      if(rec.key!==kb || rec.q===0 || (wrongRes && !navGesture)) bakeLayer(rec,L,q);
+      ctx.save(); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend;
+      // destinazione = dimensione REALE della bitmap in unità (w/q, h/q): a q==zoom*dpr il rapporto è
+      // esattamente 1 → incollata pixel-per-pixel, nessun ricampionamento (nella trasformazione del MONDO)
+      ctx.drawImage(rec.cv,0,0,rec.cv.width,rec.cv.height,0,0,rec.cv.width/rec.q,rec.cv.height/rec.q);
+      ctx.restore();
     } else {
       setupOff();
-      paintLayerCells(lctx,L);
+      paintLayerCells(lctx,L,rg);
       ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity*alpha; ctx.globalCompositeOperation=L.blend; ctx.drawImage(lc,0,0); ctx.restore();
     }
   }
@@ -1357,7 +1393,8 @@ function setupBoard(baseColor){
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,board.width,board.height);
   const swap=(boardRot%180!==0); const cw=swap?H:W, ch=swap?W:H;
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.translate(view.x,view.y); ctx.scale(view.zoom,view.zoom);
+  ctx.translate(Math.round(view.x*dpr)/dpr, Math.round(view.y*dpr)/dpr);   // pan ancorato al pixel fisico: le bitmap-tavola si incollano 1:1 senza ricampionare (round 46j)
+  ctx.scale(view.zoom,view.zoom);
   ctx.translate(cw/2,ch/2); ctx.rotate(boardRot*Math.PI/180); ctx.translate(-W/2,-H/2);
   if(baseColor){ ctx.fillStyle=baseColor; ctx.fillRect(0,0,W,H); }
   return [W,H];
@@ -1382,7 +1419,7 @@ function gridClipPath(){
     gcpPath=p; gcpKey=k; }
   return gcpPath; }
 /* carta + immagine di sfondo + linee griglia, con cache bitmap alla vista corrente (round 46e) */
-const bgCv=document.createElement('canvas'); let bgCvKey='';
+const bgCv=document.createElement('canvas'); let bgCvKey='', bgCvQ=0;
 function drawPaperGrid(W,H,paper){
   const gridOn=showGrid && !previewing;
   const paint=g=>{
@@ -1392,9 +1429,17 @@ function drawPaperGrid(W,H,paper){
         g.save(); g.translate(cx,cy); g.scale(R,R); g.lineWidth=1/R; g.stroke(HEX_UNIT_PATH); g.restore(); } g.restore(); }
   };
   if(!cachesOn() || pattern){ paint(ctx); return; }   // in pattern la scena cambia con le copie: percorso classico
-  const k=viewKey()+'|'+paper+'|'+gridOn+'|'+bgSig();
-  if(bgCvKey!==k){ const g=setupLayerCv(bgCv); paint(g); bgCvKey=k; }
-  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(bgCv,0,0); ctx.restore();
+  const q=Math.min(wantQ(),capQ());
+  if(wantQ()>capQ()*1.02){ paint(ctx); return; }      // zoom oltre il tetto: live
+  const k=boardKey()+'|'+paper+'|'+gridOn+'|'+bgSig();
+  const wrongRes=bgCvQ<q*0.98 || bgCvQ>q*2.6;
+  if(bgCvKey!==k || bgCvQ===0 || (wrongRes && !navGesture)){
+    const w=Math.max(1,Math.round(W*q)), h=Math.max(1,Math.round(H*q));
+    if(bgCv.width!==w||bgCv.height!==h){ bgCv.width=w; bgCv.height=h; }
+    const g=bgCv.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,w,h); g.setTransform(q,0,0,q,0,0);
+    paint(g); bgCvKey=k; bgCvQ=q;
+  }
+  ctx.save(); ctx.drawImage(bgCv,0,0,bgCv.width,bgCv.height,0,0,bgCv.width/bgCvQ,bgCv.height/bgCvQ); ctx.restore();   // trasformazione del mondo, rapporto esatto = niente ricampionamento a risoluzione piena
 }
 function render(hoverC,hoverR){
   const paper=pageDark?'#000':'#fff';
@@ -3964,29 +4009,10 @@ if(IS_TOUCH||IS_TOUCHUI){
       const st=undoStack[tgUndoBase]; undoStack.length=tgUndoBase; restoreState(st); refreshUndo(); }
     render();
   }
-  /* FAST-PATH del gesto (round 46e): al primo movimento si fotografa il canvas così com'è e
-     durante il pan/pinch si trasforma SOLO quella bitmap (un drawImage a frame invece di
-     migliaia di path). Pan puro = nitido identico; nel pinch la scala può sfocare un pelo,
-     ma è in movimento: al rilascio delle dita arriva il render pieno nitido. */
-  let navC=null;
-  function tgNavCapture(){
-    if(!cachesOn()){ tg.nav={slow:true}; return; }      // canvas enormi: si resta sul render classico
-    if(!navC) navC=document.createElement('canvas');
-    if(navC.width!==board.width||navC.height!==board.height){ navC.width=board.width; navC.height=board.height; }
-    const g=navC.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,navC.width,navC.height); g.drawImage(board,0,0);
-    tg.nav={z:view.zoom,x:view.x,y:view.y,
-      bg:(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#2b2e35').trim()};
-  }
-  function tgNavPaint(){
-    updateZoomLabel();
-    if(!tg||!tg.nav||tg.nav.slow){ scheduleRender(); return; }
-    const dpr=window.devicePixelRatio||1, k=view.zoom/tg.nav.z;
-    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,board.width,board.height);
-    ctx.fillStyle=tg.nav.bg; ctx.fillRect(0,0,board.width,board.height);   // le zone che il pan scopre
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.translate(view.x-tg.nav.x*k, view.y-tg.nav.y*k); ctx.scale(k,k);
-    ctx.drawImage(navC,0,0,navC.width/dpr,navC.height/dpr);
-  }
+  /* Round 46j: niente più "fotografia" del gesto — le bitmap-tavola coprono TUTTA la scena,
+     quindi durante pan e pinch il render normale è già solo qualche drawImage (e zoomando
+     indietro si vede tutto, non solo ciò che era a schermo alla partenza). navGesture evita
+     i rebake di risoluzione a metà gesto: si scala la bitmap che c'è, il rebake al rilascio. */
   function tgNav(){   // pan+zoom ASSOLUTI rispetto alla baseline del gesto (niente deriva: le due dita
     const ps=[...tpts.values()];                       // mandano i move alternati, l'incrementale accumulerebbe errore)
     if(!ps.length) return;
@@ -3995,7 +4021,7 @@ if(IS_TOUCH||IS_TOUCHUI){
     const cy=(ps.length>=2?(ps[0].y+ps[1].y)/2:ps[0].y)-r.top;
     const d=ps.length>=2?Math.max(24,Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y)):null;
     if(!tg.base || tg.base.n!==ps.length){             // nuova baseline: a inizio gesto e quando cambia il numero di dita
-      if(!tg.nav) tgNavCapture();                      // la fotografia va fatta UNA volta, prima che la vista si muova
+      navGesture=true;
       tg.base={n:ps.length,cx0:cx,cy0:cy,d0:d,zoom0:view.zoom,
                ux:(cx-view.x)/view.zoom,uy:(cy-view.y)/view.zoom};   // punto di contenuto sotto il centroide: resta incollato alle dita
       return;
@@ -4003,7 +4029,7 @@ if(IS_TOUCH||IS_TOUCHUI){
     const b=tg.base;
     const nz=b.d0?Math.min(8,Math.max(0.12,b.zoom0*(d/b.d0))):view.zoom;
     view.zoom=nz; view.x=cx-b.ux*nz; view.y=cy-b.uy*nz;
-    tgNavPaint();
+    updateZoomLabel(); scheduleRender();
   }
   /* capture phase: gli eventi si vedono PRIMA della tela, così il 2°/3° dito non disegna mai */
   stageEl.addEventListener('pointerdown',e=>{
@@ -4086,13 +4112,12 @@ if(IS_TOUCH||IS_TOUCHUI){
     tg.base=null; if(tpts.size && !tg.lp) tgNav();        // il gesto continua con le dita rimaste: ribasa subito
     if(tpts.size===0){                                    // ultime dita su: tocco secco = annulla/ripeti
       const dt=performance.now()-tg.t0;
-      const hadNav=!!(tg.nav && !tg.nav.slow);
       if(!tg.lp && dt<450 && tg.moved<16){
         if(tg.maxPts===2){ doUndo(); flashStatus(tt('annullato')); }
         else if(tg.maxPts>=3){ doRedo(); flashStatus(tt('ripetuto')); }
       }
-      tg=null; updateCursor();
-      if(hadNav) render();                               // fine gesto: torna il disegno pieno, nitido
+      tg=null; navGesture=false; updateCursor();
+      scheduleRender();                                   // fine gesto: eventuale rebake alla risoluzione nuova
     }
   };
   stageEl.addEventListener('pointerup',tgEnd,{capture:true});
