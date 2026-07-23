@@ -3796,14 +3796,29 @@ function parsePolyPath(d){
   }
   return subs;
 }
-function bakeTilePaths(tile,m,color,swAbs){       // parts di una tessera → path assoluti (null = impossibile)
+/* Le 13 ancore della cella in ASSOLUTO (6 vertici, 6 metà-lato, centro), da un'unica formula
+   trigonometrica per tutte le celle: i punti di BORDO delle tessere cadono lì per costruzione
+   (principio Wang, §6). I dati delle tessere però portano coordinate a 3-4 decimali (0.866…):
+   senza aggancio, ai confini dell'arrotondamento due celle adiacenti scrivevano lo stesso
+   vertice con due centesimi diversi → i filetti del Pathfinder che restavano. */
+function cellAnchors(cx,cy){
+  const out=[[cx,cy]]; const ap=R*Math.cos(Math.PI/6);
+  for(let k=0;k<6;k++){ const a=k*Math.PI/3; out.push([cx+R*Math.cos(a), cy+R*Math.sin(a)]); }
+  for(let k=0;k<6;k++){ const a=Math.PI/6+k*Math.PI/3; out.push([cx+ap*Math.cos(a), cy+ap*Math.sin(a)]); }
+  return out;
+}
+const ANCHOR_EPS2=0.35*0.35;   // px: entro ~⅓ di pixel da un'ancora = È l'ancora
+function bakeTilePaths(tile,m,color,swAbs,anchors){   // parts di una tessera → path assoluti (null = impossibile)
   let out='';
   for(const pp of tile.parts){
     if(pp.tf) return null;                        // importate da SVG: matrici/curve → percorso classico
     const subs=parsePolyPath(pp.d); if(!subs) return null;
     let dd='';
     for(const s of subs){ if(!s.pts.length) continue;
-      dd+='M'+s.pts.map(([px,py])=>{ const p=m.transformPoint(new DOMPoint(px,py)); return fq(p.x)+','+fq(p.y); }).join('L');
+      dd+='M'+s.pts.map(([px,py])=>{ const p=m.transformPoint(new DOMPoint(px,py)); let X=p.x, Y=p.y;
+        if(anchors) for(const [ax,ay] of anchors){ const dx=X-ax, dy=Y-ay;
+          if(dx*dx+dy*dy<ANCHOR_EPS2){ X=ax; Y=ay; break; } }
+        return fq(X)+','+fq(Y); }).join('L');
       if(s.closed) dd+='Z';
     }
     if(!dd) continue;
@@ -3816,18 +3831,19 @@ function bakeTilePaths(tile,m,color,swAbs){       // parts di una tessera → pa
 function bakeStamp(st,cx,cy,color){               // un timbro alla sua cella → path assoluti (null = usa il classico)
   const tile=tileById(st.t); if(!tile) return '';
   const base=new DOMMatrix().translateSelf(cx,cy).rotateSelf((st.rot||0)*60).scaleSelf(st.flip?-R:R,R);
+  const anchors=cellAnchors(cx,cy);
   if(tile.stamps){                                // forgiata: si cuoce solo se è SOLO somme di tessere base
     let out='';
     for(const s of forgedOps(tile)){
       if(s.op && s.op!=='add') return null;
       const inner=tileById(s.t); if(!inner || inner.stamps) return null;
       const m=base.multiply(new DOMMatrix().rotateSelf((s.rot||0)*60).scaleSelf(s.flip?-1:1,1));
-      const frag=bakeTilePaths(inner,m,color,(s.sw??st.sw??connSW)*R); if(frag==null) return null;
+      const frag=bakeTilePaths(inner,m,color,(s.sw??st.sw??connSW)*R,anchors); if(frag==null) return null;
       out+=frag;
     }
     return out;
   }
-  return bakeTilePaths(tile,base,color,(st.sw??connSW)*R);
+  return bakeTilePaths(tile,base,color,(st.sw??connSW)*R,anchors);
 }
 /* corpo SVG dei livelli della tavola (defs con le mask + gruppi livello) — riusato
    dall'export normale e dall'export pattern; in modalità pattern filtra il dominio.
