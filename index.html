@@ -1287,9 +1287,10 @@ function compositeLayers(Ls,alpha,noCache){
   const std=!Ls && alpha==null && !noCache && cachesOn();   // solo la chiamata standard di render() usa le cache
   Ls=Ls||layers; alpha=alpha==null?1:alpha;
   const vk=std ? viewKey()+'|g'+cacheGen : null;
+  const busy=painting || !!ditherDrag;   // si sta scrivendo SOTTO il dito: il livello attivo va disegnato live
   for(let li=0; li<Ls.length; li++){ const L=Ls[li];
     if(!L.visible || L.cells.size===0) continue;
-    const canCache=std && li!==active && !(activeSet && activeSet.has(li));   // i livelli in lavorazione restano live
+    const canCache=std && !(busy && (li===active || (activeSet && activeSet.has(li))));   // da fermo anche l'attivo sta in bitmap (tela piena = hover/gesti gratis); le scritture fuori-tratto invalidano via snapshot→bumpActiveLayers
     if(canCache){
       let rec=layerCacheMap.get(L);
       if(!rec){ rec={cv:document.createElement('canvas'), key:''}; layerCacheMap.set(L,rec); }
@@ -1576,7 +1577,14 @@ function restoreState(s){ const o=JSON.parse(s);
   document.documentElement.style.setProperty('--boardRot',boardRot+'deg');
   buildLayers();
 }
-function snapshot(){ bumpCaches();   // ogni modifica passa di qui PRIMA di toccare le celle: le bitmap si rifanno al prossimo frame
+/* invalida SOLO le bitmap dei livelli in lavorazione: tutte le modifiche alle celle passano da
+   snapshot() e toccano l'activeSet; i livelli fermi restano in cache (round 46i — il bump TOTALE
+   che c'era prima faceva ridisegnare il mondo al primo frame di OGNI tratto: lag sui tablet).
+   Le operazioni più larghe invalidano per altre vie: undo/load→restoreState, struttura→buildLayers,
+   resize/rotazione→la vista è nella chiave. */
+function bumpActiveLayers(){ for(const li of (activeSet?[...activeSet]:[active])){ const L=layers[li]; if(!L) continue;
+  const rec=layerCacheMap.get(L); if(rec) rec.key=''; } }
+function snapshot(){ bumpActiveLayers();   // la modifica in arrivo riguarda i livelli attivi
   const s=docState(); if(undoStack.length && undoStack[undoStack.length-1]===s) return;   // niente doppioni no-op
   const cap=anim.frames.length?30:80;   // con l'animazione ogni snapshot pesa (tutti i frame): stack più corto
   undoStack.push(s); while(undoStack.length>cap)undoStack.shift(); redoStack.length=0; refreshUndo(); }
@@ -1908,12 +1916,17 @@ let painting=false, selecting=false, mode='stamp', lastKey=null, selStartPt=null
 const lassoPts=[]; let hoverPt=null;
 let lassoDrag=false, lassoDragAdded=0;   // lazo IBRIDO (round 39): trascinare = mano libera, il rilascio dopo un vero tratto chiude
 let lassoBase=null;                       // selezione preesistente da SOMMARE se il lazo è partito con ⇧ (come gli altri strumenti)
-/* selezione rettangolare in coordinate contenuto: celle col centro dentro il rettangolo (+ la cella d'ancora) */
+/* selezione rettangolare in coordinate contenuto (+ la cella d'ancora).
+   Round 46i: conta la TESSERA TOCCATA (il rettangolo interseca il cuore della cella, cerchio 0.7R),
+   non più il solo centro — col criterio-centro le colonne sfalsate "coperte a vista" restavano fuori
+   (ne entrava solo l'ancora: il bug "manca una colonna, prende solo la prima tessera"). */
 function rectSelect(p1,p2){
   const s=new Set(baseSel||[]);
   const x0=Math.min(p1[0],p2[0]),x1=Math.max(p1[0],p2[0]),y0=Math.min(p1[1],p2[1]),y1=Math.max(p1[1],p2[1]);
+  const rr=R*0.7;
   for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){ const [cx,cy]=cellCenter(c,r);
-    if(cx>=x0&&cx<=x1&&cy>=y0&&cy<=y1) s.add(key(c,r)); }
+    const qx=Math.max(x0,Math.min(cx,x1)), qy=Math.max(y0,Math.min(cy,y1));   // punto del rettangolo più vicino al centro cella
+    if((cx-qx)*(cx-qx)+(cy-qy)*(cy-qy)<=rr*rr) s.add(key(c,r)); }
   if(selAnchorKey) s.add(selAnchorKey);
   return s.size?s:null;
 }
@@ -2024,23 +2037,26 @@ board.addEventListener('dblclick',e=>{
 board.addEventListener('pointermove',e=>{
   if(panning) return;   // pan gestito a livello di stage
   const pt=localXY(e); hoverPt=pt;
-  if(bgDrag){ bgT.x=bgDrag.x0+(pt[0]-bgDrag.sx); bgT.y=bgDrag.y0+(pt[1]-bgDrag.sy); render(); return; }
-  if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; render(); return; }
-  if(ditherDrag){ ditherDrag.cur=e.shiftKey?ditherSnap(ditherDrag.start,pt):pt; ditherRestore(); ditherApply(); render(); return; }
+  if(bgDrag){ bgT.x=bgDrag.x0+(pt[0]-bgDrag.sx); bgT.y=bgDrag.y0+(pt[1]-bgDrag.sy); scheduleRender(); return; }
+  if(dragMove){ dragMove.curPt=pt; board.style.cursor=e.altKey?'copy':'grabbing'; scheduleRender(); return; }
+  if(ditherDrag){ ditherDrag.cur=e.shiftKey?ditherSnap(ditherDrag.start,pt):pt; ditherRestore(); ditherApply(); scheduleRender(); return; }
   // lazo IBRIDO: col bottone premuto il trascinamento aggiunge punti in continuo (mano libera).
   // Soglia in PIXEL SCHERMO (non contenuto): il micro-jitter di un clic non deve mai contare come tratto
   if(lassoDrag && tool==='lasso' && (e.buttons&1)){
     const lp=lassoPts[lassoPts.length-1];
     if(lp && Math.hypot(pt[0]-lp[0],pt[1]-lp[1])*view.zoom>7){ lassoPts.push(pt); lassoDragAdded++; }
-    render(); return;
+    scheduleRender(); return;
   }
   const hit=cellAt(...pt);
-  if(selecting){ selection=rectSelect(selStartPt,pt); render(); return; }
+  if(selecting){ selection=rectSelect(selStartPt,pt); scheduleRender(); return; }
   if(painting){
-    // traiettoria reale ad alta frequenza (eventi coalescenti) + interpolazione: niente celle saltate
+    // traiettoria reale ad alta frequenza (eventi coalescenti) + interpolazione: niente celle saltate.
+    // Le SCRITTURE restano per-evento; il RENDER si coalizza al frame (round 46i: su iPad Pro i
+    // pointermove arrivano a 120Hz e un render sincrono per evento strozzava la tela piena).
     const evs=(e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
     for(const ev of evs) paintTo(localXY(ev));
-    render(hit?hit[0]:null, hit?hit[1]:null); updateStatus(); return;
+    scheduleRender(); if(!IS_TOUCHUI) updateStatus();   // su touch la status bar non c'è
+    return;
   }
   render(hit?hit[0]:null, hit?hit[1]:null);
 });
@@ -2062,6 +2078,7 @@ board.addEventListener('pointerup',e=>{
   }
   painting=false;selecting=false;baseSel=null;selAnchorKey=null;lastPaintPt=null;ppChain=null;
   if(spaceDown)board.style.cursor='grab'; else updateCursor();
+  scheduleRender();   // fine tratto: un frame che ricrea la bitmap del livello attivo → poi tutto torna statico
 });
 board.addEventListener('pointerleave',e=>{ if(painting && e.buttons) return;   // col bottone premuto il capture continua il tratto oltre il bordo
   painting=false;lastPaintPt=null;ppChain=null;render();});
@@ -3992,7 +4009,7 @@ if(IS_TOUCH||IS_TOUCHUI){
   stageEl.addEventListener('pointerdown',e=>{
     if(e.pointerType!=='touch'||e.__tg) return;           // __tg = eco del down sintetico: passa alla tela
     const first=tpts.size===0;
-    tpts.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
+    tpts.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now()});
     if(first && !tg){
       tgUndoBase=undoStack.length;
       tgSelBase=selection?new Set(selection):null;
@@ -4042,15 +4059,29 @@ if(IS_TOUCH||IS_TOUCHUI){
       return; }
     if(lpT && Math.hypot(p.x-p.x0,p.y-p.y0)>10){ clearTimeout(lpT); lpT=null; }   // il dito si muove: niente contagocce
   },{capture:true});
+  let lastTap=null;   // {x,y,t} dell'ultimo tap singolo: due di fila in Seleziona = "seleziona identiche" (il dblclick nativo su touch non è affidabile)
   const tgEnd=e=>{
     if(e.pointerType!=='touch'||!tpts.has(e.pointerId)) return;
+    let wasSwallow=false;
     if(pend && pend.id===e.pointerId){                    // tap più corto del grace
-      if(e.type==='pointercancel' || pend.swallow){ pend=null; clearTimeout(pendT); pendT=null; }   // tocco rubato dal sistema o tap-chiusura: niente timbro
+      if(e.type==='pointercancel' || pend.swallow){ wasSwallow=!!pend.swallow; pend=null; clearTimeout(pendT); pendT=null; }   // tocco rubato dal sistema o tap-chiusura: niente timbro
       else releasePending();                              // consegna il down ora; l'up che segue completa il timbro
     }
+    const rec=tpts.get(e.pointerId);
     tpts.delete(e.pointerId);
     if(lpT){ clearTimeout(lpT); lpT=null; }
-    if(!tg) return;                                       // nessun gesto: il rilascio arriva alla tela come sempre
+    if(!tg){                                              // nessun gesto: il rilascio arriva alla tela come sempre
+      if(rec && !wasSwallow && e.type==='pointerup'){     // DOPPIO TAP (Seleziona): come il doppio clic sul computer
+        const now=performance.now(), dur=now-rec.t0, mv=Math.hypot(rec.x-rec.x0,rec.y-rec.y0);
+        if(dur<300 && mv<12){
+          if(lastTap && now-lastTap.t<400 && Math.hypot(rec.x-lastTap.x,rec.y-lastTap.y)<30){
+            lastTap=null;
+            if(tool==='select') board.dispatchEvent(new MouseEvent('dblclick',{clientX:rec.x,clientY:rec.y,bubbles:true,cancelable:true}));
+          } else lastTap={x:rec.x,y:rec.y,t:now};
+        } else lastTap=null;
+      }
+      return;
+    }
     e.stopPropagation();
     tg.base=null; if(tpts.size && !tg.lp) tgNav();        // il gesto continua con le dita rimaste: ribasa subito
     if(tpts.size===0){                                    // ultime dita su: tocco secco = annulla/ripeti
