@@ -944,6 +944,7 @@ const I18N={
 'contagocce: presa la tessera della cella':'eyedropper: picked the tile from the cell',
 'tessera B del dither impostata':'dither tile B set',
 'scegli la tessera B: <b>tieni premuto</b> su una tessera in libreria':'pick tile B: <b>press and hold</b> a tile in the library',
+'Nome del file:':'File name:',
 'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.':'You draw by laying <b>hexagonal tiles</b> on a honeycomb grid. One minute and you\'re ready.',
 'Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.':'Tap the <b>tile</b> button up here: the shape library opens. Tap a shape: it becomes your brush.',
 '2 · Disegna sulla griglia':'2 · Draw on the grid',
@@ -2524,7 +2525,7 @@ $('svgTemplate').onclick=()=>{
    +`  <polygon id="hexguide" points="${pts}" fill="none" stroke="#ff48b0" stroke-width="1"/>\n`
    +`  <path id="hexguide-cross" d="M${C-6} ${C}H${C+6}M${C} ${C-6}V${C+6}" fill="none" stroke="#ff48b0" stroke-width="1"/>\n`
    +'</svg>';
-  download('hexagraph-template.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg));
+  download('hexagraph-template.svg','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg),true);
 };
 const GUIDE_PINK='rgb(255, 72, 176)';
 function shapeD(el){   // path 'd' equivalente di ogni primitiva SVG (coordinate LOCALI, il transform vive in tf)
@@ -3236,7 +3237,8 @@ $('frPlay').onclick=()=>{
 $('frPong').onclick=()=>{ anim.pingpong=!anim.pingpong; $('frPong').classList.toggle('on',anim.pingpong); };
 $('frExport').onclick=()=>{
   stopPlay(); animCommit(); const keep=anim.cur;
-  for(let i=0;i<anim.frames.length;i++){ animShow(i); drawExport(); download('hexglyph_f'+String(i+1).padStart(2,'0')+'.png', board.toDataURL('image/png')); }
+  const serie='hexglyph-'+fileStamp();   // la sequenza condivide il timestamp: una domanda sola (nessuna) e nomi ordinati
+  for(let i=0;i<anim.frames.length;i++){ animShow(i); drawExport(); download(serie+'_f'+String(i+1).padStart(2,'0')+'.png', board.toDataURL('image/png'), true); }
   animShow(keep);
 };
 /* ---- encoder GIF89a minimale, zero dipendenze ----
@@ -3666,7 +3668,24 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{ if(e.key==='p'){ previewing=false; document.body.classList.remove('preview'); render(); } });
 
 /* ---- export ---- */
-function download(name,href){ const a=document.createElement('a'); a.download=name; a.href=href; a.click(); }
+/* scarica un file. Il nome riceve data-ora (niente più file tutti uguali che si sovrascrivono)
+   e su telefono/tablet si può SCEGLIERE (prompt; annulla = nessun file). fixed=true = nome
+   così com'è senza domande (template, sequenze di frame). */
+function fileStamp(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
+function download(name,href,fixed){
+  if(!fixed){
+    const dot=name.lastIndexOf('.'); const ext=dot>0?name.slice(dot):''; const base=dot>0?name.slice(0,dot):name;
+    let n=base+'-'+fileStamp()+ext;
+    if(IS_TOUCHUI){
+      const inp=prompt(tt('Nome del file:'), n);
+      if(inp===null) return;                                   // annulla = niente download
+      n=inp.trim()||n;
+      if(ext && !n.toLowerCase().endsWith(ext.toLowerCase())) n+=ext;
+    }
+    name=n;
+  }
+  const a=document.createElement('a'); a.download=name; a.href=href; a.click(); }
 $('exportPng').onclick=()=>{ drawExport(); download('hexglyph.png',board.toDataURL('image/png')); render(); };
 /* JPG = niente alpha: si compone su carta piena (bianca, o nera se "sfondo pagina nero") */
 $('exportJpg').onclick=()=>{ drawExport();
@@ -3891,7 +3910,7 @@ function viewportMeta(content){ let mv=document.querySelector('meta[name="viewpo
 
 /* ---- gesti touch (solo pointerType 'touch': mouse, trackpad e penna restano com'erano;
    una penna disegna mentre due dita navigano, stile Procreate) ---- */
-if(IS_TOUCH||IS_MOBILE){
+if(IS_TOUCH||IS_TOUCHUI){
   const tpts=new Map();   // pointerId → {x,y,x0,y0}
   let tg=null;            // gesto in corso {t0,maxPts,moved,base,lp}
   let tgUndoBase=0, tgSelBase=null, lpT=null;
@@ -3900,7 +3919,12 @@ if(IS_TOUCH||IS_MOBILE){
      Le dita di un gesto non toccano mai insieme al 100%: senza questa attesa il tap a due
      dita timbrava e il pinch partiva sporco. Allo scadere, il tocco viene consegnato alla
      tela come pointerdown sintetico (flag __tg per non re-intercettarlo). */
-  const GRACE=70; let pend=null, pendT=null;   // {id,x,y}
+  const GRACE=70; let pend=null, pendT=null;   // {id,x,y,swallow}
+  /* il tocco che ha appena CHIUSO un pannello non deve anche timbrare: un tap secco è solo
+     "esci dalla finestra"; se invece il dito TRASCINA, l'intenzione è disegnare e il tratto
+     parte normalmente. Il flag lo alza il listener di chiusura, per il solo tocco successivo. */
+  let tgSwallow=false;
+  window.tgSwallowNextTap=()=>{ tgSwallow=true; };
   const _spc=board.setPointerCapture.bind(board);
   board.setPointerCapture=function(id){ try{ _spc(id); }catch(e){} };   // i down sintetici non hanno un pointer attivo: la capture fallisce senza rompere il handler
   function releasePending(){ if(!pend) return; const p=pend; pend=null; clearTimeout(pendT); pendT=null;
@@ -3973,8 +3997,9 @@ if(IS_TOUCH||IS_MOBILE){
       tgUndoBase=undoStack.length;
       tgSelBase=selection?new Set(selection):null;
       e.stopPropagation();                                 // il tocco resta IN ATTESA: tratto o gesto?
-      pend={id:e.pointerId,x:e.clientX,y:e.clientY};
-      clearTimeout(pendT); pendT=setTimeout(releasePending,GRACE);
+      pend={id:e.pointerId,x:e.clientX,y:e.clientY,swallow:tgSwallow}; tgSwallow=false;
+      clearTimeout(pendT);
+      if(!pend.swallow) pendT=setTimeout(releasePending,GRACE);   // tocco-chiusura: nessun timbro a scadenza — o trascina (disegna) o muore da tap
       if(tool==='draw'||tool==='erase'||tool==='bucket'){  // pressione lunga (ferma) = contagocce
         const pid=e.pointerId;
         clearTimeout(lpT);
@@ -4020,7 +4045,7 @@ if(IS_TOUCH||IS_MOBILE){
   const tgEnd=e=>{
     if(e.pointerType!=='touch'||!tpts.has(e.pointerId)) return;
     if(pend && pend.id===e.pointerId){                    // tap più corto del grace
-      if(e.type==='pointercancel'){ pend=null; clearTimeout(pendT); pendT=null; }   // il sistema ha rubato il tocco: niente timbro
+      if(e.type==='pointercancel' || pend.swallow){ pend=null; clearTimeout(pendT); pendT=null; }   // tocco rubato dal sistema o tap-chiusura: niente timbro
       else releasePending();                              // consegna il down ora; l'up che segue completa il timbro
     }
     tpts.delete(e.pointerId);
@@ -4104,6 +4129,7 @@ function enterMobile(){
   document.addEventListener('pointerdown',e=>{
     if(!mbCur) return;
     if($('mbSheet').contains(e.target) || $('mbTop').contains(e.target)) return;
+    if(e.pointerType==='touch' && stageEl.contains(e.target) && window.tgSwallowNextTap) tgSwallowNextTap();   // sul TAP secco la tela non timbra: chiude e basta (trascinando si disegna)
     mbSheetClose();
   },{capture:true});
   $('mbMenu').title=tt('menu'); $('mbTile').title=tt('tessere'); $('mbColor').title=tt('colore');
