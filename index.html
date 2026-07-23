@@ -341,14 +341,19 @@
      dai bottoni della topbar (tessere/colore/livelli a destra, menu ☰ a sinistra) e la
      tela resta protagonista — niente colonne desktop, niente sheet a tutto schermo ---- */
   body.tablet #mbSheet{left:auto;right:10px;top:calc(64px + env(safe-area-inset-top));bottom:auto;
-    width:min(440px,56vw);max-height:min(74dvh,820px);border-radius:12px;border:1px solid var(--line);
-    box-shadow:0 18px 44px rgba(0,0,0,.5);padding:8px 14px 16px;transition:none}
+    width:min(440px,56vw);border-radius:12px;border:1px solid var(--line);
+    box-shadow:0 18px 44px rgba(0,0,0,.5);padding:8px 14px 16px;transition:none;
+    max-height:calc(100dvh - 148px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}   /* cresce col contenuto FINO alla barra strumenti, poi scrolla */
   body.tablet #mbSheet.mleft{left:10px;right:auto}
-  body.tablet .mbgriparea{display:none}   /* pannello ancorato in alto: si chiude dal bottone o toccando fuori */
+  body.tablet .mbgriparea{display:none}   /* pannello ancorato in alto: si chiude dal bottone, toccando fuori o toccando la tela (che disegna subito) */
   body.tablet #mbShade{background:rgba(0,0,0,.2)}
-  body.tablet #mbBar{justify-content:center;gap:10px}
-  body.tablet #mbBar .btn.ic{flex:0 0 52px;max-width:52px}
+  body.tablet #mbBar{justify-content:center;gap:4px}
+  body.tablet #mbBar .btn.ic{flex:0 0 46px;max-width:46px;height:46px}   /* TUTTI gli strumenti in barra: tasti un filo più stretti, entrano anche in verticale */
+  body.tablet.uibase #mbMore{display:none}   /* in Base il ⋯ conterrebbe solo la simmetria (nascosta): via */
   body.tablet #status.warn{max-width:min(70vw,600px)}
+  /* il tocco passa ATTRAVERSO il velo: la tela disegna subito e il pannello si chiude da solo (listener) */
+  body.mobile #mbShade{pointer-events:none}
+  body.mobile .dlg{z-index:60}   /* i dialoghi aperti dal menu stanno SOPRA il pannello */
 </style>
 </head>
 <body>
@@ -4047,12 +4052,17 @@ function enterMobile(){
   /* topbar: menu · undo/redo · tessera · colore · livelli */
   const sp=document.querySelector('#mbTop .mbsp');
   $('mbTop').insertBefore($('undo'),sp); $('mbTop').insertBefore($('redo'),sp);
-  /* barra strumenti in basso: essenziali + trasformazioni del pennello + ⋯ */
+  /* barra strumenti in basso: sul TELEFONO gli essenziali (il resto nel ⋯), sul TABLET
+     TUTTI gli strumenti (c'è spazio; in Base gli avanzati spariscono da soli via advtb) */
   const more=$('mbMore');
-  for(const id of ['toolSelect','toolDraw','toolErase','bucket','rotL','rotR','flip']) $('mbBar').insertBefore($(id),more);
-  /* popover ⋯: strumenti meno frequenti (gli avanzati spariscono in Base come sul desktop) */
+  const barTools=IS_TABLET
+    ? ['toolSelect','toolLasso','toolDraw','toolErase','bucket','dither','merge','sub','iso','xor','rotL','rotR','flip','inv']
+    : ['toolSelect','toolDraw','toolErase','bucket','rotL','rotR','flip'];
+  for(const id of barTools) $('mbBar').insertBefore($(id),more);
+  for(const id of ['dither','merge','sub','iso','xor']) $(id).classList.add('advtb');   // sul desktop li nascondeva il loro gruppo; fuori dal gruppo serve la classe sul bottone
+  /* popover ⋯: sul telefono gli strumenti meno frequenti; sul tablet resta solo la simmetria */
   const grid=$('mbMoreGrid');
-  for(const [id,lab,adv] of [['toolLasso','lazo',0],['inv','inverti',0],['dither','dither',1],['merge','unisci',1],['sub','sottrai',1],['iso','interseca',1],['xor','escludi',1]]){
+  if(!IS_TABLET) for(const [id,lab,adv] of [['toolLasso','lazo',0],['inv','inverti',0],['dither','dither',1],['merge','unisci',1],['sub','sottrai',1],['iso','interseca',1],['xor','escludi',1]]){
     const w=document.createElement('div'); w.className='mbmi'+(adv?' advtb':'');
     w.appendChild($(id)); const s=document.createElement('span'); s.textContent=tt(lab); w.appendChild(s); grid.appendChild(w);
   }
@@ -4088,7 +4098,14 @@ function enterMobile(){
     mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
   $('mbMenu').onclick=()=>mbOpen('menu'); $('mbTile').onclick=()=>mbOpen('tiles');
   $('mbColor').onclick=()=>mbOpen('color'); $('mbLayers').onclick=()=>mbOpen('layers');
-  $('mbShade').onclick=()=>mbSheetClose();
+  /* pannello aperto + tocco FUORI (tela, barra strumenti…): il pannello si chiude all'istante
+     e il tocco fa il suo lavoro — sulla tela DISEGNA subito, senza doverla toccare due volte.
+     Esclusa la topbar: i suoi bottoni fanno toggle da soli e undo/redo è comodo col pannello aperto. */
+  document.addEventListener('pointerdown',e=>{
+    if(!mbCur) return;
+    if($('mbSheet').contains(e.target) || $('mbTop').contains(e.target)) return;
+    mbSheetClose();
+  },{capture:true});
   $('mbMenu').title=tt('menu'); $('mbTile').title=tt('tessere'); $('mbColor').title=tt('colore');
   $('mbLayers').title=tt('livelli'); $('mbMore').title=tt('Altri strumenti');
   /* la maniglia si trascina in giù per chiudere */
