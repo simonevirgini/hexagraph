@@ -372,7 +372,7 @@
   </div>
   <div class="sep"></div>
   <div class="tgroup"><!-- disegno -->
-    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma">✎</button>
+    <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita / direzionale) · ⌘/Ctrl+D nasconde/rimostra il fantasma">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull'icona = contiguo/non contiguo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
     <button class="btn ic advtb" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
@@ -431,6 +431,7 @@
   <div class="pophdr">Modalità della matita</div>
   <button class="popitem" data-mode="free">Libera</button>
   <button class="popitem" data-mode="line">Linea</button>
+  <button class="popitem" data-mode="dir">Direzionale</button>
 </div>
 <div id="ditherPop" class="pop" hidden>
   <div class="pophdr">Trama del dither</div>
@@ -747,7 +748,7 @@ const I18N={
 'Hexagraph — tessere esagonali':'Hexagraph — hexagonal tiles',
 'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo · clic di nuovo sull\'icona = doppio clic contiguo/non contiguo':'Select: click = one cell · drag = rectangle · double-click a tile = identical ones (⇧ adds) · drag a selected cell = move the group · click the icon again = contiguous/non-contiguous double-click',
 'Lazo a esagoni: clic = punti (poligonale) · trascina = mano libera, al rilascio chiude · riclicca il PRIMO esagono (o doppio clic / Invio) per chiudere · ⇧ aggiunge alla selezione · destro/Esc annulla':'Hex lasso: clicks = points (polygonal) · drag = freehand, closes on release · click the FIRST hexagon again (or double-click / Enter) to close · ⇧ adds to the selection · right-click/Esc cancels',
-'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita) · ⌘/Ctrl+D nasconde/rimostra il fantasma':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line) · ⌘/Ctrl+D hides/shows the ghost',
+'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita / direzionale) · ⌘/Ctrl+D nasconde/rimostra il fantasma':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line / directional) · ⌘/Ctrl+D hides/shows the ghost',
 'Cancellina: clic o trascina per cancellare le tessere':'Eraser: click or drag to erase tiles',
 'Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull\'icona = contiguo/non contiguo':'Bucket (g): fill empty areas or identical tiles — inside a selection it fills only the selection · click the icon again = contiguous/non-contiguous',
 'Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull\'icona = scegli la trama':'Dither (t): pattern-blend from tile A to tile B — ⇧+click in the library picks B · area works like the bucket · drag = gradient direction and length · single click = 50/50 · Esc cancels · click the icon again = choose the pattern',
@@ -766,7 +767,7 @@ const I18N={
 'slot rapidi — clic su slot vuoto assegna la tessera attiva · m + 0-9 (o m + clic) riassegna · destro svuota · in Seleziona, clic/0-9 deposita al cursore (dopo averlo piazzato)':'quick slots — click an empty slot to assign the active tile · m + 0-9 (or m + click) reassigns · right-click clears · in Select, click/0-9 drops at the cursor (once placed)',
 'no':'off','specchio ↔':'mirror ↔','specchio ↕':'mirror ↕','croce ↔+↕':'cross ↔+↕','ruota ×2':'rotate ×2','ruota ×3':'rotate ×3','ruota ×6':'rotate ×6',
 /* — popup matita/dither — */
-'Modalità della matita':'Pencil mode','Libera':'Freehand','Linea':'Line',
+'Modalità della matita':'Pencil mode','Libera':'Freehand','Linea':'Line','Direzionale':'Directional',' · direzionale':' · directional',
 'Trama del dither':'Dither pattern','Casuale':'Random','morbido':'soft','grezzo':'coarse','granuloso':'grainy',
 'Riempimento del secchiello':'Bucket fill','Doppio clic sulla tela':'Double-click on the canvas',
 'Contiguo':'Contiguous','Non contiguo':'Non-contiguous',
@@ -2069,7 +2070,7 @@ board.addEventListener('pointerdown',e=>{
   }
   selection=null; snapshot(); painting=true; mode=(e.button===2||tool==='erase')?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
   if(mode==='erase' && !cells.get(key(hit[0],hit[1]))) flashStatus(tt('la casella è già vuota'));
-  ppChain=(tool==='draw' && mode==='stamp' && pencilMode==='line')?[]:null;   // linea pulita: parte la catena del tratto
+  ppChain=(tool==='draw' && mode==='stamp' && (pencilMode==='line'||pencilMode==='dir'))?[]:null;   // linea pulita/direzionale: parte la catena del tratto
   cursor.c=hit[0]; cursor.r=hit[1]; applyAt(hit); render(hit[0],hit[1]); updateStatus(); board.setPointerCapture(e.pointerId);
 });
 board.addEventListener('dblclick',e=>{
@@ -2136,11 +2137,15 @@ board.addEventListener('pointerleave',e=>{ if(painting && e.buttons) return;   /
   painting=false;lastPaintPt=null;ppChain=null;render();});
 function applyAt([c,r]){ const k=key(c,r); if(k===lastKey)return; lastKey=k; cursor.c=c;cursor.r=r;
   const rec=ppChain?{c,r,writes:[]}:null;   // matita "linea pulita": ricorda cosa scrive questo punto (con le copie simmetriche) per poterlo togliere se è un gomito
-  for(const t of symTargets(c,r)){ if(mode==='erase') erase(t.c,t.r);
+  // matita DIREZIONALE (§8.20): la cella nuova nasce già girata verso la direzione di marcia
+  const tail=(rec&&pencilMode==='dir'&&ppChain.length)?ppChain[ppChain.length-1]:null;
+  const tgts=tail?dirTargets(c,r,brush.rot+dirBetween(tail,{c,r})-4):symTargets(c,r);
+  for(const t of tgts){ if(mode==='erase') erase(t.c,t.r);
     else { if(rec){ const kk=key(t.c,t.r); const prev=cells.get(kk);
         rec.writes.push({k:kk, had:!!prev, prev:prev?JSON.parse(JSON.stringify(prev)):null}); }
       stamp(t.c,t.r,t); } }
-  if(rec){ ppChain.push(rec); ppTrim(); }
+  if(rec){ const n0=ppChain.push(rec); ppTrim();
+    if(pencilMode==='dir') dirFix(ppChain.length<n0); }
   if(mode!=='erase' && typeof coachEvent==='function') coachEvent('stamp'); }
 /* ---- matita LINEA PULITA (pixel-perfect di Aseprite, adattato agli esagoni) ----
    Aseprite: nel freehand, se gli ultimi 3 pixel formano una L, il pixel d'angolo si toglie.
@@ -2159,6 +2164,33 @@ function ppTrim(){
       if(w.had) cells.set(w.k,w.prev); else cells.delete(w.k); }
     ppChain.splice(ppChain.length-2,1);
   }
+}
+/* ---- matita DIREZIONALE (§8.20) ----
+   Ogni cella nuova del tratto nasce orientata verso la direzione di marcia (rotazione del
+   pennello = offset di base, "su" = nessuna rotazione extra); le celle già posate NON si
+   toccano più — unica eccezione la PRIMA del tratto, che da sola non aveva una direzione
+   e si allinea quando arriva la seconda. Un clic secco resta il pennello com'è. */
+function dirBetween(a,b){   // direzione di marcia a→b: indice 0..5 (angoli 30°+60°·d, y in giù; 4 = su)
+  const A=cellCenter(a.c,a.r), B=cellCenter(b.c,b.r);
+  return Math.round(((Math.atan2(B[1]-A[1],B[0]-A[0])*180/Math.PI-30)/60)+12)%6;
+}
+function dirTargets(c,r,rot){   // symTargets con la rotazione voluta: le copie simmetriche ereditano l'orientazione giusta
+  const save=brush.rot; brush.rot=((rot%6)+6)%6;
+  const out=symTargets(c,r); brush.rot=save; return out;
+}
+function dirRestamp(rec,rot,skipKeys){   // rigira una cella già posata: riparte dal pre-tratto e ritimbra (idempotente anche con ⊕⊖ attivi)
+  for(const t of dirTargets(rec.c,rec.r,rot)){ const kk=key(t.c,t.r);
+    if(skipKeys&&skipKeys.has(kk)) continue;
+    const w=rec.writes.find(w=>w.k===kk);
+    if(w){ if(w.had) cells.set(kk,JSON.parse(JSON.stringify(w.prev))); else cells.delete(kk); }
+    stamp(t.c,t.r,t); }
+}
+function dirFix(trimmed){
+  const L=ppChain.length; if(L<2) return;
+  if(trimmed){ const last=ppChain[L-1];   // la pulizia del gomito ha cambiato il predecessore dell'ultima cella: rigirala
+    dirRestamp(last, brush.rot+dirBetween(ppChain[L-2],last)-4, null); }
+  if(L===2){ const [a,b]=ppChain;        // è appena arrivata la seconda cella: allinea la PRIMA (solo lei)
+    dirRestamp(a, brush.rot+dirBetween(a,b)-4, new Set(b.writes.map(w=>w.k))); }
 }
 /* dipinge fino a pt INTERPOLANDO dal punto precedente: campiona il segmento ogni ~mezzo esagono,
    così anche i tratti velocissimi non saltano celle */
@@ -2794,7 +2826,7 @@ $('symAxes').classList.toggle('on',showAxes);
 // seleziona come matita/dither: 1º clic attiva · 2º clic apre il pannello contiguo/non contiguo del doppio clic
 $('toolSelect').onclick=()=>{ if(tool!=='select') setTool('select'); else toggleSelectPop(); };
 $('toolLasso').onclick=()=>setTool(tool==='lasso'?'select':'lasso');
-// matita come il dither: 1º clic attiva lo strumento · 2º clic (già attiva) apre/chiude il pannello modalità (libera / linea pulita, stile Aseprite)
+// matita come il dither: 1º clic attiva lo strumento · 2º clic (già attiva) apre/chiude il pannello modalità (libera / linea pulita / direzionale)
 $('toolDraw').onclick=()=>{ if(stampMode) setStampMode(stampMode);   // clic sulla matita = via le fusioni ⊕⊖∩⊻ (round 39)
   if(tool!=='draw') setTool('draw'); else togglePencilPop(); };
 $('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
@@ -2802,8 +2834,8 @@ $('toolErase').onclick=()=>setTool(tool==='erase'?'select':'erase');
 $('bucket').onclick=()=>{ if(tool!=='bucket') setTool('bucket'); else toggleBucketPop(); };
 // dither: 1º clic attiva lo strumento · 2º clic (già attivo) apre/chiude sotto l'icona il pannello con le trame
 $('dither').onclick=()=>{ if(tool!=='dither') setTool('dither'); else toggleDitherPop(); };
-/* pannello modalità matita (libera / linea pulita) — stesso pattern del dither */
-let pencilMode=localStorage.getItem('hexagraph.pencil')==='line'?'line':'free';
+/* pannello modalità matita (libera / linea pulita / direzionale) — stesso pattern del dither */
+let pencilMode=['line','dir'].includes(localStorage.getItem('hexagraph.pencil'))?localStorage.getItem('hexagraph.pencil'):'free';
 function markPencilPop(){ $('pencilPop').querySelectorAll('.popitem').forEach(b=>b.classList.toggle('on',b.dataset.mode===pencilMode)); }
 /* posiziona un .pop vicino al suo bottone: sotto se c'è spazio, sopra se il bottone è in basso
    (la barra strumenti mobile sta sul fondo dello schermo) — clampa dentro il viewport */
@@ -3528,7 +3560,7 @@ function hintHTML(){
   } else if(tool==='erase'){
     h = `<b>${tt('Gomma')}</b> · ${tt('clic o trascina cancella ·')} ${kb('c')} / ${kb('⌥')}${tt('+clic = contagocce')}`;
   } else if(tool==='draw'){
-    h = `<b>${tt('Matita')}${pencilMode==='line'?tt(' · linea pulita'):''}</b> · ${tt('clic timbra · trascina dipinge · destro cancella ·')} ${kb('r')} ${kb('f')} ${kb('i')} ${tt('orienta ·')} ${kb('c')} ${tt("contagocce · clic sull'icona = modalità")}`;
+    h = `<b>${tt('Matita')}${pencilMode==='line'?tt(' · linea pulita'):pencilMode==='dir'?tt(' · direzionale'):''}</b> · ${tt('clic timbra · trascina dipinge · destro cancella ·')} ${kb('r')} ${kb('f')} ${kb('i')} ${tt('orienta ·')} ${kb('c')} ${tt("contagocce · clic sull'icona = modalità")}`;
   } else if(hasSel){
     h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${uiMode!=='base'?`${kb('⇧G')} ${tt('forgia ·')} `:''}${kb(tt('Canc'))} ${tt('svuota')}`;
   } else {
