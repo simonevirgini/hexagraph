@@ -375,7 +375,7 @@
     <button class="btn ic" id="toolDraw" title="Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull'icona = scegli la modalità (libera / linea pulita / direzionale) · ⌘/Ctrl+D nasconde/rimostra il fantasma">✎</button>
     <button class="btn ic" id="toolErase" title="Cancellina: clic o trascina per cancellare le tessere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.8 19.5 3.9 14.6a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l5 5a1.6 1.6 0 0 1 0 2.3l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19.5H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.2 8.4 15.6 15.8" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg></button>
     <button class="btn ic" id="bucket" title="Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull'icona = contiguo/non contiguo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5c0-2.2 2.9-4 6.4-4s6.4 1.8 6.4 4l-1.2 8.4a1.2 1.2 0 0 1-1.2 1H7.4a1.2 1.2 0 0 1-1.2-1L5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="11.4" cy="9.5" rx="6.4" ry="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20.2 12.4c1 1.5 1.6 2.6 1.6 3.4a1.7 1.7 0 1 1-3.3 0c0-.8.6-1.9 1.7-3.4Z" fill="currentColor"/></svg></button>
-    <button class="btn ic advtb" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
+    <button class="btn ic advtb" id="dither" title="Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello, da dentro una selezione = tutta la selezione · trascina = direzione e lunghezza del gradiente · clic secco = 50/50, tieni premuto fermo = altre disposizioni · Esc annulla · clic di nuovo sull'icona = scegli la trama"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3.5" y="4.5" width="5" height="15" rx="1"/><rect x="10.2" y="4.8" width="2.2" height="2.2"/><rect x="12.7" y="7.6" width="2.2" height="2.2"/><rect x="10.2" y="10.4" width="2.2" height="2.2"/><rect x="12.7" y="13.2" width="2.2" height="2.2"/><rect x="10.2" y="16" width="2.2" height="2.2"/><rect x="15.9" y="6.4" width="2" height="2"/><rect x="18.2" y="11" width="2" height="2"/><rect x="15.9" y="15.6" width="2" height="2"/></g></svg></button>
   </div>
   <div class="sep"></div>
   <div class="tgroup advtb"><!-- fusioni (stile pathfinder): come il timbro/il gruppo trascinato si fonde con ciò che trova -->
@@ -751,7 +751,7 @@ const I18N={
 'Matita: clic timbra · trascina dipinge · destro cancella · clic di nuovo sull\'icona = scegli la modalità (libera / linea pulita / direzionale) · ⌘/Ctrl+D nasconde/rimostra il fantasma':'Pencil: click stamps · drag paints · right-click erases · click the icon again = choose the mode (freehand / clean line / directional) · ⌘/Ctrl+D hides/shows the ghost',
 'Cancellina: clic o trascina per cancellare le tessere':'Eraser: click or drag to erase tiles',
 'Secchiello (g): riempi zone vuote o tessere identiche — dentro una selezione riempie solo la selezione · clic di nuovo sull\'icona = contiguo/non contiguo':'Bucket (g): fill empty areas or identical tiles — inside a selection it fills only the selection · click the icon again = contiguous/non-contiguous',
-'Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello · trascina = direzione e lunghezza del gradiente · clic secco = 50/50 · Esc annulla · clic di nuovo sull\'icona = scegli la trama':'Dither (t): pattern-blend from tile A to tile B — ⇧+click in the library picks B · area works like the bucket · drag = gradient direction and length · single click = 50/50 · Esc cancels · click the icon again = choose the pattern',
+'Dither (t): sfuma a trama dalla tessera A alla tessera B — ⇧+clic in libreria sceglie B · zona come il secchiello, da dentro una selezione = tutta la selezione · trascina = direzione e lunghezza del gradiente · clic secco = 50/50, tieni premuto fermo = altre disposizioni · Esc annulla · clic di nuovo sull\'icona = scegli la trama':'Dither (t): pattern-blend from tile A to tile B — ⇧+click in the library picks B · area works like the bucket, from inside a selection = the whole selection · drag = gradient direction and length · single click = 50/50, press and hold still = other arrangements · Esc cancels · click the icon again = choose the pattern',
 'Unisci (u): la forma si SOMMA a quella presente':'Unite (u): the shape is ADDED to the existing one',
 'Sottrai (x): la forma SCAVA quella presente':'Subtract (x): the shape CARVES the existing one',
 'Interseca: resta SOLO dove le forme si sovrappongono':'Intersect: ONLY where the shapes overlap remains',
@@ -931,7 +931,8 @@ const I18N={
 'Dither A→B':'Dither A→B','tessera B':'tile B',
 '+clic su una tessera in libreria =':'+click a tile in the library =',
 'trascina':'drag','= gradiente (':'= gradient (',
-'blocca a 45°) · clic secco = 50/50 · 2° clic sull\'icona = trama ·':'locks to 45°) · single click = 50/50 · 2nd click on the icon = pattern ·',
+'blocca a 45°) · clic secco = 50/50 · tieni premuto fermo = altre disposizioni · 2° clic sull\'icona = trama ·':'locks to 45°) · single click = 50/50 · press and hold still = other arrangements · 2nd click on the icon = pattern ·',
+'disposizione: ':'arrangement: ','obliqua':'oblique','colonne':'columns','diagonali ↘':'diagonals ↘','diagonali doppie':'double diagonals','colonne doppie':'double columns','mattoncini':'bricks','negativo':'negative',
 'Secchiello':'Bucket','clic riempie la zona connessa':'click fills the connected area',' (dentro la selezione)':' (inside the selection)',
 'Lazo':'Lasso','clic = punti · trascina = mano libera (il rilascio chiude) · riclicca il':'clicks = points · drag = freehand (release closes) · re-click the','primo esagono':'first hexagon','aggiunge':'adds','(o doppio clic /':'(or double-click /',') ':') ',
 'Gomma':'Eraser','clic o trascina cancella ·':'click or drag erases ·','+clic = contagocce':'+click = eyedropper',
@@ -1888,21 +1889,55 @@ function bucketFill(sc,sr){
 let ditherPat=localStorage.getItem('hexagraph.dither')||'b4';
 const BAYER4=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
 const BAYER2=[[0,2],[3,1]];
+/* coordinate cubiche INTERE per trame e disposizioni: con colPhase=1 la z cubica è
+   SEMI-INTERA (…2,5 3,5…) → l'indice Bayer usciva undefined e la soglia NaN: il dither
+   scriveva solo tessera A in tutto il file (baco segnalato da Simone, 25 lug). Il floor
+   con +0,25 lascia gli interi com'erano (fase 0 identica a prima) e aggancia i semi-interi. */
+function cubeInt(c,r){ const [x,,z]=toCube(c,r); const zi=Math.floor(z+0.25); return [x,-x-zi,zi]; }
 function ditherThreshold(c,r){
-  const [x,,z]=toCube(c,r);
+  const [x,,z]=cubeInt(c,r);
   if(ditherPat==='rnd'){ const h=Math.sin(x*127.1+z*311.7)*43758.5453; return h-Math.floor(h); }
   if(ditherPat==='b2') return (BAYER2[((x%2)+2)%2][((z%2)+2)%2]+0.5)/4;
   return (BAYER4[((x%4)+4)%4][((z%4)+4)%4]+0.5)/16;
 }
-let ditherDrag=null;   // {start:[x,y], cur:[x,y], region:[[c,r],…], saved:Map (celle del livello attivo)}
+let ditherDrag=null;   // {start:[x,y], cur:[x,y], region:[[c,r],…], saved:Map (celle del livello attivo), holdIdx}
+/* DISPOSIZIONI 50/50 del clic secco (richiesta 25 lug): tenendo PREMUTO FERMO, ogni 1,5s
+   la disposizione delle due tessere cambia (sempre matematica, in coordinate cubiche →
+   stabile con colPhase); muovendo il puntatore riparte il gradiente normale.
+   La 0 è la trama classica (quella "obliqua"); l'ultima è il suo negativo. */
+const DITHER_HOLD=[
+  {name:'obliqua',        f:(c,r)=> 0.5>=ditherThreshold(c,r)},
+  {name:'colonne',        f:(c,r)=>{ const [x]=cubeInt(c,r);   return ((x%2)+2)%2===0; }},
+  {name:'diagonali ↘',    f:(c,r)=>{ const [,,z]=cubeInt(c,r); return ((z%2)+2)%2===0; }},
+  {name:'diagonali doppie',f:(c,r)=>{ const [,y]=cubeInt(c,r);  return ((y%4)+4)%4<2; }},   // la parità semplice di y coinciderebbe con l'obliqua (Bayer@0,5 = scacchiera su x+z)
+  {name:'colonne doppie', f:(c,r)=>{ const [x]=cubeInt(c,r);   return ((x%4)+4)%4<2; }},
+  {name:'mattoncini',     f:(c,r)=>{ const [x,,z]=cubeInt(c,r);return (((x+2*z)%4)+4)%4<2; }},
+  {name:'negativo',       f:(c,r)=> 0.5< ditherThreshold(c,r)},
+];
+let ditherHoldT=null;
+function ditherFlat(){ const [sx,sy]=ditherDrag.start,[ex,ey]=ditherDrag.cur;
+  return ((ex-sx)**2+(ey-sy)**2)<(R*R)/9; }
+function ditherHoldArm(){
+  clearInterval(ditherHoldT);
+  ditherHoldT=setInterval(()=>{
+    if(!ditherDrag || !ditherFlat()){ clearInterval(ditherHoldT); ditherHoldT=null; return; }   // in gradiente la giostra si ferma
+    ditherDrag.holdIdx=(ditherDrag.holdIdx+1)%DITHER_HOLD.length;
+    ditherRestore(); ditherApply(); render();
+    flashStatus(tt('disposizione: ')+'<b>'+tt(DITHER_HOLD[ditherDrag.holdIdx].name)+'</b>');
+  },1500);
+}
+function ditherHoldStop(){ clearInterval(ditherHoldT); ditherHoldT=null; }
 function ditherApply(){
   const [sx,sy]=ditherDrag.start, [ex,ey]=ditherDrag.cur;
   const dx=ex-sx, dy=ey-sy, L2=dx*dx+dy*dy;
-  const flat=L2<(R*R)/9;                     // clic secco: gradiente piatto 50/50
+  const flat=L2<(R*R)/9;                     // clic secco: 50/50 nella disposizione scelta tenendo premuto
+  const arr=flat?DITHER_HOLD[(ditherDrag.holdIdx||0)%DITHER_HOLD.length]:null;
   for(const [c,r] of ditherDrag.region){
-    let t=0.5;
-    if(!flat){ const [cx,cy]=cellCenter(c,r); t=Math.max(0,Math.min(1,((cx-sx)*dx+(cy-sy)*dy)/L2)); }
-    const tb=(t>=ditherThreshold(c,r));
+    let tb;
+    if(arr) tb=arr.f(c,r);
+    else { const [cx,cy]=cellCenter(c,r);
+      const t=Math.max(0,Math.min(1,((cx-sx)*dx+(cy-sy)*dy)/L2));
+      tb=(t>=ditherThreshold(c,r)); }
     for(const s of symTargets(c,r)){
       if(s.c<0||s.c>=cols||s.r<0||s.r>=rows||!inDomain(s.c,s.r)) continue;
       const nc=brushCell(); nc.t=tb?brush.tileB:brush.tile; nc.rot=s.rot; nc.flip=s.flip;
@@ -1911,7 +1946,7 @@ function ditherApply(){
   }
 }
 function ditherRestore(){ cells.clear(); for(const [k,v] of ditherDrag.saved) cells.set(k,v); }
-function ditherCancel(){ if(!ditherDrag) return; ditherRestore(); ditherDrag=null; render(); }
+function ditherCancel(){ if(!ditherDrag) return; ditherHoldStop(); ditherRestore(); ditherDrag=null; render(); }
 /* con ⇧ premuto la direzione del gradiente scatta ad angoli di 45° (come Photoshop) */
 function ditherSnap(start, pt){
   const dx=pt[0]-start[0], dy=pt[1]-start[1], len=Math.hypot(dx,dy);
@@ -2065,7 +2100,13 @@ board.addEventListener('pointerdown',e=>{
     if(!brush.tileB || !tileById(brush.tileB)){ flashStatus(IS_TOUCHUI?tt('scegli la tessera B: <b>tieni premuto</b> su una tessera in libreria'):tt('scegli la tessera B: <b>⇧+clic</b> su una tessera in libreria')); return; }
     if(!brush.tile) return;
     cursor.c=hit[0]; cursor.r=hit[1];
-    ditherDrag={start:pt, cur:pt, region:floodRegion(hit[0],hit[1]), saved:new Map(cells)};
+    // partendo da DENTRO una selezione la zona è TUTTA la selezione, qualunque sia il contenuto:
+    // su un disegno vero le firme cambiano cella per cella e il flood collassava a 1-2 celle
+    const region=(selection && selection.size && selection.has(key(hit[0],hit[1])))
+      ? [...selection].map(k=>k.split(',').map(Number)).filter(([c,r])=>inDomain(c,r))
+      : floodRegion(hit[0],hit[1]);
+    ditherDrag={start:pt, cur:pt, region, saved:new Map(cells), holdIdx:0};
+    ditherHoldArm();   // premuto fermo = ogni 1,5s una DISPOSIZIONE 50/50 diversa (§ richiesta 25 lug)
     ditherApply(); render(); updateStatus(); board.setPointerCapture(e.pointerId); return;
   }
   selection=null; snapshot(); painting=true; mode=(e.button===2||tool==='erase')?'erase':'stamp'; lastKey=null; lastPaintPt=pt;
@@ -2121,7 +2162,7 @@ board.addEventListener('pointerup',e=>{
     lassoDragAdded=0; return;
   }
   if(ditherDrag){   // applica il dither: torna all'originale, snapshot per l'undo, riapplica
-    ditherRestore(); snapshot(); ditherApply(); ditherDrag=null; render(); updateStatus(); return;
+    ditherHoldStop(); ditherRestore(); snapshot(); ditherApply(); ditherDrag=null; render(); updateStatus(); return;
   }
   if(dragMove){
     const target=cellAt(...dragMove.curPt);
@@ -3552,7 +3593,7 @@ function hintHTML(){
   if(tool==='dither'){
     h = !brush.tileB
       ? `<b>Dither</b> · ${kb('⇧')}${tt('+clic su una tessera in libreria =')} <b>${tt('tessera B')}</b>`
-      : `<b>Dither A→B</b> · <b>${tt('trascina')}</b> ${tt('= gradiente (')}${kb('⇧')} ${tt("blocca a 45°) · clic secco = 50/50 · 2° clic sull'icona = trama ·")} ${kb('Esc')} ${tt('annulla')}`;
+      : `<b>Dither A→B</b> · <b>${tt('trascina')}</b> ${tt('= gradiente (')}${kb('⇧')} ${tt("blocca a 45°) · clic secco = 50/50 · tieni premuto fermo = altre disposizioni · 2° clic sull'icona = trama ·")} ${kb('Esc')} ${tt('annulla')}`;
   } else if(tool==='bucket'){
     h = `<b>${tt('Secchiello')}${bucketMode==='all'?tt(' · non contiguo'):''}</b> · ${bucketMode==='all'?tt('clic riempie TUTTE le celle uguali'):tt('clic riempie la zona connessa')}`+(hasSel?tt(' (dentro la selezione)'):'')+` · ${tt("2° clic sull'icona = modalità")}`;
   } else if(tool==='lasso'){
