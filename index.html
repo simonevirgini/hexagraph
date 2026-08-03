@@ -159,6 +159,8 @@
   .palzoom{float:right;display:inline-flex;gap:3px;margin-left:6px}
   .pz{width:19px;height:19px;background:var(--panel2);border:0;color:var(--text);border-radius:var(--rad);cursor:pointer;font-size:12px;line-height:1;padding:0}
   .pz:hover{background:var(--panel3)}
+  .zonehdr{grid-column:1/-1;font-size:10px;color:var(--text);text-transform:uppercase;letter-spacing:2.2px;font-weight:700;margin-top:12px;border-top:2px solid var(--muted);padding-top:7px}
+  .zonehdr:first-child{margin-top:0}
   .grouphdr{grid-column:1/-1;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-top:5px;border-top:1px solid var(--line);padding-top:6px;display:flex;justify-content:space-between;cursor:pointer;user-select:none}
   .grouphdr:hover{color:var(--text)}
   .tile{position:relative;aspect-ratio:1;background:var(--panel2);border:0;border-radius:2px;padding:0;cursor:pointer;display:grid;place-items:center;overflow:hidden}
@@ -470,7 +472,7 @@
         <label class="field">Spessore linea <span id="swVal">0.34</span>
           <input type="range" id="connSW" min="0.10" max="0.70" step="0.02" value="0.34">
         </label>
-        <div class="legend" data-i18n="stroke-legend">Vale per i <b>prossimi</b> timbri (ogni linea ricorda il suo). <kbd>[</kbd>/<kbd>]</kbd> regolano la cella sotto il cursore.</div>
+        <div class="legend" data-i18n="stroke-legend">Vale per i <b>prossimi</b> timbri (ogni linea ricorda il suo). Con una <b>selezione</b> attiva cambia anche le linee selezionate. <kbd>[</kbd>/<kbd>]</kbd> regolano la cella sotto il cursore.</div>
       </div>
       <div class="group" data-sec="forge">
         <div class="glabel">Forgia</div>
@@ -730,6 +732,11 @@ const TILES=(window.TILE_DATA||[]).map(t=>({
   id:t.id, grp:t.id.slice(0,2), cat:t.cat||'Altro', name:t.name,
   parts:(t.parts||[]).map(p=>({d:p.d, eo:p.eo, sw:p.sw, path:new Path2D(p.d)}))
 }));
+/* §8.19: prima i riempimenti, poi i tratti — l'ordine dell'array È l'ordine della palette,
+   e il sort stabile tiene le due zone anche se un pack futuro arrivasse mescolato.
+   Una tessera è "a linea" se TUTTE le sue parts hanno sw. */
+const tileIsLine=t=>!!(t.parts&&t.parts.length&&t.parts.every(p=>p.sw!=null));
+TILES.sort((a,b)=>tileIsLine(a)-tileIsLine(b));
 const tileIndex=Object.fromEntries(TILES.map((t,i)=>[t.id,i]));
 function tileById(id){ const i=tileIndex[id]; return i==null?null:TILES[i]; }
 
@@ -744,6 +751,10 @@ let LANG=(()=>{ try{ const s=localStorage.getItem('hexagraph.lang'); if(s==='it'
   return ((navigator.language||'en').toLowerCase().startsWith('it'))?'it':'en'; })();
 function tt(s){ return LANG==='en' ? (I18N[s]??s) : s; }
 const I18N={
+/* — zone libreria (§8.19) e spessore su selezione (B3) — */
+'Riempimenti':'Fills','Tratti':'Strokes',
+'nella selezione non ci sono linee':'no line tiles in the selection',
+'Tratto = spessore ·':'Stroke = width ·',
 /* — topbar: tooltip strumenti — */
 'Hexagraph — tessere esagonali':'Hexagraph — hexagonal tiles',
 'Seleziona: clic = una cella · trascina = rettangolo · doppio clic su una tessera = le identiche (⇧ aggiunge) · trascina una cella selezionata = sposta il gruppo · clic di nuovo sull\'icona = doppio clic contiguo/non contiguo':'Select: click = one cell · drag = rectangle · double-click a tile = identical ones (⇧ adds) · drag a selected cell = move the group · click the icon again = contiguous/non-contiguous double-click',
@@ -972,7 +983,7 @@ const I18N={
 /* traduzioni a BLOCCO (innerHTML intero) per le legende con markup misto <kbd>/<b> */
 const I18N_HTML={
 'lib-legend':'<kbd>⌥</kbd>+click a tile = add to/remove from <b>Favorites</b>; <b>Recent</b> updates by itself. <b>Eyedropper</b>: <kbd>c</kbd> on the cursor cell, or <kbd>⌥</kbd>+click on the canvas, copies the tile with its look into the brush.',
-'stroke-legend':'Applies to the <b>next</b> stamps (each line remembers its own). <kbd>[</kbd>/<kbd>]</kbd> adjust the cell under the cursor.',
+'stroke-legend':'Applies to the <b>next</b> stamps (each line remembers its own). With an active <b>selection</b> it also changes the selected lines. <kbd>[</kbd>/<kbd>]</kbd> adjust the cell under the cursor.',
 'anim-legend':'Frames at the bottom: click = go · drag = reorder · ⧉ duplicate · + empty · <kbd>⇧&lt;</kbd>/<kbd>⇧&gt;</kbd> step · <kbd>space</kbd> (quick tap) = play/stop · fps adjustable during play · ◎ onion skin (with its two colors: previous / next frame) · export WEBM (video) or a PNG sequence.',
 'move-legend':'Get around: trackpad scrolls · mouse wheel = zoom · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+wheel or pinch = zoom · <kbd>alt</kbd>+wheel rotates the brush · <kbd>space</kbd> or middle button = drag',
 };
@@ -2467,8 +2478,13 @@ function buildPalette(){
   const pal=document.getElementById('palette'); pal.innerHTML=''; document.getElementById('tcount').textContent='('+TILES.length+')';
   lastHilite='';   // il rebuild azzera le classi hilite: forza il ricalcolo
   let closed=new Set(); try{ closed=new Set(JSON.parse(localStorage.getItem('hexagraph.palclosed')||'[]')); }catch(e){}
-  let lastG=null;
+  let lastG=null, lastZ=null;
   TILES.forEach(t=>{
+    /* §8.19: macro-zone Riempimenti / Tratti sopra le categorie (Forgiate/Importate fuori zona) */
+    const z=(t.cat==='Forgiate'||t.cat==='Importate')?2:(tileIsLine(t)?1:0);
+    if(z!==lastZ){ lastZ=z;
+      if(z<2){ const zh=document.createElement('div'); zh.className='zonehdr';
+        zh.textContent=tt(z?'Tratti':'Riempimenti'); pal.appendChild(zh); } }
     if(t.cat!==lastG){ lastG=t.cat; const cat=t.cat, n=TILES.filter(x=>x.cat===cat).length;
       const h=document.createElement('div'); h.className='grouphdr'; h.title=tt('clic per aprire/chiudere la categoria');
       h.innerHTML=`<span>${tt(cat)} <span style="opacity:.6">${n}</span></span><span>${closed.has(cat)?'▸':'▾'}</span>`;
@@ -2819,6 +2835,19 @@ $('quickPicker').oninput=()=>{ if(quickTarget<0)return; const v=$('quickPicker')
 $('quickPicker').onchange=()=>{ quickTarget=-1; };
 /* colora le celle selezionate su TUTTI i livelli attivi —
    NIENTE snapshot qui dentro: lo gestisce il chiamante (uno solo per gesto). */
+/* B3: lo slider del Tratto, con una selezione attiva, cambia lo spessore delle linee GIÀ
+   posate (stessa filosofia del colore qui sotto). Scrivere sw su una cella piena è innocuo:
+   il renderer lo usa solo per le parts a linea. */
+function tileHasLine(id,depth){ const t=tileById(id); if(!t||depth>3) return false;
+  if(t.parts&&t.parts.length) return t.parts.some(p=>p.sw!=null);
+  return (t.stamps||[]).some(s=>tileHasLine(s.t,(depth||0)+1)); }
+function cellHasLine(cell){ return cellStamps(cell).some(s=>s.t!=null&&tileHasLine(s.t,0)); }
+function swSelection(v){ const cs=selCells().filter(([c,r])=>inDomain(c,r)); let touched=0;
+  for(const li of activeLayers()){ const cl=layers[li].cells;
+    for(const [c,r] of cs){ const cell=cl.get(key(c,r)); if(!cell) continue;
+      cell.sw=v; (cell.extra||[]).forEach(s=>s.sw=v); (cell.sub||[]).forEach(s=>s.sw=v);
+      if(cellHasLine(cell)) touched++; } }
+  return touched; }
 function colorSelection(col){ const cs=selCells().filter(([c,r])=>inDomain(c,r));
   for(const li of activeLayers()){ const cl=layers[li].cells;
     for(const [c,r] of cs){ const cell=cl.get(key(c,r)); if(!cell)continue; if(col)cell.col=col; else delete cell.col; } } }
@@ -3033,8 +3062,13 @@ $('zPct').onclick=()=>fitView();
 function rotateBoard(delta){ snapshot(); boardRot=((boardRot+delta)%360+360)%360; document.documentElement.style.setProperty('--boardRot',boardRot+'deg'); render(); }
 $('gridRotL').onclick=()=>rotateBoard(-90);
 $('gridRotR').onclick=()=>rotateBoard(90);
-$('connSW').oninput=()=>{ brush.sw=connSW=+$('connSW').value; $('swVal').textContent=connSW.toFixed(2); updateBrushPreview(); render(); };   // connSW resta come fallback per le celle senza sw (vecchi salvataggi)
-$('connSW').onchange=()=>buildPalette();   // aggiorna le anteprime della palette al rilascio
+let swLive=false;   // B3: snapshot del drag già preso (stesso schema del color picker)
+$('connSW').addEventListener('pointerdown',()=>{ if(selection&&selection.size){ snapshot(); swLive=true; } });
+$('connSW').oninput=()=>{ brush.sw=connSW=+$('connSW').value; $('swVal').textContent=connSW.toFixed(2);
+  if(selection&&selection.size){ if(!swLive){ snapshot(); swLive=true; }   // input da tastiera: uno snapshot a sequenza
+    if(!swSelection(connSW)) flashStatus(tt('nella selezione non ci sono linee')); }
+  updateBrushPreview(); render(); };   // connSW resta come fallback per le celle senza sw (vecchi salvataggi)
+$('connSW').onchange=()=>{ swLive=false; buildPalette(); };   // aggiorna le anteprime della palette al rilascio
 /* zoom della libreria tessere: + = tessere più grandi (meno colonne) */
 let palCols=6; try{ palCols=Math.min(9,Math.max(3,+localStorage.getItem('hexagraph.palcols')||(IS_MOBILE?4:6))); }catch(e){}   // su telefono il default è 4 colonne: tessere grandi da toccare
 function applyPalCols(){ const v='repeat('+palCols+',1fr)'; $('palette').style.gridTemplateColumns=v; $('palfav').style.gridTemplateColumns=v; localStorage.setItem('hexagraph.palcols',palCols); }
@@ -3633,7 +3667,7 @@ function hintHTML(){
   } else if(tool==='draw'){
     h = `<b>${tt('Matita')}${pencilMode==='line'?tt(' · linea pulita'):pencilMode==='dir'?tt(' · direzionale'):''}</b> · ${tt('clic timbra · trascina dipinge · destro cancella ·')} ${kb('r')} ${kb('f')} ${kb('i')} ${tt('orienta ·')} ${kb('c')} ${tt("contagocce · clic sull'icona = modalità")}`;
   } else if(hasSel){
-    h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${uiMode!=='base'?`${kb('⇧G')} ${tt('forgia ·')} `:''}${kb(tt('Canc'))} ${tt('svuota')}`;
+    h = `<b>${tt('Selezione')}</b> (${selection.size}) · ${tt('trascina sposta (')}${kb('⌥')} ${tt('copia) ·')} ${kb('r')}${kb('f')} ${tt('gruppo ·')} ${kb('⇧R')}${kb('⇧F')} ${tt('singole ·')} ${kb('i')} ${tt('inverti · swatch colora ·')} ${tt('Tratto = spessore ·')} ${uiMode!=='base'?`${kb('⇧G')} ${tt('forgia ·')} `:''}${kb(tt('Canc'))} ${tt('svuota')}`;
   } else {
     h = `<b>${tt('Seleziona')}</b> · ${tt('clic una cella · trascina un rettangolo (')}${kb('⇧')} ${selMode==='cont'
       ? tt('aggiunge) · doppio clic = identiche CONTIGUE · clic in libreria = pennello (a cursore piazzato: deposita)')
