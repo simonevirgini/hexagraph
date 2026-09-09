@@ -968,11 +968,16 @@ const I18N={
 'annullato':'undone','ripetuto':'redone',
 'contagocce: presa la tessera della cella':'eyedropper: picked the tile from the cell',
 'tessera B del dither impostata':'dither tile B set',
+'doppio tocco su una forma = la mette in tutte le celle scelte':'double-tap a shape = it fills every chosen cell',
+'forma messa in tutte le celle scelte':'shape applied to every chosen cell',
+'ogni tessera ruotata su sé stessa':'each tile rotated in place',
+'ogni tessera specchiata su sé stessa':'each tile mirrored in place',
+'prima scegli delle celle con Seleziona':'first pick some cells with Select',
 'Nome del file:':'File name:',
 'Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.':'You draw by laying <b>hexagonal tiles</b> on a honeycomb grid. One minute and you\'re ready.',
 'Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.':'Tap the <b>tile</b> button up here: the shape library opens. Tap a shape: it becomes your brush.',
 '2 · Disegna sulla griglia':'2 · Draw on the grid',
-'Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.':'With the <b>pencil</b> ✎ tap the grid to lay the tile, drag to paint a row. The <b>↺ ↻ ⇋</b> buttons down here rotate and mirror it.',
+'Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano: <b>tenendoli premuti</b>, con delle celle scelte, gira ogni tessera su sé stessa.':'With the <b>pencil</b> ✎ tap the grid to lay the tile, drag to paint a row. The <b>↺ ↻ ⇋</b> buttons down here rotate and mirror it: <b>press and hold</b> them, with cells selected, to spin each tile in place.',
 '3 · Muoviti con due dita':'3 · Move with two fingers',
 '<b>Due dita</b>: trascina per spostarti, allarga o stringi per lo zoom. <b>Tocco secco con due dita = annulla</b> · con tre = ripeti. Tieni premuto su una tessera posata = la riprendi nel pennello.':'<b>Two fingers</b>: drag to move around, spread or pinch to zoom. <b>Quick two-finger tap = undo</b> · three fingers = redo. Press and hold a placed tile = pick it back into the brush.',
 '4 · Colora':'4 · Add color',
@@ -2335,7 +2340,8 @@ function shiftSel(dc,dr){ if(!selection||!selection.size)return; snapshot();
   selection=new Set(cs.map(([c,r])=>[c+dc,r+dr]).filter(([c,r])=>c>=0&&c<cols&&r>=0&&r<rows).map(([c,r])=>key(c,r)));
   if(!selection.size) selection=null; render(); }
 /* trasformazioni: sulla SELEZIONE come GRUPPO rigido se c'è, altrimenti sul PENNELLO
-   (anteprima in alto a destra). Per trasformare le singole tessere selezionate: ⇧Y / ⇧U. */
+   (anteprima in alto a destra). Per trasformare le singole tessere selezionate: ⇧R / ⇧F
+   (sul touch: pressione lunga sui tasti ↺ ↻ ⇋, vedi enterMobile). */
 function xformRot(d){
   if(selection&&selection.size){ groupRotate(d); }
   else if(brush.cell){ orientCell(brush.cell, d, false); brush.rot=((brush.rot+d)%6+6)%6; }   // ruota TUTTA la combinazione
@@ -2355,6 +2361,18 @@ function xformInv(){
   else { brush.inv=!brush.inv; $('inv').classList.toggle('on',brush.inv); }
   updateStatus(); render();
 }
+/* trasformazioni delle SINGOLE tessere selezionate: ognuna gira/si specchia su sé stessa e la
+   selezione non si muove (il contrario del gruppo rigido di xformRot/xformFlip). Da tastiera è
+   ⇧R / ⇧F; sul touch, dove il ⇧ non esiste, è la pressione lunga su ↺ ↻ ⇋.
+   Ritornano false se non c'è una selezione, così chi chiama può dirlo all'utente. */
+function xformRotEach(d){ if(!selection||!selection.size) return false;
+  selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>s.rot=((s.rot+d)%6+6)%6;
+    f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f); },true);
+  updateStatus(); return true; }
+function xformFlipEach(){ if(!selection||!selection.size) return false;
+  selOp((c,r)=>{ const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>{ s.flip=!s.flip; s.rot=((-s.rot)%6+6)%6; };   // asse verticale dello schermo
+    f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f); },true);
+  updateStatus(); return true; }
 
 /* ---- palette / slot ---- */
 function tileSVG(t){
@@ -3695,7 +3713,7 @@ function buildCoach(){
   if(IS_TOUCHUI) return [   // tutorial touch (telefono E tablet): pochi passi, sui gesti e sui bottoni della UI mobile
  {t:tt('Benvenuto in Hexagraph'),b:tt('Si disegna posando <b>tessere esagonali</b> su una griglia a nido d\'ape. Un minuto e sei pronto.'),sel:null},
  {t:tt('1 · Scegli una tessera'),b:tt('Tocca il bottone con la <b>tessera</b> qui in alto: si apre la libreria delle forme. Toccane una: diventa il tuo pennello.'),sel:'#mbTile',ev:'tile'},
- {t:tt('2 · Disegna sulla griglia'),b:tt('Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano.'),sel:'#mbBar',ev:'stamp'},
+ {t:tt('2 · Disegna sulla griglia'),b:tt('Con la <b>matita</b> ✎ tocca la griglia per posare la tessera, trascina per dipingere in fila. I tasti <b>↺ ↻ ⇋</b> qui in basso la ruotano e la specchiano: <b>tenendoli premuti</b>, con delle celle scelte, gira ogni tessera su sé stessa.'),sel:'#mbBar',ev:'stamp'},
  {t:tt('3 · Muoviti con due dita'),b:tt('<b>Due dita</b>: trascina per spostarti, allarga o stringi per lo zoom. <b>Tocco secco con due dita = annulla</b> · con tre = ripeti. Tieni premuto su una tessera posata = la riprendi nel pennello.'),sel:null},
  {t:tt('4 · Colora'),b:tt('Il <b>pallino colorato</b> in alto apre i colori: i prossimi timbri usano quello scelto.'),sel:'#mbColor'},
  {t:tt('C\'è di più, quando vuoi'),b:tt('Dal menu <b>☰</b> salvi, esporti e accendi l\'interfaccia <b>Completa</b> (livelli, animazione, fusioni…). Rivedi questa guida da ☰ → Info.'),sel:'#mbMenu'},
@@ -3800,10 +3818,8 @@ window.addEventListener('keydown',e=>{
       case 'Q': selOp(stamp); break;
       case 'B': selOp(bgCell); break;
       case 'I': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(cell)cell.inv=!cell.inv;},true); break;
-      case 'R': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>s.rot=(s.rot+1)%6;   // ⇧R = ruota OGNI tessera in place
-        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);},true); break;
-      case 'F': selOp((c,r)=>{const cell=cells.get(key(c,r)); if(!cell)return; const f=s=>{s.flip=!s.flip; s.rot=((-s.rot)%6+6)%6;};   // ⇧F = specchia OGNI tessera in place (asse verticale schermo)
-        f(cell);(cell.extra||[]).forEach(f);(cell.sub||[]).forEach(f);(cell.iso||[]).forEach(f);(cell.xor||[]).forEach(f);},true); break;
+      case 'R': xformRotEach(1); break;    // ⇧R = ruota OGNI tessera in place
+      case 'F': xformFlipEach(); break;    // ⇧F = specchia OGNI tessera in place (asse verticale schermo)
       case 'H': shiftSel(-1,0); break;
       case 'L': shiftSel(1,0); break;
       case 'J': shiftSel(0,1); break;
@@ -4420,12 +4436,14 @@ function enterMobile(){
     $('mbLayers').classList.toggle('on',mbCur==='layers'); $('mbMenu').classList.toggle('on',mbCur==='menu'); };
   window.mbSheetClose=()=>{ mbCur=null; $('mbShade').hidden=true; const sh=$('mbSheet'); sh.hidden=true; sh.style.transform=''; sh.classList.remove('dragging');
     mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
-  let mbCur=null;
+  let mbCur=null, dtTipShown=false;
   const mbOpen=p=>{ if(mbCur===p) return mbSheetClose();
     mbCur=p; for(const k in MBP) MBP[k].hidden=(k!==p);
     $('mbShade').hidden=false; const sh=$('mbSheet'); sh.hidden=false; sh.style.transform='';
     sh.classList.toggle('mleft', p==='menu');   // su tablet il pannello del ☰ scende a sinistra, sotto il suo bottone
-    mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel); };
+    mbSync(); if(coachI>=0) coachSpot(COACH[coachI].sel);
+    if(p==='tiles' && selection && selection.size && !dtTipShown){ dtTipShown=true;   // una volta per sessione: il doppio tocco esiste solo con una selezione
+      flashStatus(tt('doppio tocco su una forma = la mette in tutte le celle scelte')); } };
   $('mbMenu').onclick=()=>mbOpen('menu'); $('mbTile').onclick=()=>mbOpen('tiles');
   $('mbColor').onclick=()=>mbOpen('color'); $('mbLayers').onclick=()=>mbOpen('layers');
   /* pannello aperto + tocco FUORI (tela, barra strumenti…): il pannello si chiude all'istante
@@ -4466,11 +4484,42 @@ function enterMobile(){
   const pdEnd=()=>{ if(!pdrag) return; const a=pdrag.active, dy=pdrag.dy; pdrag=null; shEl.classList.remove('dragging');
     if(a){ if(dy>90) mbSheetClose(); else shEl.style.transform=''; } };
   shEl.addEventListener('touchend',pdEnd); shEl.addEventListener('touchcancel',pdEnd);
-  /* scegliere una tessera o un colore chiude il cassetto: si torna subito a disegnare */
-  let lpTile=null, lpTileDone=false;
+  /* scegliere una tessera o un colore chiude il cassetto: si torna subito a disegnare.
+     ECCEZIONE: il DOPPIO CLIC in libreria ("metti questa forma in tutte le celle scelte") sul touch
+     era irraggiungibile, perché il primo tocco chiudeva il cassetto prima del secondo. Ora, e SOLO
+     con una selezione attiva (l'unico caso in cui il doppio clic fa qualcosa), la chiusura aspetta
+     un attimo: se arriva un secondo tocco sulla stessa forma è il doppio clic, altrimenti il
+     cassetto si chiude come sempre. Senza selezione resta tutto immediato come prima. */
+  let lpTile=null, lpTileDone=false, dtId=null, dtT=null;
   pgT.addEventListener('click',e=>{ if(lpTileDone) return;
-    const t=e.target.closest('.tile'); if(t && !e.target.closest('.tilex')) setTimeout(mbSheetClose,60); });
+    const t=e.target.closest('.tile'); if(!t || e.target.closest('.tilex')) return;
+    const id=t.dataset.id||null;
+    if(!id || !(selection&&selection.size)){ setTimeout(mbSheetClose,60); return; }
+    if(dtId===id){ clearTimeout(dtT); dtT=null; dtId=null;                              // secondo tocco = doppio clic
+      t.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true}));
+      flashStatus(tt('forma messa in tutte le celle scelte')); mbSheetClose(); return; }
+    clearTimeout(dtT); dtId=id;
+    dtT=setTimeout(()=>{ dtT=null; dtId=null; mbSheetClose(); },420); });
   pgC.addEventListener('click',e=>{ if(e.target.closest('.sw')||e.target.closest('.qsw')) setTimeout(mbSheetClose,60); });
+  /* pressione lunga su un bottone della barra (solo touch): il tocco corto resta il clic normale,
+     il clic che segue la pressione lunga viene ingoiato. */
+  const mbLongPress=(el,fn)=>{ if(!el) return; let lt=null, done=false;
+    el.addEventListener('pointerdown',e=>{ if(e.pointerType!=='touch') return;
+      const x0=e.clientX, y0=e.clientY;
+      const stop=()=>{ clearTimeout(lt); lt=null;
+        el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); el.removeEventListener('pointercancel',up); };
+      const mv=ev=>{ if(!done && Math.hypot(ev.clientX-x0,ev.clientY-y0)>9) stop(); };   // il dito scivola: era solo un tocco storto
+      const up=()=>{ stop(); setTimeout(()=>{ done=false; },120); };
+      lt=setTimeout(()=>{ lt=null; done=true; fn(); try{navigator.vibrate&&navigator.vibrate(25)}catch(_){} },500);
+      el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up); });
+    el.addEventListener('click',e=>{ if(done){ done=false; e.stopPropagation(); e.preventDefault(); } },true);
+    el.addEventListener('contextmenu',e=>e.preventDefault()); };
+  /* sul touch il ⇧ non esiste: la pressione lunga su ↺ ↻ ⇋ fa la versione ⇧ (ogni tessera scelta
+     gira o si specchia su sé stessa); il tocco corto resta la trasformazione del GRUPPO. */
+  const noSel=()=>flashStatus(tt('prima scegli delle celle con Seleziona'));
+  mbLongPress($('rotL'),()=>{ if(xformRotEach(-1)) flashStatus(tt('ogni tessera ruotata su sé stessa')); else noSel(); });
+  mbLongPress($('rotR'),()=>{ if(xformRotEach(1)) flashStatus(tt('ogni tessera ruotata su sé stessa')); else noSel(); });
+  mbLongPress($('flip'),()=>{ if(xformFlipEach()) flashStatus(tt('ogni tessera specchiata su sé stessa')); else noSel(); });
   /* pressione lunga su una tessera in libreria = tessera B del dither (al posto di ⇧+clic; solo in Completo) */
   pgT.addEventListener('pointerdown',e=>{ if(e.pointerType!=='touch'||uiMode==='base') return;
     const t=e.target.closest('.tile'); if(!t||!t.dataset.id) return;
