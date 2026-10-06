@@ -3,3 +3,7 @@ dist/
 HANDOFF.md
 AUDIT_*.md
 .claude/
+
+# note interne: solo in locale
+STORICO.md
+HANDOFF.md.bak-*
